@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
   <title>Mapa Leroy Merlin</title>
-
   <link rel="stylesheet" href="https://js.arcgis.com/4.30/esri/themes/light/main.css" />
   <script src="https://js.arcgis.com/4.30/"></script>
 
@@ -17,7 +16,6 @@
     }
   </style>
 </head>
-
 <body>
 <div id="viewDiv"></div>
 
@@ -36,7 +34,6 @@ const VENDAS_URL  = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted
 const params = new URLSearchParams(window.location.search);
 const codLoja = params.get("cod_loja");
 if (!codLoja) alert("Parâmetro ?cod_loja não informado!");
-
 
 /**********************************************
  * 3) MAPA
@@ -58,41 +55,36 @@ require([
     zoom: 11
   });
 
-
   /**********************************************
    * 4) CAMADAS
    *********************************************/
 
-  /* Bairros */
+  // --- BAIRROS ---
   const bairrosLayer = new FeatureLayer({
     url: BAIRROS_URL,
     outFields: ["*"],
     title: "Bairros",
     definitionExpression: `cod_loja_zinflu = '${codLoja}'`,
-
     labelingInfo: [
       {
         labelExpressionInfo: { expression: "$feature.nome_bairr" },
         symbol: {
           type: "text",
-          color: "#222",
-          haloColor: "white",
-          haloSize: 1.5,
+          color: "#333333",
           font: {
-            size: 11,
+            size: 8,               // <<< BEM PEQUENO
             family: "Arial",
-            weight: "bold"
-          }
+            weight: "normal"
+          },
+          haloColor: "rgba(0,0,0,0)",  // <<< TIRA O HALO
+          haloSize: 0
         },
-        labelPlacement: "center-center",   // centraliza no polígono
-        maxScale: 0,                       // sempre visível
-        minScale: 250000                   // aparece quando aproximar o suficiente
+        labelPlacement: "center-center" // tenta manter dentro do polígono
       }
     ]
   });
 
-
-  /* Zonas */
+  // --- ZONAS ---
   const zonasLayer = new FeatureLayer({
     url: ZONAS_URL,
     outFields: ["*"],
@@ -108,8 +100,7 @@ require([
     }
   });
 
-
-  /* Lojas – mantido ORIGINAL sem alterar simbologia */
+  // --- LOJAS ---
   const lojasLayer = new FeatureLayer({
     url: LOJAS_URL,
     outFields: ["*"],
@@ -117,14 +108,12 @@ require([
     definitionExpression: `cod_loja = '${codLoja}'`
   });
 
-
   /**********************************************
-   * ADICIONAR CAMADAS COM LOJA NO TOPO
+   * ADICIONAR CAMADAS (ordem!)
    *********************************************/
   map.add(bairrosLayer);
   map.add(zonasLayer);
-  map.add(lojasLayer);
-
+  map.add(lojasLayer); // sempre por cima
 
   /**********************************************
    * 5) PROCESSAR BAIRROS + VENDAS
@@ -137,7 +126,11 @@ require([
     q.outFields = ["cod_bairro"];
 
     const r = await bairrosLayer.queryFeatures(q);
-    if (!r.features.length) return;
+
+    if (!r.features.length) {
+      console.warn("Nenhum bairro encontrado.");
+      return;
+    }
 
     view.goTo(r.features.map(f => f.geometry.extent));
 
@@ -145,12 +138,8 @@ require([
       .map(f => `'${f.attributes.cod_bairro}'`)
       .join(",");
 
-
-    /**********************************************
-     * BUSCAR DADOS DE VENDAS
-     *********************************************/
+    // BUSCAR VENDAS
     const vendasLayer = new FeatureLayer({ url: VENDAS_URL });
-
     const qv = vendasLayer.createQuery();
     qv.where = `id_bairro_cep IN (${listaIDs})`;
     qv.outFields = [
@@ -161,26 +150,17 @@ require([
 
     const vendasData = await vendasLayer.queryFeatures(qv);
 
-
-    /**********************************************
-     * CALCULAR PROGRESSÃO
-     *********************************************/
+    // CALCULAR PROGRESSO
     const progresso = {};
-
     vendasData.features.forEach(f => {
       const atual = f.attributes.valor_vendas_atual || 0;
       const anterior = f.attributes.valor_vendas_anterior || 0;
-
       let pct = 0;
       if (anterior !== 0) pct = ((atual / anterior) - 1) * 100;
-
       progresso[f.attributes.id_bairro_cep] = pct;
     });
 
-
-    /**********************************************
-     * APLICAR RENDERER COLORIDO
-     *********************************************/
+    // APLICAR RENDERER
     bairrosLayer.renderer = {
       type: "simple",
       symbol: {
@@ -196,7 +176,7 @@ require([
             return DefaultValue(v, 0);
           `,
           stops: [
-            { value: -20, color: "rgba(192,0,0,0.3)"  },
+            { value: -20, color: "rgba(192,0,0,0.3)" },
             { value: -10, color: "rgba(255,63,63,0.3)" },
             { value: 0,   color: "rgba(244,146,75,0.3)" },
             { value: 10,  color: "rgba(127,255,255,0.3)" },
@@ -207,6 +187,7 @@ require([
       ]
     };
 
+    bairrosLayer.opacity = 1;
     bairrosLayer.refresh();
   });
 

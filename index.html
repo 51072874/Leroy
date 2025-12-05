@@ -62,7 +62,7 @@ if (!codLoja) alert("Parâmetro ?cod_loja não informado!");
 
 
 /**********************************************
- * MAPA + CAMADAS
+ * MAPA
  *********************************************/
 require([
   "esri/Map",
@@ -71,7 +71,7 @@ require([
 ], function (Map, MapView, FeatureLayer) {
 
   const map = new Map({
-    basemap: "streets-vector"   // ✔ compatível e estável
+    basemap: "arcgis-community"   // ✔ Basemap correto
   });
 
   const view = new MapView({
@@ -94,7 +94,7 @@ require([
       type: "simple",
       symbol: {
         type: "simple-fill",
-        color: [0,0,0,0],        // transparente
+        color: [0,0,0,0],
         outline: { color: "#777", width: 0.5 }
       }
     }
@@ -126,15 +126,15 @@ require([
 
 
   /**********************************************
-   * PROCESSAR BAIRROS, LABELS E VENDAS
+   * PROCESSAR BAIRROS + LABELS + VENDAS
    *********************************************/
   bairrosLayer.when(async () => {
 
-    /******** LABELS OTIMIZADOS ********/
+    /******** LABELS AJUSTADOS ********/
     bairrosLayer.labelingInfo = [
       {
         labelPlacement: "center-center",
-        minScale: 250000,   // ajusta visibilidade por zoom
+        minScale: 250000,
         maxScale: 0,
         labelExpressionInfo: {
           expression: "$feature.nome_bairr"
@@ -144,7 +144,11 @@ require([
           color: "#ffffff",
           haloColor: "#000000",
           haloSize: 1,
-          font: { size: 9, family: "Arial", weight: "bold" }
+          font: {
+            size: 9,
+            family: "Arial",
+            weight: "bold"
+          }
         }
       }
     ];
@@ -182,7 +186,7 @@ require([
     });
 
 
-    /******** RENDERER FINAL ********/
+    /******** RENDERER ********/
     bairrosLayer.renderer = {
       type: "simple",
       symbol: {

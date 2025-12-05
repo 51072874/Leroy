@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
   <title>Mapa Leroy Merlin</title>
+
   <link rel="stylesheet" href="https://js.arcgis.com/4.30/esri/themes/light/main.css" />
   <script src="https://js.arcgis.com/4.30/"></script>
 
@@ -16,8 +17,8 @@
     }
   </style>
 </head>
-<body>
 
+<body>
 <div id="viewDiv"></div>
 
 <script>
@@ -57,30 +58,7 @@ require([
   });
 
   // ==========================
-  // 4) CAMADA LOJAS — símbolo original, só que redondo
-  // ==========================
-  const lojasLayer = new FeatureLayer({
-    url: LOJAS_URL,
-    outFields: ["*"],
-    definitionExpression: `cod_loja = '${codLoja}'`,
-    title: "Loja Selecionada",
-    renderer: {
-      type: "simple",
-      symbol: {
-        type: "simple-marker",
-        style: "circle",       // 🔵 ← força formato redondo
-        size: 16,              // mantém tamanho similar ao original
-        color: "#00A000",      // usa cor original
-        outline: {
-          color: "#ffffff",
-          width: 2
-        }
-      }
-    }
-  });
-
-  // ==========================
-  // 5) CAMADA BAIRROS
+  // 4) CAMADA DE BAIRROS
   // ==========================
   const bairrosLayer = new FeatureLayer({
     url: BAIRROS_URL,
@@ -90,13 +68,13 @@ require([
   });
 
   // ==========================
-  // 6) CAMADA ZONAS
+  // 5) CAMADA DE ZONAS
   // ==========================
   const zonasLayer = new FeatureLayer({
     url: ZONAS_URL,
     outFields: ["*"],
-    title: "Zona da Loja",
     definitionExpression: `COD_LOJA = '${codLoja}'`,
+    title: "Zona da Loja",
     renderer: {
       type: "simple",
       symbol: {
@@ -108,12 +86,25 @@ require([
   });
 
   // ==========================
-  // Ordem das camadas (lojas por cima)
+  // 6) CAMADA DE LOJAS (SEM ALTERAR SIMBOLOGIA)
   // ==========================
-  map.add(bairrosLayer);
-  map.add(zonasLayer);
-  map.add(lojasLayer);
+  const lojasLayer = new FeatureLayer({
+    url: LOJAS_URL,
+    outFields: ["*"],
+    definitionExpression: `cod_loja = '${codLoja}'`,
+    title: "Loja Selecionada"
+    // NÃO DEFINIR renderer → usa o original do FeatureServer
+  });
 
+  // ==========================
+  // ORDEM DAS CAMADAS
+  // ==========================
+  map.add(bairrosLayer);   // fundo
+  map.add(zonasLayer);     // meio
+  map.add(lojasLayer);     // topo
+
+  // Garante que LOJAS fique por cima SEM alterar simbologia
+  lojasLayer.featureReduction = null;
   map.reorder(lojasLayer, map.layers.length - 1);
 
   // ==========================
@@ -140,7 +131,7 @@ require([
       .join(",");
 
     // ==========================
-    // VENDAS
+    // BUSCA VENDAS
     // ==========================
     const vendasLayer = new FeatureLayer({ url: VENDAS_URL });
 
@@ -150,6 +141,9 @@ require([
 
     const vendasData = await vendasLayer.queryFeatures(qv);
 
+    // ==========================
+    // CALCULA PROGRESSÃO
+    // ==========================
     const progresso = {};
 
     vendasData.features.forEach(f => {
@@ -163,35 +157,33 @@ require([
     });
 
     // ==========================
-    // COLORIR BAIRROS PELO PROGRESSO
+    // RENDERER DOS BAIRROS
     // ==========================
     bairrosLayer.renderer = {
       type: "simple",
       symbol: { type: "simple-fill", outline: { color: "#777", width: 0.5 } },
-      visualVariables: [
-        {
-          type: "color",
-          valueExpression: `
-            var pg = ${JSON.stringify(progresso)};
-            var v = pg[$feature.cod_bairro];
-            return DefaultValue(v, 0);
-          `,
-          stops: [
-            { value: -20, color: "rgba(192,0,0,0.3)" },
-            { value: -10, color: "rgba(255,63,63,0.3)" },
-            { value: 0,   color: "rgba(244,146,75,0.3)" },
-            { value: 10,  color: "rgba(127,255,255,0.3)" },
-            { value: 20,  color: "rgba(0,192,192,0.3)" },
-            { value: 100, color: "rgba(0,128,128,0.3)" }
-          ]
-        }
-      ]
+      visualVariables: [{
+        type: "color",
+        valueExpression: `
+          var pg = ${JSON.stringify(progresso)};
+          var v = pg[$feature.cod_bairro];
+          return DefaultValue(v, 0);
+        `,
+        stops: [
+          { value: -20, color: "rgba(192,0,0,0.3)" },
+          { value: -10, color: "rgba(255,63,63,0.3)" },
+          { value: 0,   color: "rgba(244,146,75,0.3)" },
+          { value: 10,  color: "rgba(127,255,255,0.3)" },
+          { value: 20,  color: "rgba(0,192,192,0.3)" },
+          { value: 100, color: "rgba(0,128,128,0.3)" }
+        ]
+      }]
     };
 
     bairrosLayer.opacity = 1;
     bairrosLayer.refresh();
-  });
 
+  });
 });
 </script>
 

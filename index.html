@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Mapa Leroy Merlin</title>
+
+  <link rel="stylesheet" href="https://js.arcgis.com/4.30/esri/themes/light/main.css" />
+  <script src="https://js.arcgis.com/4.30/"></script>
+
+  <style>
+    html, body, #viewDiv {
+      padding: 0;
+      margin: 0;
+      height: 100%;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+<div id="viewDiv"></div>
+
+<script>
+/**********************************************
+ * 1) LOGIN AUTOMÁTICO COM OAUTH
+ *********************************************/
+require([
+  "esri/identity/OAuthInfo",
+  "esri/identity/IdentityManager"
+], function(OAuthInfo, IdentityManager) {
+
+  const info = new OAuthInfo({
+    appId: "5G6nimVl4Ce2CbTv",   // << coloque o SEU appId
+    popup: false                // redirecionamento em vez de popup
+  });
+
+  IdentityManager.registerOAuthInfos([info]);
+
+  // força login antes de rodar o mapa
+  IdentityManager.getCredential("https://www.arcgis.com/sharing");
+});
+
+
+/**********************************************
+ * 2) URLs das camadas
+ *********************************************/
+const LOJAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/0";
+const ZONAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/1";
+const BAIRROS_URL = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/2";
+const VENDAS_URL  = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
+
+
+/**********************************************
+ * 3) PEGAR cod_loja DA URL
+ *********************************************/
+const params = new URLSearchParams(window.location.search);
+const codLoja = params.get("cod_loja");
+
+if (!codLoja) alert("Parâmetro ?cod_loja não informado!");
+
+
+/**********************************************
+ * 4) MAPA
+ *********************************************/
+require([
+  "esri/Map",
+  "esri/views/MapView",
+  "esri/layers/FeatureLayer"
+], function (Map, MapView, FeatureLayer) {
+
+  const map = new Map({
+    basemap: "streets-navigation-vector"
+  });
+
+  const view = new MapView({
+    container: "viewDiv",
+    map: map,
+    center: [-46.63, -23.55],
+    zoom: 11
+  });
+
+
+  /**********************************************
+   * 5) CAMADAS
+   *********************************************/
+  const lojasLayer = new FeatureLayer({
+    url: LOJAS_URL,
+    outFields: ["*"],
+    definitionExpression: `cod_loja = '${codLoja}'`,
+    title: "Loja Selecionada"
+  });
+
+  const bairrosLayer = new FeatureLayer({
+    url: BAIRROS_URL,
+    outFields: ["*"],
+    title: "Bairros",
+    definitionExpression: `cod_loja_zinflu = '${codLoja}'`
+  });
+
+  const zonasLayer = new FeatureLayer({
+    url: ZONAS_URL,
+    outFields: ["*"],
+    definitionExpression: `COD_LOJA = '${codLoja}'`,
+    title: "Zona da Loja",
+    renderer: {
+      type: "simple",
+      symbol: {
+        type: "simple-fill",
+        color: [0, 0, 0, 0],
+        outline: {
+          color: "#EE861F",
+          width: 2
+        }
+      }
+    }
+  });
+
+  map.add(bairrosLayer);
+  map.add(lojasLayer);
+  map.add(zonasLayer);
+
+
+  /**********************************************
+   * 6) PROCESSAR BAIRROS + VENDAS
+   *********************************************/
+  bairrosLayer.when(async () => {
+
+    // consulta bairros filtrados
+    const q = bairrosLayer.createQuery();
+    q.where = `cod_loja_zinflu = '${codLoja}'`;
+    q.returnGeometry = true;
+    q.outFields = ["cod_bairro"];
+
+    const r = await bairrosLayer.queryFeatures(q);
+
+    if (!r.features.length) {
+      console.warn("Nenhum bairro encontrado.");
+      return;
+    }
+
+    // centraliza no mapa
+    view.goTo(r.features.map(f => f.geometry.extent));
+
+    const listaIDs = r.features
+      .map(f => `'${f.attributes.cod_bairro}'`)
+      .join(",");
+
+
+    /**********************************************
+     * BUSCAR TABELA DE VENDAS
+     *********************************************/
+    const vendasLayer = new FeatureLayer({ url: VENDAS_URL });
+
+    const qv = vendasLayer.createQuery();
+    qv.where = `id_bairro_cep IN (${listaIDs})`;
+    qv.outFields = [
+      "id_bairro_cep",
+      "valor_vendas_atual",
+      "valor_vendas_anterior"
+    ];
+
+    const vendasData = await vendasLayer.queryFeatures(qv);
+
+
+    /**********************************************
+     * CALCULAR PROGRESSÃO
+     *********************************************/
+    const progresso = {};
+
+    vendasData.features.forEach(f => {
+      const atual = f.attributes.valor_vendas_atual || 0;
+      const anterior = f.attributes.valor_vendas_anterior || 0;
+      let pct = 0;
+
+      if (anterior !== 0) pct = ((atual / anterior) - 1) * 100;
+
+      progresso[f.attributes.id_bairro_cep] = pct;
+    });
+
+
+    /**********************************************
+     * APLICAR RENDERER GRADUADO
+     *********************************************/
+    bairrosLayer.renderer = {
+      type: "simple",
+      symbol: {
+        type: "simple-fill",
+        outline: { color: "#777", width: 0.5 }
+      },
+      visualVariables: [
+        {
+          type: "color",
+          valueExpression: `
+            var pg = ${JSON.stringify(progresso)};
+            var v = pg[$feature.cod_bairro];
+            return DefaultValue(v, 0);
+          `,
+          stops: [
+            { value: -100, color: "#b30000", label: "Queda forte" },
+            { value: -50,  color: "#e34a33", label: "Queda" },
+            { value: 0,    color: "#fdbb84", label: "Estável" },
+            { value: 20,   color: "#addd8e", label: "Crescimento" },
+            { value: 50,   color: "#31a354", label: "Crescimento forte" }
+          ]
+        }
+      ]
+    };
+  });
+});
+</script>
+
+</body>
+</html>

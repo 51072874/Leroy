@@ -1,214 +1,208 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Mapa Leroy Merlin</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Mapa Leroy Merlin</title>
 
-<link rel="stylesheet" href="https://js.arcgis.com/4.30/esri/themes/light/main.css" />
-<script src="https://js.arcgis.com/4.30/"></script>
+  <link rel="stylesheet" href="https://js.arcgis.com/4.30/esri/themes/light/main.css" />
+  <script src="https://js.arcgis.com/4.30/"></script>
 
-<style>
+  <style>
     html, body, #viewDiv {
-        padding: 0;
-        margin: 0;
-        height: 100%;
-        width: 100%;
+      padding: 0;
+      margin: 0;
+      height: 100%;
+      width: 100%;
     }
-</style>
-
+  </style>
 </head>
-<body>
 
+<body>
 <div id="viewDiv"></div>
 
 <script>
 
-// --------------------------------------------------
-// 1) CONFIGURAÇÃO OAUTH (SEM LOGIN AUTOMÁTICO)
-// --------------------------------------------------
-require([
-    "esri/identity/OAuthInfo",
-    "esri/identity/IdentityManager"
-], function (OAuthInfo, IdentityManager) {
-
-    const info = new OAuthInfo({
-        appId: "IzTsQ6TYg0fGGaka",
-        portalUrl: "https://igeo.leroymerlin.com.br/portal",
-        popup: true  // ← Agora pede login e senha
-    });
-
-    IdentityManager.registerOAuthInfos([info]);
-});
-
-// --------------------------------------------------
-// 2) URLs
-// --------------------------------------------------
+// ==========================
+// 1) URLs das camadas
+// ==========================
 const LOJAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/0";
 const ZONAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/1";
 const BAIRROS_URL = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/2";
 const VENDAS_URL  = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
-// --------------------------------------------------
-// 3) PEGAR cod_loja DA URL
-// --------------------------------------------------
+// ==========================
+// 2) Pega cod_loja da URL
+// ==========================
 const params = new URLSearchParams(window.location.search);
 const codLoja = params.get("cod_loja");
+if (!codLoja) alert("Parâmetro ?cod_loja não informado!");
 
-if (!codLoja)
-    alert("Parâmetro ?cod_loja não informado!");
-
-// --------------------------------------------------
-// 4) MAPA
-// --------------------------------------------------
+// ==========================
+// 3) MAPA
+// ==========================
 require([
-    "esri/Map",
-    "esri/views/MapView",
-    "esri/layers/FeatureLayer"
+  "esri/Map",
+  "esri/views/MapView",
+  "esri/layers/FeatureLayer"
 ], function (Map, MapView, FeatureLayer) {
 
-    const map = new Map({
-        basemap: "streets-navigation-vector"
-    });
+  const map = new Map({
+    basemap: "streets-navigation-vector"
+  });
 
-    const view = new MapView({
-        container: "viewDiv",
-        map: map,
-        center: [-46.63, -23.55],
-        zoom: 11
-    });
+  const view = new MapView({
+    container: "viewDiv",
+    map: map,
+    center: [-46.63, -23.55],
+    zoom: 11
+  });
 
-    // --------------------------------------------------
-    // 5) CAMADAS
-    // --------------------------------------------------
-
-    const bairrosLayer = new FeatureLayer({
-        url: BAIRROS_URL,
-        outFields: ["*"],
-        title: "Bairros",
-        definitionExpression: `cod_loja_zinflu = '${codLoja}'`
-    });
-
-    const zonasLayer = new FeatureLayer({
-        url: ZONAS_URL,
-        outFields: ["*"],
-        title: "Zona da Loja",
-        definitionExpression: `COD_LOJA = '${codLoja}'`,
-        renderer: {
-            type: "simple",
-            symbol: {
-                type: "simple-fill",
-                color: [0, 0, 0, 0],
-                outline: {
-                    color: "#EE861F",
-                    width: 2
-                }
-            }
+  // ==========================
+  // 4) CAMADA LOJAS (PONTOS)
+  // ==========================
+  const lojasLayer = new FeatureLayer({
+    url: LOJAS_URL,
+    outFields: ["*"],
+    definitionExpression: `cod_loja = '${codLoja}'`,
+    title: "Loja Selecionada",
+    renderer: {
+      type: "simple",
+      symbol: {
+        type: "simple-marker",
+        color: "#00A000",
+        size: 14,
+        outline: {
+          color: "#ffffff",
+          width: 2
         }
-    });
+      }
+    }
+  });
 
-    // ✓ LOJAS COM SÍMBOLO REDONDO
-    const lojasLayer = new FeatureLayer({
-        url: LOJAS_URL,
-        outFields: ["*"],
-        title: "Loja Selecionada",
-        definitionExpression: `cod_loja = '${codLoja}'`,
-        renderer: {
-            type: "simple",
-            symbol: {
-                type: "simple-marker",
-                style: "circle",   // ← símbolo redondo
-                color: "#0080ff",
-                size: 12,
-                outline: {
-                    color: "white",
-                    width: 1.5
-                }
-            }
+  // ==========================
+  // 5) CAMADA BAIRROS
+  // ==========================
+  const bairrosLayer = new FeatureLayer({
+    url: BAIRROS_URL,
+    outFields: ["*"],
+    title: "Bairros",
+    definitionExpression: `cod_loja_zinflu = '${codLoja}'`
+  });
+
+  // ==========================
+  // 6) CAMADA ZONAS
+  // ==========================
+  const zonasLayer = new FeatureLayer({
+    url: ZONAS_URL,
+    outFields: ["*"],
+    definitionExpression: `COD_LOJA = '${codLoja}'`,
+    title: "Zona da Loja",
+    renderer: {
+      type: "simple",
+      symbol: {
+        type: "simple-fill",
+        color: [0, 0, 0, 0],
+        outline: {
+          color: "#EE861F",
+          width: 2
         }
+      }
+    }
+  });
+
+  // Adiciona camadas na ordem desejada
+  map.add(bairrosLayer);
+  map.add(zonasLayer);
+  map.add(lojasLayer);
+
+  // ==========================
+  // GARANTIR LOJAS POR CIMA
+  // ==========================
+  lojasLayer.featureReduction = null; // impede agrupar
+  map.reorder(lojasLayer, map.layers.length - 1); // força top layer
+
+  // ==========================
+  // 7) PROCESSAR BAIRROS + VENDAS
+  // ==========================
+  bairrosLayer.when(async () => {
+
+    const q = bairrosLayer.createQuery();
+    q.where = `cod_loja_zinflu = '${codLoja}'`;
+    q.returnGeometry = true;
+    q.outFields = ["cod_bairro"];
+
+    const r = await bairrosLayer.queryFeatures(q);
+
+    if (!r.features.length) {
+      console.warn("Nenhum bairro encontrado.");
+      return;
+    }
+
+    view.goTo(r.features.map(f => f.geometry.extent));
+
+    const listaIDs = r.features
+      .map(f => `'${f.attributes.cod_bairro}'`)
+      .join(",");
+
+    // ==========================
+    // VENDAS
+    // ==========================
+    const vendasLayer = new FeatureLayer({ url: VENDAS_URL });
+
+    const qv = vendasLayer.createQuery();
+    qv.where = `id_bairro_cep IN (${listaIDs})`;
+    qv.outFields = ["id_bairro_cep", "valor_vendas_atual", "valor_vendas_anterior"];
+
+    const vendasData = await vendasLayer.queryFeatures(qv);
+
+    // ==========================
+    // CALCULA PROGRESSÃO
+    // ==========================
+    const progresso = {};
+    vendasData.features.forEach(f => {
+      const atual = f.attributes.valor_vendas_atual || 0;
+      const anterior = f.attributes.valor_vendas_anterior || 0;
+      let pct = 0;
+      if (anterior !== 0) pct = ((atual / anterior) - 1) * 100;
+      progresso[f.attributes.id_bairro_cep] = pct;
     });
 
-    // Ordem das camadas (de baixo → cima)
-    map.add(bairrosLayer);
-    map.add(zonasLayer);
-    map.add(lojasLayer);   // ← sempre por cima
-
-    // --------------------------------------------------
-    // 6) PROCESSAR BAIRROS + VENDAS
-    // --------------------------------------------------
-
-    bairrosLayer.when(async () => {
-
-        const q = bairrosLayer.createQuery();
-        q.where = `cod_loja_zinflu = '${codLoja}'`;
-        q.returnGeometry = true;
-        q.outFields = ["cod_bairro"];
-
-        const r = await bairrosLayer.queryFeatures(q);
-
-        if (!r.features.length) {
-            console.warn("Nenhum bairro encontrado.");
-            return;
+    // ==========================
+    // APLICA RENDERER NOS BAIRROS
+    // ==========================
+    bairrosLayer.renderer = {
+      type: "simple",
+      symbol: {
+        type: "simple-fill",
+        outline: { color: "#777", width: 0.5 }
+      },
+      visualVariables: [
+        {
+          type: "color",
+          valueExpression: `
+            var pg = ${JSON.stringify(progresso)};
+            var v = pg[$feature.cod_bairro];
+            return DefaultValue(v, 0);
+          `,
+          stops: [
+            { value: -20, color: "rgba(192,0,0,0.3)" },
+            { value: -10, color: "rgba(255,63,63,0.3)" },
+            { value: 0,   color: "rgba(244,146,75,0.3)" },
+            { value: 10,  color: "rgba(127,255,255,0.3)" },
+            { value: 20,  color: "rgba(0,192,192,0.3)" },
+            { value: 100, color: "rgba(0,128,128,0.3)" }
+          ]
         }
+      ]
+    };
 
-        // ajustar zoom
-        view.goTo(r.features.map(f => f.geometry.extent));
-
-        const listaIDs = r.features.map(f => `${f.attributes.cod_bairro}`).join(",");
-
-        // BUSCAR TABELA DE VENDAS
-        const vendasLayer = new FeatureLayer({ url: VENDAS_URL });
-
-        const qv = vendasLayer.createQuery();
-        qv.where = `id_bairro_cep IN(${listaIDs})`;
-        qv.outFields = ["id_bairro_cep", "valor_vendas_atual", "valor_vendas_anterior"];
-
-        const vendasData = await vendasLayer.queryFeatures(qv);
-
-        // CALCULAR PROGRESSÃO
-        const progresso = {};
-        vendasData.features.forEach(f => {
-            const atual = f.attributes.valor_vendas_atual || 0;
-            const anterior = f.attributes.valor_vendas_anterior || 0;
-
-            let pct = 0;
-            if (anterior !== 0) pct = ((atual / anterior) - 1) * 100;
-
-            progresso[f.attributes.id_bairro_cep] = pct;
-        });
-
-        // APLICAR RENDERER
-        bairrosLayer.renderer = {
-            type: "simple",
-            symbol: {
-                type: "simple-fill",
-                outline: { color: "#777", width: 0.5 }
-            },
-            visualVariables: [{
-                type: "color",
-                valueExpression: `
-                    var pg = ${JSON.stringify(progresso)};
-                    var v = pg[$feature.cod_bairro];
-                    return DefaultValue(v, 0);
-                `,
-                stops: [
-                    { value: -20, color: "rgba(192,0,0,0.3)", label: "Abaixo de -20%" },
-                    { value: -10, color: "rgba(255,63,63,0.3)", label: "-20% a -10%" },
-                    { value: 0,  color: "rgba(244,146,75,0.3)", label: "-10% a 0%" },
-                    { value: 10, color: "rgba(127,255,255,0.3)", label: "0% a 10%" },
-                    { value: 20, color: "rgba(0,192,192,0.3)", label: "10% a 20%" },
-                    { value: 100,color: "rgba(0,128,128,0.3)", label: "Acima de 20%" }
-                ]
-            }]
-        };
-
-        bairrosLayer.opacity = 1;
-        bairrosLayer.refresh();
-    });
+    bairrosLayer.opacity = 1;
+    bairrosLayer.refresh();
+  });
 
 });
 
 </script>
-
 </body>
 </html>

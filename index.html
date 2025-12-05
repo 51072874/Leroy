@@ -23,25 +23,23 @@
 
 <script>
 /**********************************************
- * 1) LOGIN OAUTH SEM CORS BLOCK
+ * 1) LOGIN OAUTH CORRETO (SEM CORS BLOCK)
  *********************************************/
 require([
   "esri/identity/OAuthInfo",
   "esri/identity/IdentityManager"
 ], function(OAuthInfo, IdentityManager) {
 
-  // 🔥 portal correto (ESSENCIAL)
   const portal = "https://igeo.leroymerlin.com.br/portal";
 
   const info = new OAuthInfo({
-    appId: "IzTsQ6TYg0fGGaka", // seu client_id
-    portalUrl: portal,        // 🔥 obrigatório
-    popup: false              // login no mesmo fluxo
+    appId: "IzTsQ6TYg0fGGaka",
+    portalUrl: portal,
+    popup: false
   });
 
   IdentityManager.registerOAuthInfos([info]);
 
-  // 🔥 obter credencial do portal CORRETO (não usar arcgis.com)
   IdentityManager.getCredential(portal + "/sharing");
 });
 
@@ -49,16 +47,16 @@ require([
 /**********************************************
  * 2) URLs das camadas
  *********************************************/
-const PORTAL_HOST = "https://igeo.leroymerlin.com.br";
+const HOST = "https://igeo.leroymerlin.com.br";
 
-const LOJAS_URL   = PORTAL_HOST + "/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/0";
-const ZONAS_URL   = PORTAL_HOST + "/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/1";
-const BAIRROS_URL = PORTAL_HOST + "/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/2";
-const VENDAS_URL  = PORTAL_HOST + "/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
+const LOJAS_URL   = HOST + "/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/0";
+const ZONAS_URL   = HOST + "/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/1";
+const BAIRROS_URL = HOST + "/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/2";
+const VENDAS_URL  = HOST + "/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
 
 /**********************************************
- * 3) parâmetro da URL
+ * 3) Pegar ?cod_loja
  *********************************************/
 const params = new URLSearchParams(window.location.search);
 const codLoja = params.get("cod_loja");
@@ -81,7 +79,7 @@ require([
 
   const view = new MapView({
     container: "viewDiv",
-    map: map,
+    map,
     center: [-46.63, -23.55],
     zoom: 11
   });
@@ -90,18 +88,28 @@ require([
   /**********************************************
    * 5) CAMADAS
    *********************************************/
+
+  // 🔥 prevenir bug do arcgis-charts adicionando renderer simples
+  const bairrosLayer = new FeatureLayer({
+    url: BAIRROS_URL,
+    outFields: ["*"],
+    title: "Bairros",
+    definitionExpression: `cod_loja_zinflu = '${codLoja}'`,
+    renderer: {
+      type: "simple",
+      symbol: {
+        type: "simple-fill",
+        color: [0, 0, 0, 0],
+        outline: { color: "#777", width: 0.5 }
+      }
+    }
+  });
+
   const lojasLayer = new FeatureLayer({
     url: LOJAS_URL,
     outFields: ["*"],
     definitionExpression: `cod_loja = '${codLoja}'`,
     title: "Loja Selecionada"
-  });
-
-  const bairrosLayer = new FeatureLayer({
-    url: BAIRROS_URL,
-    outFields: ["*"],
-    title: "Bairros",
-    definitionExpression: `cod_loja_zinflu = '${codLoja}'`
   });
 
   const zonasLayer = new FeatureLayer({
@@ -114,10 +122,7 @@ require([
       symbol: {
         type: "simple-fill",
         color: [0, 0, 0, 0],
-        outline: {
-          color: "#EE861F",
-          width: 2
-        }
+        outline: { color: "#EE861F", width: 2 }
       }
     }
   });
@@ -129,15 +134,13 @@ require([
    * 6) LEGENDA
    *********************************************/
   view.when(() => {
-    const legend = new Legend({
-      view: view
-    });
+    const legend = new Legend({ view });
     view.ui.add(legend, "bottom-right");
   });
 
 
   /**********************************************
-   * 7) PROCESSAR BAIRROS + VENDAS
+   * 7) PROCESSAMENTO VENDAS + RENDERER
    *********************************************/
   bairrosLayer.when(async () => {
 
@@ -161,7 +164,7 @@ require([
 
 
     /**********************************************
-     * BUSCAR VENDAS
+     * BUSCAR DADOS DE VENDAS
      *********************************************/
     const vendasLayer = new FeatureLayer({ url: VENDAS_URL });
 
@@ -177,7 +180,7 @@ require([
 
 
     /**********************************************
-     * CALCULAR PROGRESSÃO
+     * CALCULAR PROGRESSO
      *********************************************/
     const progresso = {};
 
@@ -193,7 +196,7 @@ require([
 
 
     /**********************************************
-     * APLICAR RENDERER
+     * RENDERER DEFINITIVO (com transparência)
      *********************************************/
     bairrosLayer.renderer = {
       type: "simple",
@@ -206,19 +209,19 @@ require([
           type: "color",
           valueExpression: `
             var pg = ${JSON.stringify(progresso)};
-            var v = pg[$feature.cod_bairro];
-            return DefaultValue(v, 0);
+            return DefaultValue(pg[$feature.cod_bairro], 0);
           `,
           stops: [
-            { value: -100, color: "#b30000", label: "Queda forte" },
-            { value: -50,  color: "#e34a33", label: "Queda" },
-            { value: 0,    color: "#fdbb84", label: "Estável" },
-            { value: 20,   color: "#addd8e", label: "Crescimento" },
-            { value: 50,   color: "#31a354", label: "Crescimento forte" }
+            { value: -100, color: "rgba(179,0,0,0.5)", label: "Queda forte" },
+            { value: -50,  color: "rgba(227,74,51,0.5)", label: "Queda" },
+            { value: 0,    color: "rgba(253,187,132,0.5)", label: "Estável" },
+            { value: 20,   color: "rgba(173,221,142,0.5)", label: "Crescimento" },
+            { value: 50,   color: "rgba(49,163,84,0.5)", label: "Crescimento forte" }
           ]
         }
       ]
     };
+
   });
 });
 </script>

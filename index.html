@@ -71,7 +71,7 @@ require([
 ], function (Map, MapView, FeatureLayer) {
 
   const map = new Map({
-    basemap: "arcgis-community"   // ✔ Basemap correto
+    basemap: "streets-navigation-vector"   // basemap correto (community-vector não existe)
   });
 
   const view = new MapView({
@@ -130,11 +130,11 @@ require([
    *********************************************/
   bairrosLayer.when(async () => {
 
-    /******** LABELS AJUSTADOS ********/
+    /************ LABELS AJUSTADOS ************/
     bairrosLayer.labelingInfo = [
       {
         labelPlacement: "center-center",
-        minScale: 250000,
+        minScale: 250000,     // aparece só com zoom adequado
         maxScale: 0,
         labelExpressionInfo: {
           expression: "$feature.nome_bairr"
@@ -143,9 +143,9 @@ require([
           type: "text",
           color: "#ffffff",
           haloColor: "#000000",
-          haloSize: 1,
+          haloSize: 1,        // halo menor
           font: {
-            size: 9,
+            size: 9,          // 🔥 texto menor e proporcional
             family: "Arial",
             weight: "bold"
           }
@@ -153,7 +153,7 @@ require([
       }
     ];
 
-    /******** CONSULTA BAIRROS ********/
+    /************ CONSULTA BAIRROS ************/
     const q = bairrosLayer.createQuery();
     q.where = `cod_loja_zinflu = '${codLoja}'`;
     q.returnGeometry = true;
@@ -169,7 +169,7 @@ require([
       .join(",");
 
 
-    /******** CONSULTA VENDAS ********/
+    /************ CONSULTA VENDAS ************/
     const vendasLayer = new FeatureLayer({ url: VENDAS_URL });
 
     const qv = vendasLayer.createQuery();
@@ -186,7 +186,7 @@ require([
     });
 
 
-    /******** RENDERER ********/
+    /************ RENDERER FINAL ************/
     bairrosLayer.renderer = {
       type: "simple",
       symbol: {

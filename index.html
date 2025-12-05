@@ -71,7 +71,7 @@ require([
 ], function (Map, MapView, FeatureLayer) {
 
   const map = new Map({
-    basemap: "arcgis-community"   // 🔥 basemap correto
+    basemap: "community-vector"
   });
 
   const view = new MapView({
@@ -83,7 +83,7 @@ require([
 
 
   /**********************************************
-   * CAMADAS
+   * CAMADAS (renderer simples para evitar charts!)
    *********************************************/
   const bairrosLayer = new FeatureLayer({
     url: BAIRROS_URL,
@@ -130,16 +130,16 @@ require([
    *********************************************/
   bairrosLayer.when(async () => {
 
-    /************ LABELS IGUAIS AO DA IMAGEM ************/
+    /************ LABELS AQUI (funciona sem travar) ************/
     bairrosLayer.labelingInfo = [
       {
         labelExpressionInfo: { expression: "$feature.nome_bairr" },
         symbol: {
           type: "text",
-          color: "#000000",
-          haloColor: "#ffffff",
-          haloSize: 3,
-          font: { size: 14, family: "Arial", weight: "bold" }
+          color: "#ffffff",
+          haloColor: "#000000",
+          haloSize: 1.5,
+          font: { size: 10, family: "Arial", weight: "bold" }
         },
         minScale: 0,
         maxScale: 0
@@ -153,6 +153,7 @@ require([
     q.outFields = ["cod_bairro"];
 
     const r = await bairrosLayer.queryFeatures(q);
+
     if (!r.features.length) return;
 
     view.goTo(r.features.map(f => f.geometry.extent));

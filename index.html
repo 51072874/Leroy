@@ -171,7 +171,12 @@ require([
     const legend = new Legend({
       view: view
     });
-
+const s = getComputedStyle(document.getElementById("viewDiv"));
+console.log("display:", s.display);
+console.log("visibility:", s.visibility);
+console.log("opacity:", s.opacity);
+console.log("height:", s.height);
+console.log("width:", s.width);
     view.ui.add(legend, "bottom-right");
   });
 

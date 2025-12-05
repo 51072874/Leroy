@@ -22,25 +22,25 @@
 <div id="viewDiv"></div>
 
 <script>
-/**********************************************
- * 1) URLs das camadas
- *********************************************/
+
+// ==========================
+// 1) URLs das camadas
+// ==========================
 const LOJAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/0";
 const ZONAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/1";
 const BAIRROS_URL = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/2";
 const VENDAS_URL  = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
-/**********************************************
- * 2) PEGAR cod_loja DA URL
- *********************************************/
+// ==========================
+// 2) Pega cod_loja da URL
+// ==========================
 const params = new URLSearchParams(window.location.search);
 const codLoja = params.get("cod_loja");
-
 if (!codLoja) alert("Parâmetro ?cod_loja não informado!");
 
-/**********************************************
- * 3) MAPA
- *********************************************/
+// ==========================
+// 3) MAPA
+// ==========================
 require([
   "esri/Map",
   "esri/views/MapView",
@@ -58,11 +58,31 @@ require([
     zoom: 11
   });
 
-  /**********************************************
-   * 4) CAMADAS
-   *********************************************/
+  // ==========================
+  // 4) CAMADA LOJAS (PONTOS)
+  // ==========================
+  const lojasLayer = new FeatureLayer({
+    url: LOJAS_URL,
+    outFields: ["*"],
+    definitionExpression: `cod_loja = '${codLoja}'`,
+    title: "Loja Selecionada",
+    renderer: {
+      type: "simple",
+      symbol: {
+        type: "simple-marker",
+        color: "#00A000",
+        size: 14,
+        outline: {
+          color: "#ffffff",
+          width: 2
+        }
+      }
+    }
+  });
 
-  // Bairros
+  // ==========================
+  // 5) CAMADA BAIRROS
+  // ==========================
   const bairrosLayer = new FeatureLayer({
     url: BAIRROS_URL,
     outFields: ["*"],
@@ -70,41 +90,41 @@ require([
     definitionExpression: `cod_loja_zinflu = '${codLoja}'`
   });
 
-  // Zonas
+  // ==========================
+  // 6) CAMADA ZONAS
+  // ==========================
   const zonasLayer = new FeatureLayer({
     url: ZONAS_URL,
     outFields: ["*"],
-    title: "Zona da Loja",
     definitionExpression: `COD_LOJA = '${codLoja}'`,
+    title: "Zona da Loja",
     renderer: {
       type: "simple",
       symbol: {
         type: "simple-fill",
         color: [0, 0, 0, 0],
-        outline: { color: "#EE861F", width: 2 }
+        outline: {
+          color: "#EE861F",
+          width: 2
+        }
       }
     }
   });
 
-  // Lojas (camada que deve ficar por cima)
-  const lojasLayer = new FeatureLayer({
-    url: LOJAS_URL,
-    outFields: ["*"],
-    title: "Loja Selecionada",
-    definitionExpression: `cod_loja = '${codLoja}'`
-  });
-
-  /**********************************************
-   * ADICIONAR CAMADAS NA ORDEM CORRETA
-   * → A última adicionada fica por cima
-   *********************************************/
+  // Adiciona camadas na ordem desejada
   map.add(bairrosLayer);
   map.add(zonasLayer);
-  map.add(lojasLayer);   // <--- SEMPRE NO TOPO
+  map.add(lojasLayer);
 
-  /**********************************************
-   * 5) PROCESSAR BAIRROS + VENDAS
-   *********************************************/
+  // ==========================
+  // GARANTIR LOJAS POR CIMA
+  // ==========================
+  lojasLayer.featureReduction = null; // impede agrupar
+  map.reorder(lojasLayer, map.layers.length - 1); // força top layer
+
+  // ==========================
+  // 7) PROCESSAR BAIRROS + VENDAS
+  // ==========================
   bairrosLayer.when(async () => {
 
     const q = bairrosLayer.createQuery();
@@ -125,39 +145,32 @@ require([
       .map(f => `'${f.attributes.cod_bairro}'`)
       .join(",");
 
-    /**********************************************
-     * BUSCAR TABELA DE VENDAS
-     *********************************************/
+    // ==========================
+    // VENDAS
+    // ==========================
     const vendasLayer = new FeatureLayer({ url: VENDAS_URL });
 
     const qv = vendasLayer.createQuery();
     qv.where = `id_bairro_cep IN (${listaIDs})`;
-    qv.outFields = [
-      "id_bairro_cep",
-      "valor_vendas_atual",
-      "valor_vendas_anterior"
-    ];
+    qv.outFields = ["id_bairro_cep", "valor_vendas_atual", "valor_vendas_anterior"];
 
     const vendasData = await vendasLayer.queryFeatures(qv);
 
-    /**********************************************
-     * CALCULAR PROGRESSÃO
-     *********************************************/
+    // ==========================
+    // CALCULA PROGRESSÃO
+    // ==========================
     const progresso = {};
-
     vendasData.features.forEach(f => {
       const atual = f.attributes.valor_vendas_atual || 0;
       const anterior = f.attributes.valor_vendas_anterior || 0;
       let pct = 0;
-
       if (anterior !== 0) pct = ((atual / anterior) - 1) * 100;
-
       progresso[f.attributes.id_bairro_cep] = pct;
     });
 
-    /**********************************************
-     * APLICAR RENDERER COM TRANSPARÊNCIA
-     *********************************************/
+    // ==========================
+    // APLICA RENDERER NOS BAIRROS
+    // ==========================
     bairrosLayer.renderer = {
       type: "simple",
       symbol: {
@@ -173,11 +186,11 @@ require([
             return DefaultValue(v, 0);
           `,
           stops: [
-            { value: -20, color: "rgba(192,0,0,0.3)"  },
+            { value: -20, color: "rgba(192,0,0,0.3)" },
             { value: -10, color: "rgba(255,63,63,0.3)" },
-            { value: 0,  color: "rgba(244,146,75,0.3)" },
-            { value: 10, color: "rgba(127,255,255,0.3)" },
-            { value: 20, color: "rgba(0,192,192,0.3)" },
+            { value: 0,   color: "rgba(244,146,75,0.3)" },
+            { value: 10,  color: "rgba(127,255,255,0.3)" },
+            { value: 20,  color: "rgba(0,192,192,0.3)" },
             { value: 100, color: "rgba(0,128,128,0.3)" }
           ]
         }
@@ -189,6 +202,7 @@ require([
   });
 
 });
+
 </script>
 </body>
 </html>

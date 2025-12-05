@@ -71,7 +71,7 @@ require([
 ], function (Map, MapView, FeatureLayer) {
 
   const map = new Map({
-    basemap: "streets-navigation-vector"   // basemap correto (community-vector não existe)
+    basemap: "arcgis-community"   // 🔥 basemap correto
   });
 
   const view = new MapView({
@@ -130,26 +130,19 @@ require([
    *********************************************/
   bairrosLayer.when(async () => {
 
-    /************ LABELS AJUSTADOS ************/
+    /************ LABELS IGUAIS AO DA IMAGEM ************/
     bairrosLayer.labelingInfo = [
       {
-        labelPlacement: "center-center",
-        minScale: 250000,     // aparece só com zoom adequado
-        maxScale: 0,
-        labelExpressionInfo: {
-          expression: "$feature.nome_bairr"
-        },
+        labelExpressionInfo: { expression: "$feature.nome_bairr" },
         symbol: {
           type: "text",
-          color: "#ffffff",
-          haloColor: "#000000",
-          haloSize: 1,        // halo menor
-          font: {
-            size: 9,          // 🔥 texto menor e proporcional
-            family: "Arial",
-            weight: "bold"
-          }
-        }
+          color: "#000000",
+          haloColor: "#ffffff",
+          haloSize: 3,
+          font: { size: 14, family: "Arial", weight: "bold" }
+        },
+        minScale: 0,
+        maxScale: 0
       }
     ];
 

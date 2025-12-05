@@ -30,14 +30,15 @@ require([
   "esri/identity/IdentityManager"
 ], function(OAuthInfo, IdentityManager) {
 
-const info = new OAuthInfo({
-  appId: "IzTsQ6TYg0fGGaka",
-  popup: false
-});
+  const info = new OAuthInfo({
+    appId: "IzTsQ6TYg0fGGaka",   // ← SEU client_id
+    portalUrl: "https://igeo.leroymerlin.com.br/portal",
+    popup: false
+  });
 
   IdentityManager.registerOAuthInfos([info]);
 
-  // força login no PORTAL, não no ArcGIS Online
+  // força login no PORTAL correto
   IdentityManager.getCredential("https://igeo.leroymerlin.com.br/portal/sharing");
 });
 

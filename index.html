@@ -37,13 +37,14 @@ const params = new URLSearchParams(window.location.search);
 const codLoja = params.get("cod_loja");
 if (!codLoja) alert("Parâmetro ?cod_loja não informado!");
 
+
 /**********************************************
  * 3) MAPA
  *********************************************/
 require([
   "esri/Map",
   "esri/views/MapView",
-  "esri/layers/FeatureLayer",
+  "esri/layers/FeatureLayer"
 ], function (Map, MapView, FeatureLayer) {
 
   const map = new Map({
@@ -57,9 +58,12 @@ require([
     zoom: 11
   });
 
+
   /**********************************************
-   * 4) BAIRROS (agora com LABELS)
+   * 4) CAMADAS
    *********************************************/
+
+  /* Bairros */
   const bairrosLayer = new FeatureLayer({
     url: BAIRROS_URL,
     outFields: ["*"],
@@ -68,28 +72,27 @@ require([
 
     labelingInfo: [
       {
-        labelExpressionInfo: {
-          expression: `$feature.nome_bairro`   // <<-- ALTERE AQUI se o nome do campo for outro
-        },
+        labelExpressionInfo: { expression: "$feature.nome_bairr" },
         symbol: {
           type: "text",
-          color: "#000000",
-          haloColor: "#ffffff",
-          haloSize: "2px",
+          color: "#222",
+          haloColor: "white",
+          haloSize: 1.5,
           font: {
+            size: 11,
             family: "Arial",
-            size: 12,
             weight: "bold"
           }
         },
-        labelPlacement: "center-center"  // <<-- garante que fique dentro do polígono
+        labelPlacement: "center-center",   // centraliza no polígono
+        maxScale: 0,                       // sempre visível
+        minScale: 250000                   // aparece quando aproximar o suficiente
       }
     ]
   });
 
-  /**********************************************
-   * 5) ZONAS
-   *********************************************/
+
+  /* Zonas */
   const zonasLayer = new FeatureLayer({
     url: ZONAS_URL,
     outFields: ["*"],
@@ -105,9 +108,8 @@ require([
     }
   });
 
-  /**********************************************
-   * 6) LOJA → sempre no topo
-   *********************************************/
+
+  /* Lojas – mantido ORIGINAL sem alterar simbologia */
   const lojasLayer = new FeatureLayer({
     url: LOJAS_URL,
     outFields: ["*"],
@@ -115,15 +117,17 @@ require([
     definitionExpression: `cod_loja = '${codLoja}'`
   });
 
+
   /**********************************************
-   * ADICIONAR CAMADAS NA ORDEM
+   * ADICIONAR CAMADAS COM LOJA NO TOPO
    *********************************************/
   map.add(bairrosLayer);
   map.add(zonasLayer);
   map.add(lojasLayer);
 
+
   /**********************************************
-   * 7) PROCESSAR BAIRROS + VENDAS
+   * 5) PROCESSAR BAIRROS + VENDAS
    *********************************************/
   bairrosLayer.when(async () => {
 
@@ -141,7 +145,12 @@ require([
       .map(f => `'${f.attributes.cod_bairro}'`)
       .join(",");
 
+
+    /**********************************************
+     * BUSCAR DADOS DE VENDAS
+     *********************************************/
     const vendasLayer = new FeatureLayer({ url: VENDAS_URL });
+
     const qv = vendasLayer.createQuery();
     qv.where = `id_bairro_cep IN (${listaIDs})`;
     qv.outFields = [
@@ -152,7 +161,12 @@ require([
 
     const vendasData = await vendasLayer.queryFeatures(qv);
 
+
+    /**********************************************
+     * CALCULAR PROGRESSÃO
+     *********************************************/
     const progresso = {};
+
     vendasData.features.forEach(f => {
       const atual = f.attributes.valor_vendas_atual || 0;
       const anterior = f.attributes.valor_vendas_anterior || 0;
@@ -163,8 +177,9 @@ require([
       progresso[f.attributes.id_bairro_cep] = pct;
     });
 
+
     /**********************************************
-     * APLICAR RENDERER
+     * APLICAR RENDERER COLORIDO
      *********************************************/
     bairrosLayer.renderer = {
       type: "simple",
@@ -183,16 +198,15 @@ require([
           stops: [
             { value: -20, color: "rgba(192,0,0,0.3)"  },
             { value: -10, color: "rgba(255,63,63,0.3)" },
-            { value: 0,  color: "rgba(244,146,75,0.3)" },
-            { value: 10, color: "rgba(127,255,255,0.3)" },
-            { value: 20, color: "rgba(0,192,192,0.3)" },
+            { value: 0,   color: "rgba(244,146,75,0.3)" },
+            { value: 10,  color: "rgba(127,255,255,0.3)" },
+            { value: 20,  color: "rgba(0,192,192,0.3)" },
             { value: 100, color: "rgba(0,128,128,0.3)" }
           ]
         }
       ]
     };
 
-    bairrosLayer.opacity = 1;
     bairrosLayer.refresh();
   });
 

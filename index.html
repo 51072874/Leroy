@@ -35,7 +35,6 @@ const VENDAS_URL  = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted
  *********************************************/
 const params = new URLSearchParams(window.location.search);
 const codLoja = params.get("cod_loja");
-
 if (!codLoja) alert("Parâmetro ?cod_loja não informado!");
 
 /**********************************************
@@ -44,7 +43,7 @@ if (!codLoja) alert("Parâmetro ?cod_loja não informado!");
 require([
   "esri/Map",
   "esri/views/MapView",
-  "esri/layers/FeatureLayer"
+  "esri/layers/FeatureLayer",
 ], function (Map, MapView, FeatureLayer) {
 
   const map = new Map({
@@ -59,18 +58,38 @@ require([
   });
 
   /**********************************************
-   * 4) CAMADAS
+   * 4) BAIRROS (agora com LABELS)
    *********************************************/
-
-  // Bairros
   const bairrosLayer = new FeatureLayer({
     url: BAIRROS_URL,
     outFields: ["*"],
     title: "Bairros",
-    definitionExpression: `cod_loja_zinflu = '${codLoja}'`
+    definitionExpression: `cod_loja_zinflu = '${codLoja}'`,
+
+    labelingInfo: [
+      {
+        labelExpressionInfo: {
+          expression: `$feature.nome_bairro`   // <<-- ALTERE AQUI se o nome do campo for outro
+        },
+        symbol: {
+          type: "text",
+          color: "#000000",
+          haloColor: "#ffffff",
+          haloSize: "2px",
+          font: {
+            family: "Arial",
+            size: 12,
+            weight: "bold"
+          }
+        },
+        labelPlacement: "center-center"  // <<-- garante que fique dentro do polígono
+      }
+    ]
   });
 
-  // Zonas
+  /**********************************************
+   * 5) ZONAS
+   *********************************************/
   const zonasLayer = new FeatureLayer({
     url: ZONAS_URL,
     outFields: ["*"],
@@ -86,7 +105,9 @@ require([
     }
   });
 
-  // Lojas (camada que deve ficar por cima)
+  /**********************************************
+   * 6) LOJA → sempre no topo
+   *********************************************/
   const lojasLayer = new FeatureLayer({
     url: LOJAS_URL,
     outFields: ["*"],
@@ -95,15 +116,14 @@ require([
   });
 
   /**********************************************
-   * ADICIONAR CAMADAS NA ORDEM CORRETA
-   * → A última adicionada fica por cima
+   * ADICIONAR CAMADAS NA ORDEM
    *********************************************/
   map.add(bairrosLayer);
   map.add(zonasLayer);
-  map.add(lojasLayer);   // <--- SEMPRE NO TOPO
+  map.add(lojasLayer);
 
   /**********************************************
-   * 5) PROCESSAR BAIRROS + VENDAS
+   * 7) PROCESSAR BAIRROS + VENDAS
    *********************************************/
   bairrosLayer.when(async () => {
 
@@ -113,11 +133,7 @@ require([
     q.outFields = ["cod_bairro"];
 
     const r = await bairrosLayer.queryFeatures(q);
-
-    if (!r.features.length) {
-      console.warn("Nenhum bairro encontrado.");
-      return;
-    }
+    if (!r.features.length) return;
 
     view.goTo(r.features.map(f => f.geometry.extent));
 
@@ -125,11 +141,7 @@ require([
       .map(f => `'${f.attributes.cod_bairro}'`)
       .join(",");
 
-    /**********************************************
-     * BUSCAR TABELA DE VENDAS
-     *********************************************/
     const vendasLayer = new FeatureLayer({ url: VENDAS_URL });
-
     const qv = vendasLayer.createQuery();
     qv.where = `id_bairro_cep IN (${listaIDs})`;
     qv.outFields = [
@@ -140,23 +152,19 @@ require([
 
     const vendasData = await vendasLayer.queryFeatures(qv);
 
-    /**********************************************
-     * CALCULAR PROGRESSÃO
-     *********************************************/
     const progresso = {};
-
     vendasData.features.forEach(f => {
       const atual = f.attributes.valor_vendas_atual || 0;
       const anterior = f.attributes.valor_vendas_anterior || 0;
-      let pct = 0;
 
+      let pct = 0;
       if (anterior !== 0) pct = ((atual / anterior) - 1) * 100;
 
       progresso[f.attributes.id_bairro_cep] = pct;
     });
 
     /**********************************************
-     * APLICAR RENDERER COM TRANSPARÊNCIA
+     * APLICAR RENDERER
      *********************************************/
     bairrosLayer.renderer = {
       type: "simple",

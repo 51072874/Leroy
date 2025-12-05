@@ -31,15 +31,17 @@ require([
 ], function(OAuthInfo, IdentityManager) {
 
   const info = new OAuthInfo({
-    appId: "kLksIoDHtWUEKhfK",   // << coloque o SEU appId
-    popup: false                // redirecionamento em vez de popup
+    appId: "kLksIoDHtWUEKhfK",   // 👈 este tem que vir do Portal Enterprise
+    portalUrl: "https://igeo.leroymerlin.com.br/portal", 
+    popup: false
   });
 
   IdentityManager.registerOAuthInfos([info]);
 
-  // força login antes de rodar o mapa
+  // força login no PORTAL, não no ArcGIS Online
   IdentityManager.getCredential("https://igeo.leroymerlin.com.br/portal/sharing");
 });
+
 
 
 /**********************************************

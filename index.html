@@ -23,7 +23,7 @@
 
 <script>
 /**********************************************
- * 1) LOGIN OAUTH CORRETO (SEM CORS BLOCK)
+ * 1) LOGIN OAUTH
  *********************************************/
 require([
   "esri/identity/OAuthInfo",
@@ -39,7 +39,6 @@ require([
   });
 
   IdentityManager.registerOAuthInfos([info]);
-
   IdentityManager.getCredential(portal + "/sharing");
 });
 
@@ -64,14 +63,13 @@ if (!codLoja) alert("Parâmetro ?cod_loja não informado!");
 
 
 /**********************************************
- * 4) MAPA
+ * 4) MAPA (sem legenda)
  *********************************************/
 require([
   "esri/Map",
   "esri/views/MapView",
-  "esri/layers/FeatureLayer",
-  "esri/widgets/Legend"
-], function (Map, MapView, FeatureLayer, Legend) {
+  "esri/layers/FeatureLayer"
+], function (Map, MapView, FeatureLayer) {
 
   const map = new Map({
     basemap: "streets-navigation-vector"
@@ -87,145 +85,4 @@ require([
 
   /**********************************************
    * 5) CAMADAS
-   *********************************************/
-
-  // 🔥 prevenir bug do arcgis-charts adicionando renderer simples
-  const bairrosLayer = new FeatureLayer({
-    url: BAIRROS_URL,
-    outFields: ["*"],
-    title: "Bairros",
-    definitionExpression: `cod_loja_zinflu = '${codLoja}'`,
-    renderer: {
-      type: "simple",
-      symbol: {
-        type: "simple-fill",
-        color: [0, 0, 0, 0],
-        outline: { color: "#777", width: 0.5 }
-      }
-    }
-  });
-
-  const lojasLayer = new FeatureLayer({
-    url: LOJAS_URL,
-    outFields: ["*"],
-    definitionExpression: `cod_loja = '${codLoja}'`,
-    title: "Loja Selecionada"
-  });
-
-  const zonasLayer = new FeatureLayer({
-    url: ZONAS_URL,
-    outFields: ["*"],
-    definitionExpression: `COD_LOJA = '${codLoja}'`,
-    title: "Zona da Loja",
-    renderer: {
-      type: "simple",
-      symbol: {
-        type: "simple-fill",
-        color: [0, 0, 0, 0],
-        outline: { color: "#EE861F", width: 2 }
-      }
-    }
-  });
-
-  map.addMany([bairrosLayer, lojasLayer, zonasLayer]);
-
-
-  /**********************************************
-   * 6) LEGENDA
-   *********************************************/
-  view.when(() => {
-    const legend = new Legend({ view });
-    view.ui.add(legend, "bottom-right");
-  });
-
-
-  /**********************************************
-   * 7) PROCESSAMENTO VENDAS + RENDERER
-   *********************************************/
-  bairrosLayer.when(async () => {
-
-    const q = bairrosLayer.createQuery();
-    q.where = `cod_loja_zinflu = '${codLoja}'`;
-    q.returnGeometry = true;
-    q.outFields = ["cod_bairro"];
-
-    const r = await bairrosLayer.queryFeatures(q);
-
-    if (!r.features.length) {
-      console.warn("Nenhum bairro encontrado.");
-      return;
-    }
-
-    view.goTo(r.features.map(f => f.geometry.extent));
-
-    const listaIDs = r.features
-      .map(f => `'${f.attributes.cod_bairro}'`)
-      .join(",");
-
-
-    /**********************************************
-     * BUSCAR DADOS DE VENDAS
-     *********************************************/
-    const vendasLayer = new FeatureLayer({ url: VENDAS_URL });
-
-    const qv = vendasLayer.createQuery();
-    qv.where = `id_bairro_cep IN (${listaIDs})`;
-    qv.outFields = [
-      "id_bairro_cep",
-      "valor_vendas_atual",
-      "valor_vendas_anterior"
-    ];
-
-    const vendasData = await vendasLayer.queryFeatures(qv);
-
-
-    /**********************************************
-     * CALCULAR PROGRESSO
-     *********************************************/
-    const progresso = {};
-
-    vendasData.features.forEach(f => {
-      const atual = f.attributes.valor_vendas_atual || 0;
-      const anterior = f.attributes.valor_vendas_anterior || 0;
-
-      let pct = 0;
-      if (anterior !== 0) pct = ((atual / anterior) - 1) * 100;
-
-      progresso[f.attributes.id_bairro_cep] = pct;
-    });
-
-
-    /**********************************************
-     * RENDERER DEFINITIVO (com transparência)
-     *********************************************/
-    bairrosLayer.renderer = {
-      type: "simple",
-      symbol: {
-        type: "simple-fill",
-        outline: { color: "#777", width: 0.5 }
-      },
-      visualVariables: [
-        {
-          type: "color",
-          valueExpression: `
-            var pg = ${JSON.stringify(progresso)};
-            return DefaultValue(pg[$feature.cod_bairro], 0);
-          `,
-          stops: [
-            { value: -20, color: "#C00000", label: "Abaixo de -20%" },
-            { value: -10, color: "#FF3F3F", label: "-20% a -10%" },
-            { value: 0,  color: "#F4924B", label: "-10% a 0%" },
-            { value: 10, color: "#7FFFFF", label: "0% a 10%" },
-            { value: 20,   color: "#00C0C0", label: "10% a 20%" },
-            { value: 100,   color: "#008080", label: "Acima de 20%" }
-          ]
-        }
-      ]
-    };
-
-  });
-});
-</script>
-
-</body>
-</html>
+   ****

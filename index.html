@@ -24,7 +24,7 @@
 
 <script>
 /**********************************************
- * 1) LOGIN OAUTH
+ * LOGIN
  *********************************************/
 require([
   "esri/identity/OAuthInfo",
@@ -43,7 +43,7 @@ require([
 
 
 /**********************************************
- * 2) URLs
+ * URLs
  *********************************************/
 const HOST = "https://igeo.leroymerlin.com.br";
 
@@ -54,17 +54,15 @@ const VENDAS_URL  = HOST + "/server/rest/services/Hosted/One_Page_SpotX/FeatureS
 
 
 /**********************************************
- * 3) PEGAR cod_loja DA URL
+ * cod_loja
  *********************************************/
 const params = new URLSearchParams(window.location.search);
 const codLoja = params.get("cod_loja");
-
 if (!codLoja) alert("Parâmetro ?cod_loja não informado!");
 
 
-
 /**********************************************
- * 4) MAPA
+ * MAPA
  *********************************************/
 require([
   "esri/Map",
@@ -73,7 +71,7 @@ require([
 ], function (Map, MapView, FeatureLayer) {
 
   const map = new Map({
-    basemap: "community-vector"   // 🔥 basemap comunidade
+    basemap: "community-vector"
   });
 
   const view = new MapView({
@@ -85,36 +83,21 @@ require([
 
 
   /**********************************************
-   * 5) CAMADAS
+   * CAMADAS (renderer simples para evitar charts!)
    *********************************************/
-
-  // 🔥 Bairros com labels
   const bairrosLayer = new FeatureLayer({
     url: BAIRROS_URL,
     outFields: ["*"],
     title: "Bairros",
     definitionExpression: `cod_loja_zinflu = '${codLoja}'`,
-
-    labelingInfo: [
-      {
-        labelExpressionInfo: {
-          expression: "$feature.nome_bairr"     // 🔥 CAMPO DO BAIRRO
-        },
-        symbol: {
-          type: "text",
-          color: "#ffffff",
-          haloColor: "#000000",
-          haloSize: 1.5,
-          font: {
-            size: 10,
-            family: "Arial",
-            weight: "bold"
-          }
-        },
-        minScale: 0,
-        maxScale: 0
+    renderer: {
+      type: "simple",
+      symbol: {
+        type: "simple-fill",
+        color: [0,0,0,0],
+        outline: { color: "#777", width: 0.5 }
       }
-    ]
+    }
   });
 
   const lojasLayer = new FeatureLayer({
@@ -133,11 +116,8 @@ require([
       type: "simple",
       symbol: {
         type: "simple-fill",
-        color: [0, 0, 0, 0],
-        outline: {
-          color: "#bf460d",
-          width: 2
-        }
+        color: [0,0,0,0],
+        outline: { color: "#bf460d", width: 2 }
       }
     }
   });
@@ -146,10 +126,27 @@ require([
 
 
   /**********************************************
-   * 6) PROCESSAR BAIRROS + VENDAS
+   * PROCESSAR BAIRROS + LABELS + VENDAS
    *********************************************/
   bairrosLayer.when(async () => {
 
+    /************ LABELS AQUI (funciona sem travar) ************/
+    bairrosLayer.labelingInfo = [
+      {
+        labelExpressionInfo: { expression: "$feature.nome_bairr" },
+        symbol: {
+          type: "text",
+          color: "#ffffff",
+          haloColor: "#000000",
+          haloSize: 1.5,
+          font: { size: 10, family: "Arial", weight: "bold" }
+        },
+        minScale: 0,
+        maxScale: 0
+      }
+    ];
+
+    /************ CONSULTA BAIRROS ************/
     const q = bairrosLayer.createQuery();
     q.where = `cod_loja_zinflu = '${codLoja}'`;
     q.returnGeometry = true;
@@ -157,10 +154,7 @@ require([
 
     const r = await bairrosLayer.queryFeatures(q);
 
-    if (!r.features.length) {
-      console.warn("Nenhum bairro encontrado.");
-      return;
-    }
+    if (!r.features.length) return;
 
     view.goTo(r.features.map(f => f.geometry.extent));
 
@@ -169,41 +163,24 @@ require([
       .join(",");
 
 
-    /**********************************************
-     * BUSCAR TABELA DE VENDAS
-     *********************************************/
+    /************ CONSULTA VENDAS ************/
     const vendasLayer = new FeatureLayer({ url: VENDAS_URL });
 
     const qv = vendasLayer.createQuery();
     qv.where = `id_bairro_cep IN (${listaIDs})`;
-    qv.outFields = [
-      "id_bairro_cep",
-      "valor_vendas_atual",
-      "valor_vendas_anterior"
-    ];
+    qv.outFields = ["id_bairro_cep", "valor_vendas_atual", "valor_vendas_anterior"];
 
     const vendasData = await vendasLayer.queryFeatures(qv);
 
-
-    /**********************************************
-     * CALCULAR PROGRESSÃO
-     *********************************************/
     const progresso = {};
-
     vendasData.features.forEach(f => {
-      const atual = f.attributes.valor_vendas_atual || 0;
-      const anterior = f.attributes.valor_vendas_anterior || 0;
-
-      let pct = 0;
-      if (anterior !== 0) pct = ((atual / anterior) - 1) * 100;
-
-      progresso[f.attributes.id_bairro_cep] = pct;
+      const a = f.attributes.valor_vendas_atual || 0;
+      const b = f.attributes.valor_vendas_anterior || 0;
+      progresso[f.attributes.id_bairro_cep] = b !== 0 ? ((a/b)-1)*100 : 0;
     });
 
 
-    /**********************************************
-     * APLICAR RENDERER COM 70% TRANSPARÊNCIA
-     *********************************************/
+    /************ RENDERER FINAL ************/
     bairrosLayer.renderer = {
       type: "simple",
       symbol: {
@@ -215,23 +192,20 @@ require([
           type: "color",
           valueExpression: `
             var pg = ${JSON.stringify(progresso)};
-            var v = pg[$feature.cod_bairro];
-            return DefaultValue(v, 0);
+            return DefaultValue(pg[$feature.cod_bairro], 0);
           `,
           stops: [
-            { value: -20, color: "rgba(192,0,0,0.3)", label: "Abaixo de -20%" },
-            { value: -10, color: "rgba(255,63,63,0.3)", label: "-20% a -10%" },
-            { value: 0,   color: "rgba(244,146,75,0.3)", label: "-10% a 0%" },
-            { value: 10,  color: "rgba(127,255,255,0.3)", label: "0% a 10%" },
-            { value: 20,  color: "rgba(0,192,192,0.3)", label: "10% a 20%" },
-            { value: 100, color: "rgba(0,128,128,0.3)", label: "Acima de 20%" }
+            { value: -20, color: "rgba(192,0,0,0.3)" },
+            { value: -10, color: "rgba(255,63,63,0.3)" },
+            { value: 0,   color: "rgba(244,146,75,0.3)" },
+            { value: 10,  color: "rgba(127,255,255,0.3)" },
+            { value: 20,  color: "rgba(0,192,192,0.3)" },
+            { value: 100, color: "rgba(0,128,128,0.3)" }
           ]
         }
       ]
     };
 
-    bairrosLayer.opacity = 1;
-    bairrosLayer.refresh();
   });
 });
 </script>

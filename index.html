@@ -23,7 +23,7 @@
 
 <script>
 /**********************************************
- * 1) LOGIN AUTOMÁTICO
+ * 1) LOGIN AUTOMÁTICO COM OAUTH
  *********************************************/
 require([
   "esri/identity/OAuthInfo",
@@ -32,4 +32,99 @@ require([
 
   const info = new OAuthInfo({
     appId: "IzTsQ6TYg0fGGaka",
-    portalUrl: "https://igeo.leroym
+    portalUrl: "https://igeo.leroymerlin.com.br/portal",
+    popup: false
+  });
+
+  IdentityManager.registerOAuthInfos([info]);
+
+  IdentityManager.getCredential("https://igeo.leroymerlin.com.br/portal/sharing");
+});
+
+
+/**********************************************
+ * 2) URLs das camadas
+ *********************************************/
+const LOJAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/0";
+const ZONAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/1";
+const BAIRROS_URL = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/2";
+const VENDAS_URL  = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
+
+
+/**********************************************
+ * 3) PEGAR cod_loja DA URL
+ *********************************************/
+const params = new URLSearchParams(window.location.search);
+const codLoja = params.get("cod_loja");
+
+if (!codLoja) alert("Parâmetro ?cod_loja não informado!");
+
+
+/**********************************************
+ * 4) MAPA
+ *********************************************/
+require([
+  "esri/Map",
+  "esri/views/MapView",
+  "esri/layers/FeatureLayer"
+], function (Map, MapView, FeatureLayer) {
+
+  const map = new Map({
+    basemap: "streets-navigation-vector"
+  });
+
+  const view = new MapView({
+    container: "viewDiv",
+    map: map,
+    center: [-46.63, -23.55],
+    zoom: 11
+  });
+
+
+  /**********************************************
+   * 5) CAMADAS
+   *********************************************/
+  const lojasLayer = new FeatureLayer({
+    url: LOJAS_URL,
+    outFields: ["*"],
+    definitionExpression: `cod_loja = '${codLoja}'`,
+    title: "Loja Selecionada"
+  });
+
+  const bairrosLayer = new FeatureLayer({
+    url: BAIRROS_URL,
+    outFields: ["*"],
+    title: "Bairros",
+    definitionExpression: `cod_loja_zinflu = '${codLoja}'`,
+
+    /* -------------------------------
+       LABELS ATIVADOS PARA BAIRROS
+       ------------------------------- */
+    labelingInfo: [
+      {
+        labelExpressionInfo: { expression: "$feature.nome_bairr" },
+        symbol: {
+          type: "text",
+          color: "#000000",
+          haloColor: "#ffffff",
+          haloSize: 2,
+          font: {
+            size: 11,
+            family: "Arial",
+            weight: "bold"
+          }
+        },
+        labelPlacement: "center-center"
+      }
+    ]
+  });
+
+  const zonasLayer = new FeatureLayer({
+    url: ZONAS_URL,
+    outFields: ["*"],
+    definitionExpression: `COD_LOJA = '${codLoja}'`,
+    title: "Zona da Loja",
+    renderer: {
+      type: "simple",
+      symbol: {
+        type: "simple-fill",

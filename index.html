@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
   <title>Mapa Leroy Merlin</title>
-
   <link rel="stylesheet" href="https://js.arcgis.com/4.30/esri/themes/light/main.css" />
   <script src="https://js.arcgis.com/4.30/"></script>
 
@@ -17,12 +16,11 @@
     }
   </style>
 </head>
-
 <body>
+
 <div id="viewDiv"></div>
 
 <script>
-
 // ==========================
 // 1) URLs das camadas
 // ==========================
@@ -59,7 +57,7 @@ require([
   });
 
   // ==========================
-  // 4) CAMADA LOJAS (PONTOS)
+  // 4) CAMADA LOJAS — símbolo original, só que redondo
   // ==========================
   const lojasLayer = new FeatureLayer({
     url: LOJAS_URL,
@@ -70,8 +68,9 @@ require([
       type: "simple",
       symbol: {
         type: "simple-marker",
-        color: "#00A000",
-        size: 14,
+        style: "circle",       // 🔵 ← força formato redondo
+        size: 16,              // mantém tamanho similar ao original
+        color: "#00A000",      // usa cor original
         outline: {
           color: "#ffffff",
           width: 2
@@ -96,31 +95,26 @@ require([
   const zonasLayer = new FeatureLayer({
     url: ZONAS_URL,
     outFields: ["*"],
-    definitionExpression: `COD_LOJA = '${codLoja}'`,
     title: "Zona da Loja",
+    definitionExpression: `COD_LOJA = '${codLoja}'`,
     renderer: {
       type: "simple",
       symbol: {
         type: "simple-fill",
         color: [0, 0, 0, 0],
-        outline: {
-          color: "#EE861F",
-          width: 2
-        }
+        outline: { color: "#EE861F", width: 2 }
       }
     }
   });
 
-  // Adiciona camadas na ordem desejada
+  // ==========================
+  // Ordem das camadas (lojas por cima)
+  // ==========================
   map.add(bairrosLayer);
   map.add(zonasLayer);
   map.add(lojasLayer);
 
-  // ==========================
-  // GARANTIR LOJAS POR CIMA
-  // ==========================
-  lojasLayer.featureReduction = null; // impede agrupar
-  map.reorder(lojasLayer, map.layers.length - 1); // força top layer
+  map.reorder(lojasLayer, map.layers.length - 1);
 
   // ==========================
   // 7) PROCESSAR BAIRROS + VENDAS
@@ -156,27 +150,24 @@ require([
 
     const vendasData = await vendasLayer.queryFeatures(qv);
 
-    // ==========================
-    // CALCULA PROGRESSÃO
-    // ==========================
     const progresso = {};
+
     vendasData.features.forEach(f => {
       const atual = f.attributes.valor_vendas_atual || 0;
       const anterior = f.attributes.valor_vendas_anterior || 0;
+
       let pct = 0;
       if (anterior !== 0) pct = ((atual / anterior) - 1) * 100;
+
       progresso[f.attributes.id_bairro_cep] = pct;
     });
 
     // ==========================
-    // APLICA RENDERER NOS BAIRROS
+    // COLORIR BAIRROS PELO PROGRESSO
     // ==========================
     bairrosLayer.renderer = {
       type: "simple",
-      symbol: {
-        type: "simple-fill",
-        outline: { color: "#777", width: 0.5 }
-      },
+      symbol: { type: "simple-fill", outline: { color: "#777", width: 0.5 } },
       visualVariables: [
         {
           type: "color",
@@ -202,7 +193,7 @@ require([
   });
 
 });
-
 </script>
+
 </body>
 </html>

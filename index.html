@@ -16,10 +16,11 @@
       width: 100%;
     }
 
-    /* Garantir que a legenda sempre apareça */
+    /* Garante que a legenda sempre apareça visível */
     .esri-legend {
-      max-height: 220px;
-      overflow-y: auto;
+      background: white;
+      padding: 8px;
+      border-radius: 6px;
     }
   </style>
 </head>
@@ -29,12 +30,10 @@
 
 <script>
 /**********************************************
- * 1) LOGIN AUTOMÁTICO
+ * LOGIN
  *********************************************/
-require([
-  "esri/identity/OAuthInfo",
-  "esri/identity/IdentityManager"
-], function(OAuthInfo, IdentityManager) {
+require(["esri/identity/OAuthInfo","esri/identity/IdentityManager"],
+function(OAuthInfo, IdentityManager) {
 
   const info = new OAuthInfo({
     appId: "IzTsQ6TYg0fGGaka",
@@ -48,7 +47,81 @@ require([
 
 
 /**********************************************
- * 2) URLs
+ * URLs
  *********************************************/
 const LOJAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/0";
-const ZONAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/_
+const ZONAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/1";
+const BAIRROS_URL = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/2";
+const VENDAS_URL  = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
+
+
+/**********************************************
+ * Mapa
+ *********************************************/
+require([
+  "esri/Map",
+  "esri/views/MapView",
+  "esri/layers/FeatureLayer",
+  "esri/widgets/Legend"
+], function (Map, MapView, FeatureLayer, Legend) {
+
+  const map = new Map({ basemap: "streets-navigation-vector" });
+
+  const view = new MapView({
+    container: "viewDiv",
+    map: map,
+    center: [-46.63, -23.55],
+    zoom: 11
+  });
+
+  const params = new URLSearchParams(window.location.search);
+  const codLoja = params.get("cod_loja");
+
+
+  /**********************************************
+   * CAMADAS
+   *********************************************/
+  const bairrosLayer = new FeatureLayer({
+    url: BAIRROS_URL,
+    outFields: ["*"],
+    title: "Bairros",
+    definitionExpression: `cod_loja_zinflu = '${codLoja}'`
+  });
+
+  const lojasLayer = new FeatureLayer({
+    url: LOJAS_URL,
+    outFields: ["*"],
+    title: "Loja"
+  });
+
+  const zonasLayer = new FeatureLayer({
+    url: ZONAS_URL,
+    outFields: ["*"],
+    title: "Zona",
+    renderer: {
+      type: "simple",
+      symbol: {
+        type: "simple-fill",
+        color: [0,0,0,0],
+        outline: { color: "#EE861F", width: 2 }
+      }
+    }
+  });
+
+  map.addMany([bairrosLayer, lojasLayer, zonasLayer]);
+
+
+  /**********************************************
+   * PROCESSA BAIRROS + RENDERER
+   *********************************************/
+  bairrosLayer.when(async () => {
+
+    const q = bairrosLayer.createQuery();
+    q.where = `cod_loja_zinflu = '${codLoja}'`;
+    q.outFields = ["cod_bairro"];
+    q.returnGeometry = true;
+
+    const r = await bairrosLayer.queryFeatures(q);
+    if (!r.features.length) return;
+
+    view.goT

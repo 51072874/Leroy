@@ -19,38 +19,27 @@
 </head>
 
 <body>
-
 <div id="viewDiv"></div>
 
 <script>
 /**********************************************
- * 1) REMOVER LOGIN AUTOMÁTICO
- *********************************************/
-// Nada aqui — AGORA o browser vai pedir login ArcGIS normalmente
-
-
-/**********************************************
- * 2) URLs
+ * 1) URLs das camadas
  *********************************************/
 const LOJAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/0";
 const ZONAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/1";
 const BAIRROS_URL = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/2";
 const VENDAS_URL  = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
-
 /**********************************************
- * 3) PEGAR cod_loja DA URL
+ * 2) PEGAR cod_loja DA URL
  *********************************************/
 const params = new URLSearchParams(window.location.search);
 const codLoja = params.get("cod_loja");
 
-if (!codLoja) {
-  alert("Parâmetro ?cod_loja não informado!");
-}
-
+if (!codLoja) alert("Parâmetro ?cod_loja não informado!");
 
 /**********************************************
- * 4) MAPA
+ * 3) MAPA
  *********************************************/
 require([
   "esri/Map",
@@ -69,17 +58,11 @@ require([
     zoom: 11
   });
 
-
   /**********************************************
-   * 5) CAMADAS
+   * 4) CAMADAS
    *********************************************/
-  const lojasLayer = new FeatureLayer({
-    url: LOJAS_URL,
-    outFields: ["*"],
-    definitionExpression: `cod_loja = '${codLoja}'`,
-    title: "Loja Selecionada"
-  });
 
+  // Bairros
   const bairrosLayer = new FeatureLayer({
     url: BAIRROS_URL,
     outFields: ["*"],
@@ -87,31 +70,40 @@ require([
     definitionExpression: `cod_loja_zinflu = '${codLoja}'`
   });
 
+  // Zonas
   const zonasLayer = new FeatureLayer({
     url: ZONAS_URL,
     outFields: ["*"],
-    definitionExpression: `COD_LOJA = '${codLoja}'`,
     title: "Zona da Loja",
+    definitionExpression: `COD_LOJA = '${codLoja}'`,
     renderer: {
       type: "simple",
       symbol: {
         type: "simple-fill",
         color: [0, 0, 0, 0],
-        outline: {
-          color: "#EE861F",
-          width: 2
-        }
+        outline: { color: "#EE861F", width: 2 }
       }
     }
   });
 
-  map.add(bairrosLayer);
-  map.add(lojasLayer);
-  map.add(zonasLayer);
-
+  // Lojas (camada que deve ficar por cima)
+  const lojasLayer = new FeatureLayer({
+    url: LOJAS_URL,
+    outFields: ["*"],
+    title: "Loja Selecionada",
+    definitionExpression: `cod_loja = '${codLoja}'`
+  });
 
   /**********************************************
-   * 6) PROCESSAR BAIRROS + VENDAS
+   * ADICIONAR CAMADAS NA ORDEM CORRETA
+   * → A última adicionada fica por cima
+   *********************************************/
+  map.add(bairrosLayer);
+  map.add(zonasLayer);
+  map.add(lojasLayer);   // <--- SEMPRE NO TOPO
+
+  /**********************************************
+   * 5) PROCESSAR BAIRROS + VENDAS
    *********************************************/
   bairrosLayer.when(async () => {
 
@@ -133,7 +125,6 @@ require([
       .map(f => `'${f.attributes.cod_bairro}'`)
       .join(",");
 
-
     /**********************************************
      * BUSCAR TABELA DE VENDAS
      *********************************************/
@@ -149,7 +140,6 @@ require([
 
     const vendasData = await vendasLayer.queryFeatures(qv);
 
-
     /**********************************************
      * CALCULAR PROGRESSÃO
      *********************************************/
@@ -158,16 +148,15 @@ require([
     vendasData.features.forEach(f => {
       const atual = f.attributes.valor_vendas_atual || 0;
       const anterior = f.attributes.valor_vendas_anterior || 0;
-
       let pct = 0;
+
       if (anterior !== 0) pct = ((atual / anterior) - 1) * 100;
 
       progresso[f.attributes.id_bairro_cep] = pct;
     });
 
-
     /**********************************************
-     * RENDERER COM TRANSPARÊNCIA 70%
+     * APLICAR RENDERER COM TRANSPARÊNCIA
      *********************************************/
     bairrosLayer.renderer = {
       type: "simple",
@@ -179,16 +168,16 @@ require([
         {
           type: "color",
           valueExpression: `
-            var dados = ${JSON.stringify(progresso)};
-            var v = dados[$feature.cod_bairro];
+            var pg = ${JSON.stringify(progresso)};
+            var v = pg[$feature.cod_bairro];
             return DefaultValue(v, 0);
           `,
           stops: [
-            { value: -20, color: "rgba(192,0,0,0.3)" },
+            { value: -20, color: "rgba(192,0,0,0.3)"  },
             { value: -10, color: "rgba(255,63,63,0.3)" },
-            { value: 0,   color: "rgba(244,146,75,0.3)" },
-            { value: 10,  color: "rgba(127,255,255,0.3)" },
-            { value: 20,  color: "rgba(0,192,192,0.3)" },
+            { value: 0,  color: "rgba(244,146,75,0.3)" },
+            { value: 10, color: "rgba(127,255,255,0.3)" },
+            { value: 20, color: "rgba(0,192,192,0.3)" },
             { value: 100, color: "rgba(0,128,128,0.3)" }
           ]
         }
@@ -197,10 +186,9 @@ require([
 
     bairrosLayer.opacity = 1;
     bairrosLayer.refresh();
-
   });
+
 });
 </script>
-
 </body>
 </html>

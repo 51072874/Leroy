@@ -30,11 +30,10 @@ require([
   "esri/identity/IdentityManager"
 ], function(OAuthInfo, IdentityManager) {
 
-  const info = new OAuthInfo({
-    appId: "IzTsQ6TYg0fGGaka",   // 👈 este tem que vir do Portal Enterprise
-    portalUrl: "https://igeo.leroymerlin.com.br/portal", 
-    popup: false
-  });
+const info = new OAuthInfo({
+  appId: "IzTsQ6TYg0fGGaka",
+  popup: false
+});
 
   IdentityManager.registerOAuthInfos([info]);
 

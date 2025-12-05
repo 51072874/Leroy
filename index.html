@@ -28,19 +28,23 @@
 require([
   "esri/identity/OAuthInfo",
   "esri/identity/IdentityManager"
-], function(OAuthInfo, IdentityManager) {
+], function (OAuthInfo, IdentityManager) {
 
   const info = new OAuthInfo({
-    appId: "6oEhKdonlPthGMTc",   // ← SEU client_id
+    appId: "IzTsQ6TYg0fGGaka",
     portalUrl: "https://igeo.leroymerlin.com.br/portal",
     popup: false
   });
 
   IdentityManager.registerOAuthInfos([info]);
 
-  // força login no PORTAL correto
-  IdentityManager.getCredential("https://igeo.leroymerlin.com.br/portal/sharing");
+  IdentityManager.getCredential(
+    "https://igeo.leroymerlin.com.br/portal/sharing"
+  ).catch(function(e){
+      console.error("Erro no login OAuth:", e);
+  });
 });
+
 
 
 

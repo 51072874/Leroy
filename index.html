@@ -199,11 +199,12 @@ require([
             return DefaultValue(v, 0);
           `,
           stops: [
-            { value: -100, color: "#b30000", label: "Queda forte" },
-            { value: -50,  color: "#e34a33", label: "Queda" },
-            { value: 0,    color: "#fdbb84", label: "Estável" },
-            { value: 20,   color: "#addd8e", label: "Crescimento" },
-            { value: 50,   color: "#31a354", label: "Crescimento forte" }
+            { value: -20, color: "#C00000", label: "Abaixo de -20%" },
+            { value: -10, color: "#FF3F3F", label: "-20% a -10%" },
+            { value: 0,  color: "#F4924B", label: "-10% a 0%" },
+            { value: 10, color: "#7FFFFF", label: "0% a 10%" },
+            { value: 20,   color: "#00C0C0", label: "10% a 20%" },
+            { value: 100,   color: "#008080", label: "Acima de 20%" }
           ]
         }
       ]

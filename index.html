@@ -124,4 +124,59 @@ require([
     const r = await bairrosLayer.queryFeatures(q);
     if (!r.features.length) return;
 
-    view.goT
+    view.goTo(r.features.map(f => f.geometry.extent));
+
+    const ids = r.features.map(f => `'${f.attributes.cod_bairro}'`).join(",");
+
+    const vendasLayer = new FeatureLayer({ url: VENDAS_URL });
+    const qv = vendasLayer.createQuery();
+    qv.where = `id_bairro_cep IN (${ids})`;
+    qv.outFields = ["id_bairro_cep","valor_vendas_atual","valor_vendas_anterior"];
+
+    const vendas = await vendasLayer.queryFeatures(qv);
+
+    const progresso = {};
+
+    vendas.features.forEach(f => {
+      const a = f.attributes.valor_vendas_atual || 0;
+      const b = f.attributes.valor_vendas_anterior || 0;
+      progresso[f.attributes.id_bairro_cep] = b ? ((a/b)-1)*100 : 0;
+    });
+
+    /** RENDERER */
+    bairrosLayer.renderer = {
+      type: "simple",
+      symbol: { type: "simple-fill", outline: { color: "#777", width: 0.5 }},
+      visualVariables: [{
+        type: "color",
+        valueExpression: `
+          var pg = ${JSON.stringify(progresso)};
+          var v = pg[$feature.cod_bairro];
+          return DefaultValue(v, 0);
+        `,
+        stops: [
+          { value: -20, color: "rgba(192,0,0,0.3)" },
+          { value: -10, color: "rgba(255,63,63,0.3)" },
+          { value: 0,   color: "rgba(244,146,75,0.3)" },
+          { value: 10,  color: "rgba(127,255,255,0.3)" },
+          { value: 20,  color: "rgba(0,192,192,0.3)" },
+          { value: 100, color: "rgba(0,128,128,0.3)" }
+        ]
+      }]
+    };
+
+    /**********************************************
+     * 🔥 AGORA SIM: LEGENDA SÓ É CRIADA AQUI
+     *********************************************/
+    const legend = new Legend({
+      view: view
+    });
+
+    view.ui.add(legend, "bottom-right");
+  });
+
+});
+</script>
+
+</body>
+</html>

@@ -22,25 +22,7 @@
 <div id="viewDiv"></div>
 
 <script>
-require([
-  "esri/identity/OAuthInfo",
-  "esri/identity/IdentityManager"
-], function(OAuthInfo, IdentityManager){
 
-  const info = new OAuthInfo({
-      appId: "6oEhKdonlPthGMTc",
-      portalUrl: "https://igeo.leroymerlin.com.br/portal",
-      popup: false
-  });
-
-  IdentityManager.registerOAuthInfos([info]);
-
-  IdentityManager.checkSignInStatus(info.portalUrl + "/sharing")
-    .catch(() => {
-      IdentityManager.getCredential(info.portalUrl + "/sharing");
-    });
-
-});
 
 
 

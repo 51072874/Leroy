@@ -71,7 +71,7 @@ require([
 ], function (Map, MapView, FeatureLayer) {
 
   const map = new Map({
-    basemap: "community-vector"
+    basemap: "arcgis-community"   // 🔥 basemap correto
   });
 
   const view = new MapView({
@@ -83,7 +83,7 @@ require([
 
 
   /**********************************************
-   * CAMADAS (renderer simples para evitar charts!)
+   * CAMADAS
    *********************************************/
   const bairrosLayer = new FeatureLayer({
     url: BAIRROS_URL,
@@ -130,16 +130,16 @@ require([
    *********************************************/
   bairrosLayer.when(async () => {
 
-    /************ LABELS AQUI (funciona sem travar) ************/
+    /************ LABELS IGUAIS AO DA IMAGEM ************/
     bairrosLayer.labelingInfo = [
       {
         labelExpressionInfo: { expression: "$feature.nome_bairr" },
         symbol: {
           type: "text",
-          color: "#ffffff",
-          haloColor: "#000000",
-          haloSize: 1.5,
-          font: { size: 10, family: "Arial", weight: "bold" }
+          color: "#000000",
+          haloColor: "#ffffff",
+          haloSize: 3,
+          font: { size: 14, family: "Arial", weight: "bold" }
         },
         minScale: 0,
         maxScale: 0
@@ -153,7 +153,6 @@ require([
     q.outFields = ["cod_bairro"];
 
     const r = await bairrosLayer.queryFeatures(q);
-
     if (!r.features.length) return;
 
     view.goTo(r.features.map(f => f.geometry.extent));
@@ -184,31 +183,4 @@ require([
     bairrosLayer.renderer = {
       type: "simple",
       symbol: {
-        type: "simple-fill",
-        outline: { color: "#777", width: 0.5 }
-      },
-      visualVariables: [
-        {
-          type: "color",
-          valueExpression: `
-            var pg = ${JSON.stringify(progresso)};
-            return DefaultValue(pg[$feature.cod_bairro], 0);
-          `,
-          stops: [
-            { value: -20, color: "rgba(192,0,0,0.3)" },
-            { value: -10, color: "rgba(255,63,63,0.3)" },
-            { value: 0,   color: "rgba(244,146,75,0.3)" },
-            { value: 10,  color: "rgba(127,255,255,0.3)" },
-            { value: 20,  color: "rgba(0,192,192,0.3)" },
-            { value: 100, color: "rgba(0,128,128,0.3)" }
-          ]
-        }
-      ]
-    };
-
-  });
-});
-</script>
-
-</body>
-</html>
+        type: "simple-

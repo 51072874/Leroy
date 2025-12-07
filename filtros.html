@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Filtros com Autenticação</title>
+
+  <link rel="stylesheet" href="https://js.arcgis.com/4.30/esri/themes/light/main.css" />
+  <script src="https://js.arcgis.com/4.30/"></script>
+
+  <style>
+    :root {
+      --primary: #1976d2;
+      --surface: #fff;
+      --border: #dcdcdc;
+      --shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
+    }
+
+    body {
+      font-family: "Roboto", Arial;
+      background: #f4f6fb;
+      padding: 16px;
+    }
+
+    .card {
+      background: var(--surface);
+      padding: 18px;
+      border-radius: 14px;
+      max-width: 420px;
+      margin: auto;
+      box-shadow: var(--shadow);
+    }
+
+    label {
+      font-weight: 600;
+      margin-top: 14px;
+      display: block;
+    }
+
+    select,
+    .dropdown-btn {
+      width: 100%;
+      padding: 10px;
+      margin-top: 4px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: white;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .dropdown {
+      position: relative;
+    }
+
+    .dropdown-panel {
+      display: none;
+      position: absolute;
+      width: 100%;
+      left: 0;
+      top: calc(100% + 6px);
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      max-height: 320px;
+      overflow-y: auto;
+      box-shadow: var(--shadow);
+      z-index: 9999;
+      padding: 10px;
+    }
+
+    .item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px;
+      font-size: 14px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .item:hover {
+      background: #eef4ff;
+    }
+
+    .controls {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .controls button {
+      flex: 1;
+      padding: 6px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: #fafafa;
+      cursor: pointer;
+    }
+
+    .footer {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .btn-primary {
+      flex: 1;
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .btn-clear {
+      flex: 1;
+      padding: 12px;
+      border: 1px solid var(--border);
+      background: white;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="card">
+  <h3>Filtros Avançados</h3>
+
+  <label>Loja</label>
+  <select id="selLoja"></select>
+
+  <label>Seção</label>
+  <div class="dropdown">
+    <div class="dropdown-btn" onclick="openPanel(event,'panelSecao')">
+      <span id="lblSecao">Selecionar...</span> <span id="cntSecao">0</span>
+    </div>
+    <div class="dropdown-panel" id="panelSecao">
+      <div class="controls">
+        <button onclick="selectAll('secao')">Selecionar tudo</button>
+        <button onclick="clearAll('secao')">Limpar</button>
+      </div>
+      <div id="listSecao"></div>
+    </div>
+  </div>
+
+  <label>Canal</label>
+  <div class="dropdown">
+    <div class="dropdown-btn" onclick="openPanel(event,'panelCanal')">
+      <span id="lblCanal">Selecionar...</span> <span id="cntCanal">0</span>
+    </div>
+    <div class="dropdown-panel" id="panelCanal">
+      <div class="controls">
+        <button onclick="selectAll('canal')">Selecionar tudo</button>
+        <button onclick="clearAll('canal')">Limpar</button>
+      </div>
+      <div id="listCanal"></div>
+    </div>
+  </div>
+
+  <label>Ano</label>
+  <select id="selAno"></select>
+
+  <label>Mês</label>
+  <div class="dropdown">
+    <div class="dropdown-btn" onclick="openPanel(event,'panelMes')">
+      <span id="lblMes">Selecionar...</span> <span id="cntMes">0</span>
+    </div>
+    <div class="dropdown-panel" id="panelMes">
+      <div class="controls">
+        <button onclick="selectAll('mes')">Selecionar tudo</button>
+        <button onclick="clearAll('mes')">Limpar</button>
+      </div>
+      <div id="listMes"></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <button class="btn-primary" onclick="aplicar()">Aplicar</button>
+    <button class="btn-clear" onclick="limpar()">Limpar</button>
+  </div>
+
+</div>
+
+<script>
+/* ---------------------- LOGIN OAUTH -------------------------- */
+
+/*require([
+  "esri/identity/OAuthInfo",
+  "esri/identity/IdentityManager"
+], function (OAuthInfo, IdentityManager) {
+
+  const info = new OAuthInfo({
+    appId: "6oEhKdonlPthGMTc",
+    popup: false,
+    portalUrl: "https://igeo.leroymerlin.com.br/portal"
+  });
+
+  IdentityManager.registerOAuthInfos([info]);
+  IdentityManager.getCredential("https://igeo.leroymerlin.com.br/portal/sharing");
+});*/
+
+
+/* ---------------------- FILTROS -------------------------- */
+
+const URL0 = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/0";
+const URL8 = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
+
+let dataset = [];
+let state = { loja: "", secao: [], canal: [], ano: "", mes: [] };
+
+require(["esri/layers/FeatureLayer"], function (FeatureLayer) {
+
+  const lojas = new FeatureLayer({ url: URL0 });
+  const vendas = new FeatureLayer({ url: URL8 });
+
+  /* --------- Carregar lojas --------- */
+  lojas.queryFeatures({
+    where: "1=1",
+    outFields: ["cod_loja", "nome_loja"],
+    returnGeometry: false
+  }).then(res => {
+    const sel = document.getElementById("selLoja");
+    sel.innerHTML = `<option value="">-- Todas --</option>`;
+    res.features.forEach(f => {
+      sel.innerHTML += `<option value="${f.attributes.cod_loja}">
+        ${f.attributes.cod_loja} - ${f.attributes.nome_loja}
+      </option>`;
+    });
+
+    sel.onchange = () => {
+      state.loja = sel.value;
+      atualizarFiltros();
+    };
+  });
+
+  /* --------- Carregar TODA a tabela 8 (agora com token) --------- */
+  vendas.queryFeatures({
+    where: "1=1",
+    outFields: ["secao", "id_canal_venda", "ano", "mes", "id_loja_venda"],
+    returnGeometry: false
+  }).then(res => {
+
+    dataset = res.features.map(f => f.attributes);
+
+    montarFiltrosIniciais();
+  });
+
+});
+
+/* ---------------------- LÓGICA DOS FILTROS -------------------------- */
+
+function montarFiltrosIniciais() {
+  atualizarFiltros();
+}
+
+function atualizarFiltros() {
+
+  let filtrado = dataset.filter(r => {
+    if (state.loja && r.id_loja_venda != state.loja) return false;
+    if (state.ano && r.ano != state.ano) return false;
+    if (state.secao.length && !state.secao.includes(r.secao)) return false;
+    if (state.canal.length && !state.canal.includes(r.id_canal_venda)) return false;
+    if (state.mes.length && !state.mes.includes(r.mes)) return false;
+    return true;
+  });
+
+  renderDomain("secao", [...new Set(filtrado.map(r => r.secao))].sort());
+  renderDomain("canal", [...new Set(filtrado.map(r => r.id_canal_venda))].sort());
+  renderDomain("mes", [...new Set(filtrado.map(r => r.mes))].sort());
+
+  renderAnos([...new Set(filtrado.map(r => r.ano))].sort());
+}
+
+function renderDomain(field, values) {
+  const list = document.getElementById("list" + capitalize(field));
+  const selected = state[field];
+
+  list.innerHTML = "";
+
+  values.forEach(v => {
+    const checked = selected.includes(v) ? "checked" : "";
+    list.innerHTML += `
+      <label class="item">
+        <input type="checkbox" value="${v}" ${checked}
+          onchange="toggleValue('${field}', this.value, this.checked)">
+        ${v}
+      </label>`;
+  });
+
+  atualizarLabels();
+}
+
+function renderAnos(values) {
+  const selAno = document.getElementById("selAno");
+  selAno.innerHTML = `<option value="">-- Todos --</option>`;
+
+  values.forEach(v => {
+    selAno.innerHTML += `<option value="${v}">${v}</option>`;
+  });
+
+  selAno.value = state.ano;
+
+  selAno.onchange = () => {
+    state.ano = selAno.value;
+    atualizarFiltros();
+  };
+}
+
+function toggleValue(field, value, checked) {
+  if (checked) {
+    if (!state[field].includes(value)) state[field].push(value);
+  } else {
+    state[field] = state[field].filter(v => v !== value);
+  }
+  atualizarLabels();
+}
+
+function selectAll(field) {
+  const list = document.querySelectorAll(`#list${capitalize(field)} input`);
+  state[field] = [...list].map(i => i.value);
+  renderDomain(field, state[field]);
+}
+
+function clearAll(field) {
+  state[field] = [];
+  renderDomain(field, []);
+}
+
+function capitalize(s) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function atualizarLabels() {
+  document.getElementById("cntSecao").textContent = state.secao.length;
+  document.getElementById("lblSecao").textContent =
+    state.secao.length ? `${state.secao.length} selecionados` : "Selecionar...";
+
+  document.getElementById("cntCanal").textContent = state.canal.length;
+  document.getElementById("lblCanal").textContent =
+    state.canal.length ? `${state.canal.length} selecionados` : "Selecionar...";
+
+  document.getElementById("cntMes").textContent = state.mes.length;
+  document.getElementById("lblMes").textContent =
+    state.mes.length ? `${state.mes.length} selecionados` : "Selecionar...";
+}
+
+/* ---------------------- Dropdown -------------------------- */
+
+function openPanel(event, id) {
+  event.stopPropagation();
+  document.querySelectorAll(".dropdown-panel").forEach(p => p.style.display = "none");
+  document.getElementById(id).style.display = "block";
+}
+
+document.addEventListener("click", () => {
+  document.querySelectorAll(".dropdown-panel").forEach(p => p.style.display = "none");
+});
+
+/* ---------------------- Aplicar / Limpar -------------------------- */
+
+function aplicar() {
+  window.parent.postMessage({ type: "EXB_FILTER", data: state }, "*");
+}
+
+function limpar() {
+  state = { loja: "", secao: [], canal: [], ano: "", mes: [] };
+  document.getElementById("selLoja").value = "";
+  document.getElementById("selAno").value = "";
+  montarFiltrosIniciais();
+}
+
+</script>
+
+</body>
+</html>

@@ -12,32 +12,32 @@
     html, body, #viewDiv {
       padding: 0;
       margin: 0;
-      height: 100%; width: 100%;
+      height: 100%;
+      width: 100%;
     }
   </style>
 </head>
-
 <body>
 <div id="viewDiv"></div>
 
 <script>
-/**********************************************
- * URLS
- *********************************************/
+/***************************************
+  URLs
+****************************************/
 const LOJAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/0";
 const ZONAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/1";
 const BAIRROS_URL = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/2";
 const VENDAS_URL  = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
 /**********************************************
- * PARAM
- *********************************************/
-const params   = new URLSearchParams(window.location.search);
-const codLoja  = params.get("cod_loja");
+  Lê cod_loja
+**********************************************/
+const params = new URLSearchParams(window.location.search);
+const codLoja = params.get("cod_loja");
 
 /**********************************************
- * MAP
- *********************************************/
+  MAPA
+**********************************************/
 require([
   "esri/Map",
   "esri/views/MapView",
@@ -51,75 +51,70 @@ require([
   const view = new MapView({
     container: "viewDiv",
     map: map,
-    center: [-55, -15],   // 🌎 centro Brasil
-    zoom: 3               // 🌎 bem afastado
+    zoom: 4,
+    center: [-55, -14]
   });
 
-  /**********************************************
-   * layers
-   *********************************************/
-  const bairrosLayer = new FeatureLayer({
-    url: BAIRROS_URL,
-    outFields:["*"],
-    title:"Bairros",
-    minScale: 0,
-    maxScale: 0,
-    visible: (codLoja && codLoja != "0")  
-  });
-
-  const zonasLayer = new FeatureLayer({
-    url: ZONAS_URL,
-    outFields:["*"],
-    title:"Zonas",
-    minScale: 0,
-    maxScale: 0,
-    visible: (codLoja && codLoja != "0")
-  });
-
+  /* LOJAS */
   const lojasLayer = new FeatureLayer({
     url: LOJAS_URL,
-    outFields:["*"],
-    title:"Lojas",
-    minScale: 0,
-    maxScale: 0,
-    visible: true           // sempre mostra lojas
+    outFields: ["*"],
+    title: "Lojas"
   });
 
-  map.add(bairrosLayer);
-  map.add(zonasLayer);
-  map.add(lojasLayer);
+  /* ZONAS */
+  const zonasLayer = new FeatureLayer({
+    url: ZONAS_URL,
+    outFields: ["*"],
+    title: "Zona"
+  });
 
-  /************************************************************
-   * somente ativa regras padrão quando cod_loja > 0
-   *************************************************************/
-  if (!codLoja || codLoja == "0") {
-    // fica Brasil apenas com lojas
-    console.log("Visualização inicial BRASIL");
-    return; 
+  /* BAIRROS */
+  const bairrosLayer = new FeatureLayer({
+    url: BAIRROS_URL,
+    outFields: ["*"],
+    title: "Bairros"
+  });
+
+  map.addMany([bairrosLayer, zonasLayer, lojasLayer]);
+
+  /**********************************************
+      SE cod_loja = 0  → Brasil
+  **********************************************/
+  if (codLoja == 0){
+
+    // só mostra lojas
+    lojasLayer.visible = true;
+    zonasLayer.visible = false;
+    bairrosLayer.visible = false;
+
+    // zoom bem distante
+    view.goTo({
+      extent:{
+        xmin: -82,
+        ymin: -35,
+        xmax: -32,
+        ymax: 10,
+        spatialReference:4326
+      }
+    });
+
+    return;
   }
 
-  /************************************************************
-   * carregamento normal quando tem loja selecionada
-   *************************************************************/
-  bairrosLayer.when(async () => {
+  /**********************************************
+     OUTROS valores → modo normal
+  **********************************************/
 
-    bairrosLayer.definitionExpression = `cod_loja_zinflu = '${codLoja}'`;
-    zonasLayer.definitionExpression    = `COD_LOJA = '${codLoja}'`;
-    lojasLayer.definitionExpression    = `cod_loja = '${codLoja}'`;
-  
-    const q = bairrosLayer.createQuery();
-    q.where = `cod_loja_zinflu = '${codLoja}'`;
-    q.returnGeometry = true;
+  lojasLayer.definitionExpression = `cod_loja = '${codLoja}'`;
+  zonasLayer.definitionExpression = `COD_LOJA = '${codLoja}'`;
+  bairrosLayer.definitionExpression = `cod_loja_zinflu = '${codLoja}'`;
 
-    const r = await bairrosLayer.queryFeatures(q);
-
-    if(!r.features.length) return;
-
-    await view.goTo(r.features.map(f=>f.geometry.extent));
-  });
+  lojasLayer.visible   = true;
+  zonasLayer.visible   = true;
+  bairrosLayer.visible = true;
 
 });
 </script>
-
 </body>
 </html>

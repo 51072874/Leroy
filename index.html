@@ -140,6 +140,17 @@ require([
    * 5) PROCESSAR BAIRROS + VENDAS
    *********************************************/
   bairrosLayer.when(async () => {
+    
+    if(codLoja === "0"){
+    bairrosLayer.visible = false;
+    zonasLayer.visible = false;
+    lojasLayer.visible = true;
+    view.goTo({
+      center: [-54, -14],
+      zoom: 4
+    });
+    return; // para aqui, sem processar vendas
+    }
 
     const q = bairrosLayer.createQuery();
     q.where = `cod_loja_zinflu = '${codLoja}'`;

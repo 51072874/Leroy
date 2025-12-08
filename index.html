@@ -152,7 +152,7 @@ require([
       // goTo Brasil (já começamos com center/zoom, mas goTo garante animação)
       view.goTo({
         center: [-55, -15],
-        zoom: 4
+        zoom: 8
       }).catch(() => { /* ignora erro de goTo */ });
 
       // Mostrar apenas lojas inicialmente. NÃO alteramos minScale/maxScale/renderers
@@ -175,7 +175,6 @@ require([
     }
 
     // Se não for cod_loja === "0": aplicar comportamento original por loja (rodar processo de bairros + vendas)
-    // Se cod_loja === "-1" (ou outro) podemos decidir diferente; aqui continuamos com fluxo original quando o valor for um id de loja
     // Enquanto esperamos bairrosLayer.ready usamos when()
     bairrosLayer.when(async () => {
       try {

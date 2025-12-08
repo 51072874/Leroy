@@ -149,11 +149,29 @@ const view = new MapView({
 
   /**********************************************
    * ADICIONAR CAMADAS (LOJAS SEMPRE NO TOPO)
-   *********************************************/
+   *********************************************
   map.add(bairrosLayer);
   map.add(zonasLayer);
   map.add(lojasLayer);
+*/
+/**********************************************
+ * ADICIONAR CAMADAS (CONDICIONAL)
+ *********************************************/
 
+if(codLoja == "0"){
+  // apenas lojas
+  map.add(lojasLayer)
+} 
+else {
+  // todos normal
+  map.add(bairrosLayer);
+  map.add(zonasLayer);
+  map.add(lojasLayer);
+}
+
+
+
+  
   /**********************************************
    * 5) PROCESSAR BAIRROS + VENDAS
    *********************************************/

@@ -66,14 +66,32 @@ require([
   const map = new Map({
     basemap: "streets-navigation-vector"
   });
-
+/* 
   const view = new MapView({
     container: "viewDiv",
     map: map,
     center: [-46.63, -23.55],
     zoom: 11
   });
+*/
+let initialCenter = [-46.63, -23.55];
+let initialZoom   = 11;
 
+// SE COD_LOJA = -1 -> zoom no Brasil
+if (codLoja === "-1") {
+  initialCenter = [-53.2, -14.2];
+  initialZoom   = 4;  // Brasil inteiro
+}
+
+const view = new MapView({
+  container: "viewDiv",
+  map: map,
+  center: initialCenter,
+  zoom: initialZoom
+});
+
+
+  
   /**********************************************
    * 4) CAMADAS
    *********************************************/

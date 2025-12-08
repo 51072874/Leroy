@@ -55,7 +55,7 @@ const params = new URLSearchParams(window.location.search);
 let codLoja = params.get("cod_loja");
 
 // Se não vier o parâmetro, usa cod_loja = 0
-if (!codLoja || codLoja.trim() === "") {
+if (!codLoja || codLoja.trim() === ""|| codLoja.trim() === "{id_loja_venda}") {
   codLoja = "0";
 }
 

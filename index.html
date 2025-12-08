@@ -66,31 +66,13 @@ require([
   const map = new Map({
     basemap: "streets-navigation-vector"
   });
-/* 
+ 
   const view = new MapView({
     container: "viewDiv",
     map: map,
     center: [-46.63, -23.55],
     zoom: 11
   });
-*/
-let initialCenter = [-46.63, -23.55];
-let initialZoom   = 11;
-
-// SE COD_LOJA = -1 -> zoom no Brasil
-if (codLoja === "0") {
-  initialCenter = [-53.2, -14.2];
-  initialZoom   = 4;  // Brasil inteiro
-}
-
-const view = new MapView({
-  container: "viewDiv",
-  map: map,
-  center: initialCenter,
-  zoom: initialZoom
-});
-
-
   
   /**********************************************
    * 4) CAMADAS
@@ -149,28 +131,10 @@ const view = new MapView({
 
   /**********************************************
    * ADICIONAR CAMADAS (LOJAS SEMPRE NO TOPO)
-   *********************************************
+   *********************************************/
   map.add(bairrosLayer);
   map.add(zonasLayer);
   map.add(lojasLayer);
-*/
-/**********************************************
- * ADICIONAR CAMADAS (CONDICIONAL)
- *********************************************/
-
-if(codLoja === "0"){
-  // apenas lojas
-  map.add(lojasLayer);
-} 
-else {
-  // todos normal
-  map.add(bairrosLayer);
-  map.add(zonasLayer);
-  map.add(lojasLayer);
-}
-
-
-
   
   /**********************************************
    * 5) PROCESSAR BAIRROS + VENDAS

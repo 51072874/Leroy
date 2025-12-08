@@ -67,9 +67,9 @@ require([
   let initialCenter = [-46.63, -23.55];
   let initialZoom = 11;
   if (codLoja === "-1" || codLoja === "0") {
-    // caso -1/0 usar visão Brasil
+    // caso -0 usar visão Brasil
     initialCenter = [-55, -15];
-    initialZoom = 10;
+    initialZoom = 3;
   }
 
   const view = new MapView({

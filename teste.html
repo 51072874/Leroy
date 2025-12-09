@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<title>Viewer de Parâmetros</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6fa;
+      padding: 20px;
+    }
+    h2 {
+      margin-top: 30px;
+      font-size: 18px;
+    }
+    .box {
+      background: #fff;
+      padding: 15px;
+      border-radius: 10px;
+      margin-top: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.08);
+    }
+    .row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .label {
+      font-weight: bold;
+      color: #333;
+      min-width: 160px;
+    }
+    .value {
+      color: #0066cc;
+      word-break: break-all;
+    }
+    .array {
+      margin-left: 20px;
+      color: #444;
+    }
+    .empty {
+      color: #999;
+      font-style: italic;
+    }
+</style>
+</head>
+<body>
+ 
+  <h1>Visualizador de Parâmetros (Experience Builder)</h1>
+ 
+  <h2>Query Params (URL ?)</h2>
+<div class="box" id="queryBox"></div>
+ 
+  <h2>Hash Params (URL #)</h2>
+<div class="box" id="hashBox"></div>
+ 
+  <h2>PostMessage Recebido</h2>
+<div class="box" id="msgBox"></div>
+ 
+  <script>
+    function parseParams(paramString) {
+      const params = new URLSearchParams(paramString || '');
+      const result = {};
+ 
+      for (const [key, value] of params.entries()) {
+        const cleanKey = key.endsWith('[]') ? key.slice(0, -2) : key;
+ 
+        if (result[cleanKey]) {
+          if (!Array.isArray(result[cleanKey])) {
+            result[cleanKey] = [result[cleanKey]];
+          }
+          result[cleanKey].push(value);
+        } else {
+          result[cleanKey] = value;
+        }
+      }
+      return result;
+    }
+ 
+    function getQueryParams() {
+      return parseParams(window.location.search.replace('?', ''));
+    }
+ 
+    function getHashParams() {
+      const hash = window.location.hash.replace('#', '');
+      const idx = hash.indexOf('?');
+      return parseParams(idx >= 0 ? hash.slice(idx + 1) : hash);
+    }
+ 
+    function render(obj, containerId) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = '';
+ 
+      if (!obj || Object.keys(obj).length === 0) {
+        container.innerHTML = '<div class="empty">Nenhum parâmetro recebido</div>';
+        return;
+      }
+ 
+      for (const key in obj) {
+        const row = document.createElement('div');
+        row.className = 'row';
+ 
+        const label = document.createElement('div');
+        label.className = 'label';
+        label.textContent = key + ':';
+ 
+        const value = document.createElement('div');
+        value.className = 'value';
+ 
+        if (Array.isArray(obj[key])) {
+          const list = document.createElement('div');
+          list.className = 'array';
+          obj[key].forEach(v => {
+            const item = document.createElement('div');
+            item.textContent = '• ' + v;
+            list.appendChild(item);
+          });
+          value.appendChild(list);
+        } else {
+          value.textContent = obj[key];
+        }
+ 
+        row.appendChild(label);
+        row.appendChild(value);
+        container.appendChild(row);
+      }
+    }
+ 
+    function refreshAll() {
+      render(getQueryParams(), 'queryBox');
+      render(getHashParams(), 'hashBox');
+    }
+ 
+    // Inicial
+    refreshAll();
+ 
+    // Se a URL mudar (navegação interna)
+    window.addEventListener('popstate', refreshAll);
+ 
+    // PostMessage (Experience Builder)
+    window.addEventListener('message', (event) => {
+      let data = event.data;
+ 
+      if (typeof data === 'string') {
+        try { data = JSON.parse(data); } catch {}
+      }
+ 
+      document.getElementById('msgBox').textContent = '';
+      if (typeof data === 'object') {
+        render(data, 'msgBox');
+      } else {
+        document.getElementById('msgBox').textContent = data;
+      }
+    });
+</script>
+ 
+</body>
+</html>

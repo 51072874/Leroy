@@ -107,6 +107,19 @@ require([
    * Se não existir loja -> mostrar Brasil
    ***************************************************/
   lojasLayer.when(async ()=>{
+  
+  // MODO BRASIL
+  if(codLoja === "0"){
+    bairrosLayer.visible = false;
+    zonasLayer.visible = false;
+    lojasLayer.visible = true;
+    
+    view.goTo({
+      center:[-55,-14],
+      zoom:4
+    });
+    return;
+  }
     const q = lojasLayer.createQuery();
     q.where=`cod_loja='${codLoja}'`;
     const r = await lojasLayer.queryFeatures(q);

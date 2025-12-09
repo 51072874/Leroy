@@ -365,6 +365,7 @@ document.addEventListener("click", () => {
 /* ---------------------- Aplicar / Limpar -------------------------- */
 
 function aplicar() {
+  console.log(state);
   window.parent.postMessage({ type: "EXB_FILTER", data: state }, "*");
 }
 

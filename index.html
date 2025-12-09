@@ -1,168 +1,336 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>Mapa Leroy Merlin</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>Mapa Leroy Merlin</title>
 
-  <link rel="stylesheet" href="https://js.arcgis.com/4.30/esri/themes/light/main.css" />
-  <script src="https://js.arcgis.com/4.30/"></script>
+<link rel="stylesheet" href="https://js.arcgis.com/4.30/esri/themes/light/main.css" />
+<script src="https://js.arcgis.com/4.30/"></script>
 
-  <style>
-    html, body, #viewDiv {
-      padding: 0;
-      margin: 0;
-      height: 100%;
-      width: 100%;
-    }
-  </style>
+<style>
+html, body, #viewDiv {
+padding: 0;
+@@ -18,27 +16,23 @@
+</style>
 </head>
 <body>
 
 <div id="viewDiv"></div>
 
 <script>
-/**********************************************
- * 1) URLs das camadas
- *********************************************/
-const LOJAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/0";
-const ZONAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/1";
-const BAIRROS_URL = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/2";
-const VENDAS_URL  = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
+/* ---------------------- LOGIN OAUTH -------------------------- 
+
+/* ---------------------- LOGIN OAUTH (mantido comentado) --------------------------
+require([
+ "esri/identity/OAuthInfo",
+ "esri/identity/IdentityManager"
+], function (OAuthInfo, IdentityManager) {
+
+ const info = new OAuthInfo({
+   appId: "6oEhKdonlPthGMTc",
+   popup: false,
+   portalUrl: "https://igeo.leroymerlin.com.br/portal"
+ });
+
+ IdentityManager.registerOAuthInfos([info]);
+ IdentityManager.getCredential("https://igeo.leroymerlin.com.br/portal/sharing");
+});
+  */
+----------------------------------------------------------------------------------*/
 
 /**********************************************
- * 2) PEGAR cod_loja DA URL
- *********************************************/
+* 1) URLs das camadas
+*********************************************/
+@@ -52,7 +46,10 @@
+*********************************************/
 const params = new URLSearchParams(window.location.search);
 const codLoja = params.get("cod_loja");
+if (!codLoja) alert("Parâmetro ?cod_loja não informado!");
+if (!codLoja) {
+  // mantive a sua verificação original — se preferir não alertar, remova a linha abaixo
+  alert("Parâmetro ?cod_loja não informado!");
+}
 
 /**********************************************
- * 3) MAPA
- *********************************************/
-require([
-  "esri/Map",
-  "esri/views/MapView",
-  "esri/layers/FeatureLayer"
+* 3) MAPA
+@@ -62,28 +59,35 @@
+"esri/views/MapView",
+"esri/layers/FeatureLayer"
 ], function(Map, MapView, FeatureLayer) {
 
-  const map = new Map({
-    basemap: "streets-navigation-vector"
-  });
+const map = new Map({
+basemap: "streets-navigation-vector"
+});
+ 
 
-  const view = new MapView({
-    container: "viewDiv",
-    map: map,
+  // se quiser tratar cod_loja=-1 como Brasil inteiro, poderia usar; aqui focamos no cod_loja === "0"
+  let initialCenter = [-46.63, -23.55];
+  let initialZoom = 11;
+  if (codLoja === "-1" || codLoja === "0") {
+    // caso -1/0 usar visão Brasil
+    initialCenter = [-55, -15];
+    initialZoom = 4;
+  }
+
+const view = new MapView({
+container: "viewDiv",
+map: map,
     center: [-46.63, -23.55],
     zoom: 11
-  });
+    center: initialCenter,
+    zoom: initialZoom
+});
+  
 
-  /**********************************************
+/**********************************************
    * 4) CAMADAS
-   *********************************************/
-  const bairrosLayer = new FeatureLayer({
-    url: BAIRROS_URL,
-    outFields: ["*"],
-    definitionExpression: `cod_loja_zinflu = '${codLoja}'`
-  });
+   * 4) CAMADAS (cria as camadas com a configuração original)
+  *********************************************/
 
-  const zonasLayer = new FeatureLayer({
-    url: ZONAS_URL,
-    definitionExpression: `COD_LOJA = '${codLoja}'`
-  });
-
-  const lojasLayer = new FeatureLayer({
-    url: LOJAS_URL,
+/* BAIRROS */
+const bairrosLayer = new FeatureLayer({
+url: BAIRROS_URL,
+outFields: ["*"],
+title: "Bairros",
+    definitionExpression: `cod_loja_zinflu = '${codLoja}'`,
+    // não setar aqui a definitionExpression fixa — vai ser ajustada abaixo dependendo do codLoja
+labelingInfo: [
+{
+labelExpressionInfo: { expression: "$feature.nome_bairr" },
+@@ -98,7 +102,7 @@
+},
+minScale: 0,
+maxScale: 0,
+        deconflictionStrategy: "dynamic",   // 🔥 RESOLUÇÃO DE CONFLITOS
+        deconflictionStrategy: "dynamic",
+labelPlacement: "always-horizontal",
+removeDuplicates: "none"
+}
+@@ -110,7 +114,7 @@
+url: ZONAS_URL,
+outFields: ["*"],
+title: "Zona da Loja",
+    definitionExpression: `COD_LOJA = '${codLoja}'`,
+    // renderer mantido
+renderer: {
+type: "simple",
+symbol: {
+@@ -125,96 +129,153 @@
+const lojasLayer = new FeatureLayer({
+url: LOJAS_URL,
+outFields: ["*"],
+    title: "Loja Selecionada",
     definitionExpression: `cod_loja = '${codLoja}'`
-  });
+    title: "Loja Selecionada"
+    // definitionExpression será aplicada dinamicamente
+});
 
+/**********************************************
+   * ADICIONAR CAMADAS (LOJAS SEMPRE NO TOPO)
+   * 5) ADICIONAR CAMADAS (LOJAS SEMPRE NO TOPO)
+  *********************************************/
   map.add(bairrosLayer);
   map.add(zonasLayer);
   map.add(lojasLayer);
+  
+  // adiciona todas mas controlaremos visibilidade em seguida
+  map.addMany([bairrosLayer, zonasLayer, lojasLayer]);
 
-  /**********************************************
-   * 5) PROCESSAMENTO
-   *********************************************/
+/**********************************************
+   * 5) PROCESSAR BAIRROS + VENDAS
+   * 6) COMPORTAMENTO PARA cod_loja = 0  (modo BRASIL apenas lojas)
+   *
+   *    - se cod_loja === "0": fazer zoom no Brasil e
+   *      deixar apenas lojas visível inicialmente (respeitando escalas).
+   *    - caso contrário: executar o fluxo normal (bairrosLayer.when -> query -> render)
+  *********************************************/
   bairrosLayer.when(async () => {
+    
+    if(codLoja === "0"){
+    bairrosLayer.visible = false;
+    zonasLayer.visible = false;
+    lojasLayer.visible = true;
+    view.goTo({
+      center: [-54, -14],
+      zoom: 4
+    });
+    return; // para aqui, sem processar vendas
+  view.when(() => {
+    // Se for modo "0" -> zoom Brasil e só lojas visível
+    if (codLoja === "0") {
+      // goTo Brasil (já começamos com center/zoom, mas goTo garante animação)
+      view.goTo({
+        center: [-55, -15],
+        zoom: 4
+      }).catch(() => { /* ignora erro de goTo */ });
 
-    // ⇨ Se for 0 ou vazio ➜ ZOOM BRASIL
-    if (!codLoja || codLoja === "0") {
-      bairrosLayer.visible = false;
-      zonasLayer.visible = false;
+      // Mostrar apenas lojas inicialmente. NÃO alteramos minScale/maxScale/renderers
       lojasLayer.visible = true;
+      zonasLayer.visible = false;
+      bairrosLayer.visible = false;
 
-      view.goTo({ center: [-54, -14], zoom: 4 });
+      // Garantir que lojas mostrem todas as features (mostrar todas lojas)
+      // caso a layer possua already a definitionExpression aplicada por padrão, sobrescrevemos para 1=1 aqui
+      // isso garante que aparecem pontos de lojas no Brasil
+      try {
+        lojasLayer.definitionExpression = "1=1";
+      } catch (e) {
+        // se não suportar, ignorar
+        console.warn("Não foi possível alterar definitionExpression de lojasLayer:", e);
+      }
+
+      // NÃO processa vendas / renderer de bairros neste modo
       return;
-    }
+}
 
-    // Busca bairros dessa loja
     const q = bairrosLayer.createQuery();
     q.where = `cod_loja_zinflu = '${codLoja}'`;
     q.returnGeometry = true;
     q.outFields = ["cod_bairro"];
+    // Se não for cod_loja === "0": aplicar comportamento original por loja (rodar processo de bairros + vendas)
+    // Se cod_loja === "-1" (ou outro) podemos decidir diferente; aqui continuamos com fluxo original quando o valor for um id de loja
+    // Enquanto esperamos bairrosLayer.ready usamos when()
+    bairrosLayer.when(async () => {
+      try {
+        // Se codLoja estiver vazio ou inválido, não processa
+        if (!codLoja || codLoja.trim() === "") {
+          console.warn("cod_loja não fornecido; não processando bairros/vendas.");
+          return;
+        }
 
-    const result = await bairrosLayer.queryFeatures(q);
+    const r = await bairrosLayer.queryFeatures(q);
+    if (!r.features.length) return;
+        // Ajustar definitionExpressions conforme codLoja (restaurando o comportamento por loja)
+        bairrosLayer.definitionExpression = `cod_loja_zinflu = '${codLoja}'`;
+        zonasLayer.definitionExpression   = `COD_LOJA = '${codLoja}'`;
+        lojasLayer.definitionExpression   = `cod_loja = '${codLoja}'`;
 
-    if (!result.features.length){
-      view.goTo({ center: [-54,-14], zoom:4 });
-      return;
-    }
+    view.goTo(r.features.map(f => f.geometry.extent));
+        // Query bairros para obter extent e lista de bairros
+        const q = bairrosLayer.createQuery();
+        q.where = `cod_loja_zinflu = '${codLoja}'`;
+        q.returnGeometry = true;
+        q.outFields = ["cod_bairro"];
+        const r = await bairrosLayer.queryFeatures(q);
 
-    // ZOOM
-    view.goTo(result.features.map(f => f.geometry.extent));
-
-    const listaIDs = result.features
+    const listaIDs = r.features
       .map(f => `'${f.attributes.cod_bairro}'`)
       .join(",");
+        if (!r.features.length) {
+          console.warn("Nenhum bairro encontrado para cod_loja =", codLoja);
+          return;
+        }
 
-    /**********************************************
-     * CONSULTA VENDAS
-     *********************************************/
     const vendasLayer = new FeatureLayer({ url: VENDAS_URL });
+        // ir para extent dos bairros
+        try {
+          view.goTo(r.features.map(f => f.geometry.extent)).catch(()=>{});
+        } catch (e) {
+          // fallback: centralizar na primeira feature
+          try {
+            view.center = r.features[0].geometry.centroid || r.features[0].geometry;
+          } catch (err) {}
+        }
 
     const qv = vendasLayer.createQuery();
     qv.where = `id_bairro_cep IN (${listaIDs})`;
     qv.outFields = ["id_bairro_cep", "valor_vendas_atual", "valor_vendas_anterior"];
+        // montar lista de ids para consulta de vendas
+        const listaIDs = r.features
+          .map(f => `'${f.attributes.cod_bairro}'`)
+          .join(",");
 
     const vendasData = await vendasLayer.queryFeatures(qv);
+        // usar camada de vendas (cria temporária por URL, pois era usada assim no seu código original)
+        const vendasLayer = new FeatureLayer({ url: VENDAS_URL });
 
     const progresso = {};
+        const qv = vendasLayer.createQuery();
+        qv.where = `id_bairro_cep IN (${listaIDs})`;
+        qv.outFields = ["id_bairro_cep", "valor_vendas_atual", "valor_vendas_anterior"];
+        const vendasData = await vendasLayer.queryFeatures(qv);
 
     vendasData.features.forEach(f => {
       const atual = f.attributes.valor_vendas_atual || 0;
       const anterior = f.attributes.valor_vendas_anterior || 0;
-
       let pct = 0;
       if (anterior !== 0) pct = ((atual / anterior) - 1) * 100;
-
       progresso[f.attributes.id_bairro_cep] = pct;
     });
+        // calcular progresso por bairro
+        const progresso = {};
+        vendasData.features.forEach(f => {
+          const atual = f.attributes.valor_vendas_atual || 0;
+          const anterior = f.attributes.valor_vendas_anterior || 0;
+          let pct = 0;
+          if (anterior !== 0) pct = ((atual / anterior) - 1) * 100;
+          progresso[f.attributes.id_bairro_cep] = pct;
+        });
 
-    /**********************************************
-     * RENDERER COM PROGRESSÃO
-     *********************************************/
     bairrosLayer.renderer = {
       type: "simple",
-      symbol: { type:"simple-fill", outline:{ color:"#777", width:0.5 } },
-
-      visualVariables: [{
-        type: "color",
-        valueExpression: `
-            var p = ${JSON.stringify(progresso)};
-            return DefaultValue(p[$feature.cod_bairro], 0);
-        `,
-        stops: [
-          { value: -20, color: "rgba(192,0,0,0.3)" },
-          { value: -10, color: "rgba(255,63,63,0.3)" },
-          { value: 0,   color: "rgba(244,146,75,0.3)" },
-          { value: 10,  color: "rgba(127,255,255,0.3)" },
-          { value: 20,  color: "rgba(0,192,192,0.3)" },
-          { value: 100, color: "rgba(0,128,128,0.3)" }
-        ]
-      }]
+      symbol: {
+        type: "simple-fill",
+        outline: { color: "#777", width: 0.5 }
+      },
+      visualVariables: [
+        {
+          type: "color",
+          valueExpression: `
+            var pg = ${JSON.stringify(progresso)};
+            var v = pg[$feature.cod_bairro];
+            return DefaultValue(v, 0);
+          `,
+          stops: [
+            { value: -20, color: "rgba(192,0,0,0.3)" },
+            { value: -10, color: "rgba(255,63,63,0.3)" },
+            { value: 0,   color: "rgba(244,146,75,0.3)" },
+            { value: 10,  color: "rgba(127,255,255,0.3)" },
+            { value: 20,  color: "rgba(0,192,192,0.3)" },
+            { value: 100, color: "rgba(0,128,128,0.3)" }
+        // aplicar renderer com visualVariables usando valueExpression que acessa o object progresso
+        bairrosLayer.renderer = {
+          type: "simple",
+          symbol: {
+            type: "simple-fill",
+            outline: { color: "#777", width: 0.5 }
+          },
+          visualVariables: [
+            {
+              type: "color",
+              valueExpression: `
+                var pg = ${JSON.stringify(progresso)};
+                var v = pg[$feature.cod_bairro];
+                return DefaultValue(v, 0);
+              `,
+              stops: [
+                { value: -20, color: "rgba(192,0,0,0.3)" },
+                { value: -10, color: "rgba(255,63,63,0.3)" },
+                { value: 0,   color: "rgba(244,146,75,0.3)" },
+                { value: 10,  color: "rgba(127,255,255,0.3)" },
+                { value: 20,  color: "rgba(0,192,192,0.3)" },
+                { value: 100, color: "rgba(0,128,128,0.3)" }
+              ]
+            }
+]
+        }
+      ]
     };
+        };
 
     bairrosLayer.refresh();
   });
+        bairrosLayer.refresh();
+
+        // garantir que todas camadas estejam visíveis para o fluxo normal
+        bairrosLayer.visible = true;
+        zonasLayer.visible = true;
+        lojasLayer.visible = true;
+
+      } catch (err) {
+        console.error("Erro no processamento de bairros/vendas:", err);
+      }
+    }); // end bairrosLayer.when
+
+  }); // end view.when
 });
 </script>
 

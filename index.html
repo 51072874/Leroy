@@ -1,124 +1,337 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
-
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>Progressão Loja</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Mapa Leroy Merlin</title>
 
-  <!-- ESRI -->
-  <link rel="stylesheet" href="https://js.arcgis.com/4.30/esri/themes/light/main.css">
+  <link rel="stylesheet" href="https://js.arcgis.com/4.30/esri/themes/light/main.css" />
   <script src="https://js.arcgis.com/4.30/"></script>
 
   <style>
-    html,
-    body,
-    #viewDiv {
+    html, body, #viewDiv {
+      padding: 0;
+      margin: 0;
       height: 100%;
       width: 100%;
-      margin: 0;
-      padding: 0;
+      height: 100%; width: 100%;
     }
   </style>
 </head>
 
 <body>
-  <div id="viewDiv"></div>
+<div id="viewDiv"></div>
+<script>
+/* ---------------------- LOGIN OAUTH (mantido comentado) --------------------------
+require([
+  "esri/identity/OAuthInfo",
+  "esri/identity/IdentityManager"
+], function (OAuthInfo, IdentityManager) {
+  const info = new OAuthInfo({
+    appId: "6oEhKdonlPthGMTc",
+    popup: false,
+    portalUrl: "https://igeo.leroymerlin.com.br/portal"
+  });
+  IdentityManager.registerOAuthInfos([info]);
+  IdentityManager.getCredential("https://igeo.leroymerlin.com.br/portal/sharing");
+});
+----------------------------------------------------------------------------------*/
 
-  <script>
+<script>
+/**********************************************
+ * 1) URLs das camadas
+ * URLS
+ *********************************************/
+const LOJAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/0";
+const ZONAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/1";
+const BAIRROS_URL = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/2";
+const VENDAS_URL  = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
-    // ----------------------------------------------
-    // pega loja do parâmetro
-    // ----------------------------------------------
-    const url = new URLSearchParams(window.location.search);
-    const lojaParam = url.get("cod_loja") ? Number(url.get("cod_loja")) : null;
+/**********************************************
+ * 2) PEGAR cod_loja DA URL
+ * PARAM
+ *********************************************/
+const params = new URLSearchParams(window.location.search);
+const codLoja = params.get("cod_loja");
+if (!codLoja) {
+  // mantive a sua verificação original — se preferir não alertar, remova a linha abaixo
+  alert("Parâmetro ?cod_loja não informado!");
+}
+const params   = new URLSearchParams(window.location.search);
+const codLoja  = params.get("cod_loja");
 
-    require([
-      "esri/Map",
-      "esri/views/MapView",
-      "esri/layers/FeatureLayer"
-    ], function (Map, MapView, FeatureLayer) {
+/**********************************************
+ * 3) MAPA
+ * MAP
+ *********************************************/
+require([
+  "esri/Map",
+  "esri/views/MapView",
+  "esri/layers/FeatureLayer"
+], function(Map, MapView, FeatureLayer) {
 
-      // ----------------------------------------------
-      // CAMADA DOS BAIRROS (ajustar conforme seu serviço)
-      // ----------------------------------------------
-      const bairrosLayer = new FeatureLayer({
-        url: "URL_DA_CAMADA",
-        outFields: ["*"]
-      });
+  const map = new Map({
+    basemap: "streets-navigation-vector"
+  });
 
-      // ----------------------------------------------
-      // MAPA
-      // ----------------------------------------------
-      const map = new Map({
-        basemap: "streets-night-vector",
-        layers: [bairrosLayer]
-      });
+  // se quiser tratar cod_loja=-1 como Brasil inteiro, poderia usar; aqui focamos no cod_loja === "0"
+  let initialCenter = [-46.63, -23.55];
+  let initialZoom = 11;
+  if (codLoja === "0") {
+    // caso -0 usar visão Brasil
+    initialCenter = [-55, -15];
+    initialZoom = 3;
+  }
 
-      const view = new MapView({
-        container: "viewDiv",
-        map: map,
-        center: [-46.6, -23.55],
-        zoom: 11
-      });
+  const view = new MapView({
+    container: "viewDiv",
+    map: map,
+    center: initialCenter,
+    zoom: initialZoom
+    center: [-55, -15],   // 🌎 centro Brasil
+    zoom: 3               // 🌎 bem afastado
+  });
 
-      // ----------------------------------------------
-      // Renderizador Graduado
-      // ----------------------------------------------
-      const renderer = {
-        type: "simple",
-        visualVariables: [
-          {
-            type: "color",
-            field: "prog_loja",
-            stops: [
-              { value: -50, color: "#d32f2f" },
-              { value: 0, color: "#fff176" },
-              { value: 20, color: "#81c784" },
-              { value: 50, color: "#388e3c" }
-            ]
+  /**********************************************
+   * 4) CAMADAS (cria as camadas com a configuração original)
+   * layers
+   *********************************************/
+  /* BAIRROS */
+  const bairrosLayer = new FeatureLayer({
+    url: BAIRROS_URL,
+    outFields: ["*"],
+    title: "Bairros",
+    // não setar aqui a definitionExpression fixa — vai ser ajustada abaixo dependendo do codLoja
+    labelingInfo: [
+      {
+        labelExpressionInfo: { expression: "$feature.nome_bairr" },
+        symbol: {
+          type: "text",
+          color: "#000000",
+          font: {
+            family: "Arial",
+            size: 8,
+            weight: "normal"
           }
-        ]
-      };
-      bairrosLayer.renderer = renderer;
+        },
+        minScale: 0,
+        maxScale: 0,
+        deconflictionStrategy: "dynamic",
+        labelPlacement: "always-horizontal",
+        removeDuplicates: "none"
+      }
+    ]
+    outFields:["*"],
+    title:"Bairros",
+    minScale: 0,
+    maxScale: 0,
+    visible: (codLoja && codLoja != "0")  
+  });
 
-      // ----------------------------------------------
-      // FUNÇÃO PARA ZOOM POR LOJA
-      // ----------------------------------------------
-      async function zoomByStore(codigoLoja) {
-        if (!codigoLoja) return;
+  /* ZONAS */
+  const zonasLayer = new FeatureLayer({
+    url: ZONAS_URL,
+    outFields: ["*"],
+    title: "Zona da Loja",
+    // renderer mantido
+    renderer: {
+      type: "simple",
+      symbol: {
+        type: "simple-fill",
+        color: [0, 0, 0, 0],
+        outline: { color: "#EE861F", width: 2 }
+      }
+    }
+    outFields:["*"],
+    title:"Zonas",
+    minScale: 0,
+    maxScale: 0,
+    visible: (codLoja && codLoja != "0")
+  });
 
-        const q = bairrosLayer.createQuery();
-        q.where = `cod_loja=${codigoLoja}`;
-        q.returnGeometry = true;
+  /* LOJAS */
+  const lojasLayer = new FeatureLayer({
+    url: LOJAS_URL,
+    outFields: ["*"],
+    title: "Loja Selecionada"
+    // definitionExpression será aplicada dinamicamente
+    outFields:["*"],
+    title:"Lojas",
+    minScale: 0,
+    maxScale: 0,
+    visible: true           // sempre mostra lojas
+  });
 
-        const result = await bairrosLayer.queryFeatures(q);
+  /**********************************************
+   * 5) ADICIONAR CAMADAS (LOJAS SEMPRE NO TOPO)
+   *********************************************/
+  // adiciona todas mas controlaremos visibilidade em seguida
+  map.addMany([bairrosLayer, zonasLayer, lojasLayer]);
 
-        if (!result.features.length) {
-          console.log("Nenhum bairro encontrado!");
+  /**********************************************
+   * 6) COMPORTAMENTO PARA cod_loja = 0  (modo BRASIL apenas lojas)
+   *
+   *    - se cod_loja === "0": fazer zoom no Brasil e
+   *      deixar apenas lojas visível inicialmente (respeitando escalas).
+   *    - caso contrário: executar o fluxo normal (bairrosLayer.when -> query -> render)
+   *********************************************/
+  view.when(() => {
+    // Se for modo "0" -> zoom Brasil e só lojas visível
+    if (codLoja === "0") {
+      // goTo Brasil (já começamos com center/zoom, mas goTo garante animação)
+      view.goTo({
+        center: [-55, -15],
+        zoom: 3
+      }).catch(() => { /* ignora erro de goTo */ });
+
+      // Mostrar apenas lojas inicialmente. NÃO alteramos minScale/maxScale/renderers
+      lojasLayer.visible = true;
+      zonasLayer.visible = false;
+      bairrosLayer.visible = false;
+
+      // Garantir que lojas mostrem todas as features (mostrar todas lojas)
+      // caso a layer possua already a definitionExpression aplicada por padrão, sobrescrevemos para 1=1 aqui
+      // isso garante que aparecem pontos de lojas no Brasil
+      try {
+        lojasLayer.definitionExpression = "1=1";
+      } catch (e) {
+        // se não suportar, ignorar
+        console.warn("Não foi possível alterar definitionExpression de lojasLayer:", e);
+      }
+
+      // NÃO processa vendas / renderer de bairros neste modo
+      return;
+    }
+
+    // Se não for cod_loja === "0": aplicar comportamento original por loja (rodar processo de bairros + vendas)
+    // Enquanto esperamos bairrosLayer.ready usamos when()
+    bairrosLayer.when(async () => {
+      try {
+        // Se codLoja estiver vazio ou inválido, não processa
+        if (!codLoja || codLoja.trim() === "") {
+          console.warn("cod_loja não fornecido; não processando bairros/vendas.");
           return;
         }
 
-        const geom = result.features[0].geometry;
+        // Ajustar definitionExpressions conforme codLoja (restaurando o comportamento por loja)
+        bairrosLayer.definitionExpression = `cod_loja_zinflu = '${codLoja}'`;
+        zonasLayer.definitionExpression   = `COD_LOJA = '${codLoja}'`;
+        lojasLayer.definitionExpression   = `cod_loja = '${codLoja}'`;
 
-        view.goTo(
-          {
-            target: geom.extent.expand(1.5)
+        // Query bairros para obter extent e lista de bairros
+        const q = bairrosLayer.createQuery();
+        q.where = `cod_loja_zinflu = '${codLoja}'`;
+        q.returnGeometry = true;
+        q.outFields = ["cod_bairro"];
+        const r = await bairrosLayer.queryFeatures(q);
+
+        if (!r.features.length) {
+          console.warn("Nenhum bairro encontrado para cod_loja =", codLoja);
+          return;
+        }
+
+        // ir para extent dos bairros
+        try {
+          view.goTo(r.features.map(f => f.geometry.extent)).catch(()=>{});
+        } catch (e) {
+          // fallback: centralizar na primeira feature
+          try {
+            view.center = r.features[0].geometry.centroid || r.features[0].geometry;
+          } catch (err) {}
+        }
+
+        // montar lista de ids para consulta de vendas
+        const listaIDs = r.features
+          .map(f => `'${f.attributes.cod_bairro}'`)
+          .join(",");
+
+        // usar camada de vendas (cria temporária por URL, pois era usada assim no seu código original)
+        const vendasLayer = new FeatureLayer({ url: VENDAS_URL });
+
+        const qv = vendasLayer.createQuery();
+        qv.where = `id_bairro_cep IN (${listaIDs})`;
+        qv.outFields = ["id_bairro_cep", "valor_vendas_atual", "valor_vendas_anterior"];
+        const vendasData = await vendasLayer.queryFeatures(qv);
+  map.add(bairrosLayer);
+  map.add(zonasLayer);
+  map.add(lojasLayer);
+
+  /************************************************************
+   * somente ativa regras padrão quando cod_loja > 0
+   *************************************************************/
+  if (!codLoja || codLoja == "0") {
+    // fica Brasil apenas com lojas
+    console.log("Visualização inicial BRASIL");
+    return; 
+  }
+
+        // calcular progresso por bairro
+        const progresso = {};
+        vendasData.features.forEach(f => {
+          const atual = f.attributes.valor_vendas_atual || 0;
+          const anterior = f.attributes.valor_vendas_anterior || 0;
+          let pct = 0;
+          if (anterior !== 0) pct = ((atual / anterior) - 1) * 100;
+          progresso[f.attributes.id_bairro_cep] = pct;
+        });
+  /************************************************************
+   * carregamento normal quando tem loja selecionada
+   *************************************************************/
+  bairrosLayer.when(async () => {
+
+        // aplicar renderer com visualVariables usando valueExpression que acessa o object progresso
+        bairrosLayer.renderer = {
+          type: "simple",
+          symbol: {
+            type: "simple-fill",
+            outline: { color: "#777", width: 0.5 }
           },
-          {
-            animate: false        // <-- CORREÇÃO!
-          }
-        );
+          visualVariables: [
+            {
+              type: "color",
+              valueExpression: `
+                var pg = ${JSON.stringify(progresso)};
+                var v = pg[$feature.cod_bairro];
+                return DefaultValue(v, 0);
+              `,
+              stops: [
+                { value: -20, color: "rgba(192,0,0,0.3)" },
+                { value: -10, color: "rgba(255,63,63,0.3)" },
+                { value: 0,   color: "rgba(244,146,75,0.3)" },
+                { value: 10,  color: "rgba(127,255,255,0.3)" },
+                { value: 20,  color: "rgba(0,192,192,0.3)" },
+                { value: 100, color: "rgba(0,128,128,0.3)" }
+              ]
+            }
+          ]
+        };
+    bairrosLayer.definitionExpression = `cod_loja_zinflu = '${codLoja}'`;
+    zonasLayer.definitionExpression    = `COD_LOJA = '${codLoja}'`;
+    lojasLayer.definitionExpression    = `cod_loja = '${codLoja}'`;
+  
+    const q = bairrosLayer.createQuery();
+    q.where = `cod_loja_zinflu = '${codLoja}'`;
+    q.returnGeometry = true;
+
+        bairrosLayer.refresh();
+    const r = await bairrosLayer.queryFeatures(q);
+
+        // garantir que todas camadas estejam visíveis para o fluxo normal
+        bairrosLayer.visible = true;
+        zonasLayer.visible = true;
+        lojasLayer.visible = true;
+    if(!r.features.length) return;
+
+      } catch (err) {
+        console.error("Erro no processamento de bairros/vendas:", err);
       }
+    }); // end bairrosLayer.when
+    await view.goTo(r.features.map(f=>f.geometry.extent));
+  });
 
-      // ----------------------------------------------
-      // CHAMA ZOOM
-      // ----------------------------------------------
-      view.when(() => {
-        zoomByStore(lojaParam);
-      });
-
-    });
-  </script>
+  }); // end view.when
+});
+</script>
 
 </body>
 </html>

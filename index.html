@@ -4,10 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
   <title>Mapa Leroy Merlin</title>
-
   <link rel="stylesheet" href="https://js.arcgis.com/4.30/esri/themes/light/main.css" />
   <script src="https://js.arcgis.com/4.30/"></script>
-
   <style>
     html, body, #viewDiv {
       padding: 0;
@@ -17,26 +15,37 @@
     }
   </style>
 </head>
-
 <body>
 <div id="viewDiv"></div>
-
 <script>
-
+/**********************************************
+ * 1) URLs das camadas (substitua se necessário)
+ *********************************************/
 const LOJAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/0";
 const ZONAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/1";
 const BAIRROS_URL = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/2";
 const VENDAS_URL  = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
-// ---------------- PEGAR parametros
+/**********************************************
+ * 2) PEGAR PARAMETROS DA URL (query string)
+ *    (Se você usa hash #param, adapte para window.location.hash)
+ *********************************************/
 const params = new URLSearchParams(window.location.search);
-
 let codLoja = params.get("cod_loja");
+const secao   = params.get("secao");
+const idCanal = params.get("id_canal_venda");
+const ano     = params.get("ano");
+const mes     = params.get("mes");
 
-// trata inválido
-if(!codLoja || codLoja === "" || codLoja === "null" || codLoja === "undefined")
+// Normaliza valores "vazios" para "0" (modo Brasil)
+if(!codLoja || codLoja === "" || codLoja === "null" || codLoja === "undefined"){
   codLoja = "0";
+}
+console.log("PARAMS:", { codLoja, secao, idCanal, ano, mes });
 
+/**********************************************
+ * 3) MAPA
+ *********************************************/
 require([
   "esri/Map",
   "esri/views/MapView",
@@ -44,62 +53,218 @@ require([
 ], function(Map, MapView, FeatureLayer) {
 
   const map = new Map({
-    basemap:"streets-navigation-vector"
+    basemap: "streets-navigation-vector"
   });
 
+  // inicializa a view com o Brasil como fallback (será alterada se existir loja)
   const view = new MapView({
-    container:"viewDiv",
-    map:map,
-    center:[-54,-14],
-    zoom:4
+    container: "viewDiv",
+    map: map,
+    center: [-54, -14],
+    zoom: 4
   });
 
+  /**********************************************
+   * 4) CRIAR CAMADAS (def expr serão ajustadas dinamicamente)
+   *********************************************/
   const bairrosLayer = new FeatureLayer({
-    url:BAIRROS_URL,
-    outFields:["*"],
-    definitionExpression:`cod_loja_zinflu = '${codLoja}'`,
-    visible:true
+    url: BAIRROS_URL,
+    outFields: ["*"],
+    title: "Bairros",
+    visible: true
   });
 
   const zonasLayer = new FeatureLayer({
-    url:ZONAS_URL,
-    outFields:["*"],
-    definitionExpression:`COD_LOJA = '${codLoja}'`,
-    visible:true
+    url: ZONAS_URL,
+    outFields: ["*"],
+    title: "Zona da Loja",
+    visible: true,
+    renderer: {
+      type: "simple",
+      symbol: {
+        type: "simple-fill",
+        color: [0, 0, 0, 0],
+        outline: { color: "#EE861F", width: 2 }
+      }
+    }
   });
 
   const lojasLayer = new FeatureLayer({
-    url:LOJAS_URL,
-    outFields:["*"],
-    definitionExpression:`cod_loja = '${codLoja}'`,
-    visible:true
+    url: LOJAS_URL,
+    outFields: ["*"],
+    title: "Lojas",
+    visible: true
   });
 
-  map.add(bairrosLayer);
-  map.add(zonasLayer);
-  map.add(lojasLayer);
+  // adiciona ao mapa (ordem: bairros, zonas, lojas -> lojas no topo)
+  map.addMany([bairrosLayer, zonasLayer, lojasLayer]);
 
-  //-----------------------------------
-  // 🔥 SE LOJA = 0 → MOSTRAR BRASIL
-  //-----------------------------------
-  if(codLoja == "0"){
+  /**********************************************
+   * 5) MODO BRASIL (cod_loja === "0") -> mostrar só lojas (todas)
+   *********************************************/
+  if (codLoja === "0") {
+    console.log("Modo BRASIL (cod_loja=0 ou inválido). Exibindo apenas lojas.");
+    // mostra só lojas; não altera escala/renders das camadas (as camadas só ficam invisíveis)
     bairrosLayer.visible = false;
-    zonasLayer.visible = false;
-    lojasLayer.visible = true;
+    zonasLayer.visible   = false;
+    lojasLayer.visible   = true;
 
+    // garantir que lojas mostrem todas as features
+    try { lojasLayer.definitionExpression = "1=1"; } catch (e) { console.warn(e); }
+
+    // zoom para extent do Brasil (extent em WGS84)
     view.goTo({
-      center:[-54,-14],
-      zoom:4
-    });
+      extent: {
+        xmin: -82,
+        ymin: -35,
+        xmax: -32,
+        ymax: 10,
+        spatialReference: { wkid: 4326 }
+      }
+    }).catch(err => { console.warn("goTo Brasil falhou:", err); });
 
+    // não processa bairros/vendas
     return;
   }
 
-  //-----------------------------------
-  // resto do seu processamento normal
-  //-----------------------------------
+  /**********************************************
+   * 6) SE CHEGOU AQUI, codLoja é diferente de "0" -> fluxo por loja
+   *********************************************/
+  (async function processByStore() {
+    try {
+      // 6.1 - filtrar lojas por codLoja e verificar existência
+      lojasLayer.definitionExpression = `cod_loja = '${codLoja}'`;
+      zonasLayer.definitionExpression  = `COD_LOJA = '${codLoja}'`;
+      bairrosLayer.definitionExpression = `cod_loja_zinflu = '${codLoja}'`;
+      lojasLayer.visible = true;
+      zonasLayer.visible = true;
+      bairrosLayer.visible = true;
 
-});
+      console.log("Procurando loja:", codLoja);
+      await lojasLayer.load(); // garante que a layer esteja pronta
+
+      const qLoja = lojasLayer.createQuery();
+      qLoja.where = `cod_loja = '${codLoja}'`;
+      qLoja.returnGeometry = false;
+      const rLoja = await lojasLayer.queryFeatures(qLoja);
+
+      if (!rLoja.features.length) {
+        // loja não encontrada -> modo Brasil fallback (mas sem sair da função)
+        console.warn("Loja não encontrada. Voltando para modo Brasil (apenas lojas).");
+        bairrosLayer.visible = false;
+        zonasLayer.visible   = false;
+        lojasLayer.visible   = true;
+        try { lojasLayer.definitionExpression = "1=1"; } catch(e) {}
+        await view.goTo({
+          extent: {
+            xmin: -82,
+            ymin: -35,
+            xmax: -32,
+            ymax: 10,
+            spatialReference: { wkid: 4326 }
+          }
+        });
+        return;
+      }
+
+      // 6.2 - processar bairros (buscar features e ajustar extent)
+      await bairrosLayer.load();
+      const q = bairrosLayer.createQuery();
+      q.where = `cod_loja_zinflu = '${codLoja}'`;
+      q.returnGeometry = true;
+      q.outFields = ["cod_bairro"];
+      const r = await bairrosLayer.queryFeatures(q);
+
+      if (!r.features.length) {
+        console.warn("Nenhum bairro encontrado para a loja:", codLoja);
+        // podemos apenas centralizar na geometria da loja (se disponível)
+        // tenta centralizar pela primeira feature de loja (se tiver geometry)
+        try {
+          const lojaGeom = rLoja.features[0].geometry;
+          if (lojaGeom) await view.goTo({ target: lojaGeom, zoom: 13 });
+        } catch(e) { console.warn("Não foi possível centralizar na loja:", e); }
+        return;
+      }
+
+      // ir para extent dos bairros encontrados
+      try {
+        await view.goTo(r.features.map(f => f.geometry.extent));
+      } catch (e) {
+        console.warn("view.goTo por bairros falhou:", e);
+      }
+
+      // 6.3 - consultar vendas com possíveis filtros adicionais
+      const listaIDs = r.features.map(f => `'${f.attributes.cod_bairro}'`).join(",");
+      const vendasLayer = new FeatureLayer({ url: VENDAS_URL });
+      await vendasLayer.load();
+
+      // montar where com filtros extras
+      const filtros = [];
+      if (secao)   filtros.push(`secao = '${secao}'`);
+      if (idCanal) filtros.push(`id_canal_venda = '${idCanal}'`);
+      if (ano)     filtros.push(`ano = ${Number(ano)}`);
+      if (mes)     filtros.push(`mes = ${Number(mes)}`);
+      const filtroExtra = filtros.length ? " AND " + filtros.join(" AND ") : "";
+
+      const qv = vendasLayer.createQuery();
+      qv.where = `id_bairro_cep IN (${listaIDs})${filtroExtra}`;
+      qv.outFields = [
+        "id_bairro_cep",
+        "valor_vendas_atual",
+        "valor_vendas_anterior"
+      ];
+      qv.returnGeometry = false;
+
+      const vendasData = await vendasLayer.queryFeatures(qv);
+
+      // 6.4 - montar o objeto progresso por bairro
+      const progresso = {};
+      vendasData.features.forEach(f => {
+        const atual = f.attributes.valor_vendas_atual || 0;
+        const anterior = f.attributes.valor_vendas_anterior || 0;
+        let pct = 0;
+        if (anterior !== 0) pct = ((atual / anterior) - 1) * 100;
+        progresso[f.attributes.id_bairro_cep] = pct;
+      });
+
+      // 6.5 - aplicar renderer com visualVariables (usando valueExpression)
+      bairrosLayer.renderer = {
+        type: "simple",
+        symbol: {
+          type: "simple-fill",
+          outline: { color: "#777", width: 0.5 }
+        },
+        visualVariables: [
+          {
+            type: "color",
+            valueExpression: `
+              var pg = ${JSON.stringify(progresso)};
+              var v = pg[$feature.cod_bairro];
+              return DefaultValue(v, 0);
+            `,
+            stops: [
+              { value: -20, color: "rgba(192,0,0,0.3)" },
+              { value: -10, color: "rgba(255,63,63,0.3)" },
+              { value: 0,   color: "rgba(244,146,75,0.3)" },
+              { value: 10,  color: "rgba(127,255,255,0.3)" },
+              { value: 20,  color: "rgba(0,192,192,0.3)" },
+              { value: 100, color: "rgba(0,128,128,0.3)" }
+            ]
+          }
+        ]
+      };
+
+      // refresh da layer (ajusta cache)
+      bairrosLayer.refresh();
+
+      console.log("Processamento concluído para loja", codLoja);
+
+    } catch (err) {
+      console.error("Erro no processamento por loja:", err);
+    }
+  })(); // fim IIFE processByStore
+
+}); // end require
 </script>
 </body>
 </html>

@@ -139,13 +139,26 @@ require([
     q.where=`cod_loja='${codLoja}'`;
     const r = await lojasLayer.queryFeatures(q);
 
-    if(!r.features.length){
-      bairrosLayer.visible=false;
-      zonasLayer.visible=false;
-      lojasLayer.visible=true;
-      view.goTo({center:[-55,-14], zoom:4});
-      return;
-    }
+  if(codLoja==="0"){
+    bairrosLayer.visible=false;
+    zonasLayer.visible=false;
+  
+    // MOSTRAR TODAS
+    lojasLayer.visible=true;
+    lojasLayer.definitionExpression="1=1";
+  
+    view.goTo({center:[-55,-14], zoom:4});
+    return;
+  }
+  
+  // continua...
+  if(!r.features.length){
+    bairrosLayer.visible=false;
+    zonasLayer.visible=false;
+    lojasLayer.visible=true;
+    view.goTo({center:[-55,-14], zoom:4});
+    return;
+  }
 
     /***************************************************
      * Processar bairros+vendas

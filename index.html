@@ -51,6 +51,21 @@ require([
   const map = new Map({ basemap:"streets-navigation-vector" });
 
   const view = new MapView({
+    view.when(() => {
+  if (codLoja === "0") {
+    bairrosLayer.visible = false;
+    zonasLayer.visible  = false;
+    lojasLayer.visible  = true;
+
+    // mostrar todas as lojas (importante)
+    lojasLayer.definitionExpression = "1=1";
+
+    view.goTo({
+      center: [-55, -14],
+      zoom: 4
+    }).catch(()=>{});
+  }
+});
     container:"viewDiv",
     map,
     center:[-46.63,-23.55],

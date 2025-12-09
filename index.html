@@ -17,7 +17,6 @@ html,body,#viewDiv{
 }
 </style>
 </head>
-
 <body>
 <div id="viewDiv"></div>
 
@@ -26,7 +25,6 @@ html,body,#viewDiv{
 const LOJAS_URL   ="https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/0";
 const ZONAS_URL   ="https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/1";
 const BAIRROS_URL ="https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/2";
-const VENDAS_URL  ="https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
 /**************** parâmetros ***************/
 const params=new URLSearchParams(location.search);
@@ -80,43 +78,51 @@ const bairrosLayer=new FeatureLayer({
 /****** adiciona **********/
 map.addMany([bairrosLayer,zonasLayer,lojasLayer]);
 
-/*********************************************
- * SE codLoja = 0  (ou vazio)
- *********************************************/
-if(!codLoja || codLoja=="0"){
-  console.log("Primeira abertura ou cod_loja=0");
 
-  view.goTo({center:[-54,-14],zoom:4});
+/*****************************************************
+ * AGORA SIM GARANTO QUE O ZOOM FUNCIONA AQUI
+ *****************************************************/
+view.when(()=>{
 
-  lojasLayer.visible=true;
-  zonasLayer.visible=false;
-  bairrosLayer.visible=false;
+  if(!codLoja || codLoja=="0"){
+    console.log("Primeira abertura ou cod_loja=0");
 
-  return;   // PARA AQUI
-}
-
-/**********************************************
- * Se existe loja – segue lógica normal
- **********************************************/
-lojasLayer.when(async()=>{
-
-  zonasLayer.visible=true;
-  bairrosLayer.visible=true;
-
-  const q=lojasLayer.createQuery();
-  q.where=`cod_loja='${codLoja}'`;
-  const r=await lojasLayer.queryFeatures(q);
-
-  if(!r.features.length){
-    view.goTo({center:[-54,-14],zoom:4});
     lojasLayer.visible=true;
     zonasLayer.visible=false;
     bairrosLayer.visible=false;
+
+    view.goTo({
+      center:[-54,-14],
+      zoom:4
+    });
+
     return;
   }
 
-  /** segue do seu código depois… */
-});
+  /*************************************************
+   * segue fluxo normal se cod_loja existe
+   *************************************************/
+  lojasLayer.when(async()=>{
+
+    zonasLayer.visible=true;
+    bairrosLayer.visible=true;
+
+    const q=lojasLayer.createQuery();
+    q.where=`cod_loja='${codLoja}'`;
+    const r=await lojasLayer.queryFeatures(q);
+
+    if(!r.features.length){
+      view.goTo({center:[-54,-14],zoom:4});
+      lojasLayer.visible=true;
+      zonasLayer.visible=false;
+      bairrosLayer.visible=false;
+      return;
+    }
+
+  });
+
+}); // fim view.when
+
 });
 </script>
 </body>

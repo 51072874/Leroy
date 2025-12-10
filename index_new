@@ -4,14 +4,12 @@
 <head>
 <meta charset="utf-8" />
 
-<!-- dojoConfig PRECISA vir antes do carregamento da API -->
 <script>
-  window['dojoConfig'] = {
+  window["dojoConfig"] = {
     async: true
   };
 </script>
 
-<!-- A API ArcGIS PRECISA ser carregada manualmente dentro do iframe -->
 <script src="https://js.arcgis.com/4.30/"></script>
 
 <style>
@@ -30,68 +28,57 @@
 <div id="viewDiv"></div>
 
 <script>
-/* ===========================================================
-   CONFIG
-   =========================================================== */
-const LOJAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/0";
-const ZONAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/1";
-const BAIRROS_URL = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/2";
-const VENDAS_URL  = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
+/* CONFIG */
+var LOJAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/0";
+var ZONAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/1";
+var BAIRROS_URL = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/2";
+var VENDAS_URL  = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
-/* ===========================================================
-   PARÂMETROS
-   =========================================================== */
-const params = new URLSearchParams(window.location.search || "");
-
-let codLoja = params.get("cod_loja");
-let secao   = params.get("secao");
-let idCanal = params.get("id_canal_venda");
-let ano     = params.get("ano");
-let mes     = params.get("mes");
+/* PARÂMETROS */
+var params = new URLSearchParams(window.location.search || "");
+var codLoja = params.get("cod_loja");
+var secao   = params.get("secao");
+var idCanal = params.get("id_canal_venda");
+var ano     = params.get("ano");
+var mes     = params.get("mes");
 
 if (codLoja === "0") codLoja = null;
-const sanitize = v => v ? v.replace(/'/g, "''") : null;
-
-secao   = sanitize(secao);
+function sanitize(v){ return v ? v.replace(/'/g,"''") : null; }
+secao = sanitize(secao); 
 idCanal = sanitize(idCanal);
-ano     = sanitize(ano);
-mes     = sanitize(mes);
+ano = sanitize(ano);
+mes = sanitize(mes);
 
-/* ===========================================================
-    CARREGAMENTO DA ARCGIS API
-   =========================================================== */
-
+/* ARCGIS API */
 require([
   "esri/Map",
   "esri/views/MapView",
   "esri/layers/FeatureLayer"
 ], function(Map, MapView, FeatureLayer) {
 
-  const map = new Map({
-    basemap: "streets-navigation-vector"
-  });
+  var map = new Map({ basemap: "streets-navigation-vector" });
 
-  const view = new MapView({
+  var view = new MapView({
     container: "viewDiv",
-    map,
-    center: [-55,-14],
+    map: map,
+    center: [-55, -14],
     zoom: 3
   });
 
   if (!codLoja) return;
 
-  const bairrosLayer = new FeatureLayer({
+  var bairrosLayer = new FeatureLayer({
     url: BAIRROS_URL,
     outFields: ["*"],
     visible: false,
-    definitionExpression: `cod_loja_zinflu='${codLoja}'`
+    definitionExpression: "cod_loja_zinflu='" + codLoja + "'"
   });
 
-  const zonasLayer = new FeatureLayer({
+  var zonasLayer = new FeatureLayer({
     url: ZONAS_URL,
     outFields: ["*"],
     visible: false,
-    definitionExpression: `COD_LOJA='${codLoja}'`,
+    definitionExpression: "COD_LOJA='" + codLoja + "'",
     renderer:{
       type:"simple",
       symbol:{
@@ -102,21 +89,23 @@ require([
     }
   });
 
-  const lojasLayer = new FeatureLayer({
+  var lojasLayer = new FeatureLayer({
     url: LOJAS_URL,
     outFields:["*"],
     visible:false,
-    definitionExpression:`cod_loja='${codLoja}'`
+    definitionExpression:"cod_loja='" + codLoja + "'"
   });
 
   map.addMany([bairrosLayer, zonasLayer, lojasLayer]);
 
-  view.when(() => {
-    lojasLayer.when(() => {
-      const q = lojasLayer.createQuery();
-      q.where = `cod_loja='${codLoja}'`;
+  view.when(function() {
+    lojasLayer.when(function() {
 
-      lojasLayer.queryFeatures(q).then(r => {
+      var q = lojasLayer.createQuery();
+      q.where = "cod_loja='" + codLoja + "'";
+
+      lojasLayer.queryFeatures(q).then(function(r){
+
         if (!r.features.length) return;
 
         bairrosLayer.visible = true;
@@ -130,61 +119,64 @@ require([
 
   function processarBairrosEVendas() {
 
-    const q = bairrosLayer.createQuery();
-    q.where = `cod_loja_zinflu='${codLoja}'`;
+    var q = bairrosLayer.createQuery();
+    q.where = "cod_loja_zinflu='" + codLoja + "'";
     q.returnGeometry = true;
     q.outFields = ["cod_bairro"];
 
-    bairrosLayer.queryFeatures(q).then(bairros => {
+    bairrosLayer.queryFeatures(q).then(function(bairros){
+
       if (!bairros.features.length) return;
 
-      const extents = bairros.features.map(f => f.geometry.extent);
-      view.goTo(extents).catch(() => {});
+      var extents = bairros.features.map(function(f){ return f.geometry.extent; });
+      view.goTo(extents).catch(function(){});
 
-      const listaIDs = bairros.features
-        .map(f => `'${sanitize(f.attributes.cod_bairro)}'`)
+      var listaIDs = bairros.features
+        .map(function(f){ return "'" + sanitize(f.attributes.cod_bairro) + "'"; })
         .join(",");
 
-      const filtros = [];
-      if (secao) filtros.push(`secao='${secao}'`);
-      if (idCanal) filtros.push(`id_canal_venda='${idCanal}'`);
-      if (ano) filtros.push(`ano='${ano}'`);
-      if (mes) filtros.push(`mes='${mes}'`);
+      var filtros = [];
+      if (secao) filtros.push("secao='" + secao + "'");
+      if (idCanal) filtros.push("id_canal_venda='" + idCanal + "'");
+      if (ano) filtros.push("ano='" + ano + "'");
+      if (mes) filtros.push("mes='" + mes + "'");
 
-      const filtroExtra = filtros.length ? " AND " + filtros.join(" AND ") : "";
+      var filtroExtra = filtros.length ? " AND " + filtros.join(" AND ") : "";
 
-      const vendasLayer = new FeatureLayer({ url: VENDAS_URL });
+      var vendasLayer = new FeatureLayer({ url: VENDAS_URL });
 
-      const qv = vendasLayer.createQuery();
-      qv.where = `id_bairro_cep IN (${listaIDs})${filtroExtra}`;
+      var qv = vendasLayer.createQuery();
+      qv.where = "id_bairro_cep IN (" + listaIDs + ")" + filtroExtra;
       qv.outFields = [
         "id_bairro_cep",
         "valor_vendas_atual",
         "valor_vendas_anterior"
       ];
 
-      vendasLayer.queryFeatures(qv).then(vendasData => {
-        const progresso = {};
+      vendasLayer.queryFeatures(qv).then(function(vendasData){
 
-        vendasData.features.forEach(f => {
-          const a = Number(f.attributes.valor_vendas_atual) || 0;
-          const b = Number(f.attributes.valor_vendas_anterior) || 0;
+        var progresso = {};
+        vendasData.features.forEach(function(f){
+          var a = Number(f.attributes.valor_vendas_atual) || 0;
+          var b = Number(f.attributes.valor_vendas_anterior) || 0;
           progresso[f.attributes.id_bairro_cep] = b === 0 ? 0 : ((a/b)-1)*100;
         });
 
-        const json = JSON.stringify(progresso);
+        var pg = JSON.stringify(progresso);
+
+        // expression Arcade sem template string
+        var expression =
+          "var pg = " + pg + ";" +
+          "var v = pg[$feature.cod_bairro];" +
+          "return DefaultValue(v,0);";
 
         bairrosLayer.renderer = {
-          type:"simple",
-          symbol:{ type:"simple-fill", outline:{color:"#777", width:0.5} },
-          visualVariables:[{
-            type:"color",
-            valueExpression: `
-              var pg = ${json};
-              var v = pg[$feature.cod_bairro];
-              return DefaultValue(v,0);
-            `,
-            stops:[
+          type: "simple",
+          symbol: { type:"simple-fill", outline:{color:"#777", width:0.5} },
+          visualVariables: [{
+            type: "color",
+            valueExpression: expression,
+            stops: [
               {value:-20, color:"rgba(192,0,0,.3)"},
               {value:-10, color:"rgba(255,63,63,.3)"},
               {value:0,   color:"rgba(244,146,75,.3)"},

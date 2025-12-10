@@ -494,30 +494,27 @@
     /*******************************************************
      * Aplicar / Limpar
      *******************************************************/
-    function aplicar() {
+   function aplicar() {
       const payload = {
-        loja: state.loja,
-        secao: state.secao.join(","),
-        canal: state.canal.join(","),
-        ano: state.ano,
-        mes: state.mes.join(",")
+        cod_loja: state.loja || null,
+        secao: state.secao.length ? state.secao : null,
+        id_canal_venda: state.canal.length ? state.canal : null,
+        ano: state.ano || null,
+        mes: state.mes.length ? state.mes : null
       };
-
-      console.log("Filtros aplicados:", payload);
-
-      // Atualiza o mapa local
-      atualizarMapaComFiltros();
-
-      // Mantém compatibilidade para uso dentro do Experience Builder (iframe)
-      try {
-        window.parent.postMessage(
-          { type: "EXB_FILTER", data: payload },
-          "https://igeo.leroymerlin.com.br"
-        );
-      } catch (e) {
-        console.warn("postMessage falhou (provavelmente fora do EXB):", e);
-      }
+    
+      console.log("ENVIADO AO EXPERIENCE:", payload);
+    
+      // ✅ ENVIO CORRETO PARA O EXPERIENCE BUILDER
+      window.parent.postMessage(
+        {
+          type: "EXB_SET_FILTER",
+          filters: payload
+        },
+        "*"
+      );
     }
+
 
     function limpar() {
       state = { loja: "", secao: [], canal: [], ano: "", mes: [] };

@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Filtros SpotX - Experience Builder</title>
+
+  <link rel="stylesheet" href="https://js.arcgis.com/4.30/esri/themes/light/main.css" />
+  <script src="https://js.arcgis.com/4.30/"></script>
+
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; width: 100%; font-family: Arial, sans-serif; }
+    #viewDiv { height: 100%; width: 100%; }
+
+    /* Card de filtros no canto superior esquerdo */
+    #filterCard {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 999;
+      width: 360px;
+    }
+
+    .card {
+      background: #fff;
+      padding: 16px;
+      border-radius: 12px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.12);
+    }
+
+    .card h3 { margin: 0 0 8px 0; font-size: 16px; }
+    label { display: block; margin-top: 10px; font-weight: 700; font-size: 13px; }
+    select, .dropdown-btn {
+      width: 100%;
+      padding: 8px;
+      margin-top: 6px;
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+      background: #fff;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .dropdown { position: relative; }
+    .dropdown-panel {
+      display: none;
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      width: 100%;
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid #e0e0e0;
+      padding: 8px;
+      max-height: 260px;
+      overflow-y: auto;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+    }
+
+    .item { display: flex; align-items: center; gap: 8px; padding: 6px; cursor: pointer; border-radius: 6px; font-size: 13px; }
+    .item:hover { background: #f1f7ff; }
+    .controls { display:flex; gap:6px; margin-bottom:8px; }
+    .controls button { flex:1; padding:8px; border-radius:6px; border:1px solid #e0e0e0; background:#fafafa; cursor:pointer; font-size:12px; }
+
+    .footer { display:flex; gap:8px; margin-top:12px; }
+    .btn-primary { flex:1; padding:10px; border-radius:8px; background:#1976d2; color:#fff; border:none; cursor:pointer; font-weight:700; }
+    .btn-clear { flex:1; padding:10px; border-radius:8px; background:#fff; border:1px solid #e0e0e0; cursor:pointer; }
+  </style>
+</head>
+<body>
+
+  <div id="viewDiv"></div>
+
+  <div id="filterCard" class="card" role="region" aria-label="Painel de filtros">
+    <h3>Filtros Avançados</h3>
+
+    <label for="selLoja">Loja</label>
+    <select id="selLoja" aria-label="Seleção de loja"></select>
+
+    <label>Seção</label>
+    <div class="dropdown">
+      <div class="dropdown-btn" onclick="openPanel(event,'panelSecao')">
+        <span id="lblSecao">Selecionar...</span> <span id="cntSecao">0</span>
+      </div>
+      <div class="dropdown-panel" id="panelSecao">
+        <div class="controls">
+          <button type="button" onclick="selectAll('secao')">Selecionar tudo</button>
+          <button type="button" onclick="clearAll('secao')">Limpar</button>
+        </div>
+        <div id="listSecao"></div>
+      </div>
+    </div>
+
+    <label>Canal</label>
+    <div class="dropdown">
+      <div class="dropdown-btn" onclick="openPanel(event,'panelCanal')">
+        <span id="lblCanal">Selecionar...</span> <span id="cntCanal">0</span>
+      </div>
+      <div class="dropdown-panel" id="panelCanal">
+        <div class="controls">
+          <button type="button" onclick="selectAll('canal')">Selecionar tudo</button>
+          <button type="button" onclick="clearAll('canal')">Limpar</button>
+        </div>
+        <div id="listCanal"></div>
+      </div>
+    </div>
+
+    <label for="selAno">Ano</label>
+    <select id="selAno" aria-label="Seleção de ano"></select>
+
+    <label>Mês</label>
+    <div class="dropdown">
+      <div class="dropdown-btn" onclick="openPanel(event,'panelMes')">
+        <span id="lblMes">Selecionar...</span> <span id="cntMes">0</span>
+      </div>
+      <div class="dropdown-panel" id="panelMes">
+        <div class="controls">
+          <button type="button" onclick="selectAll('mes')">Selecionar tudo</button>
+          <button type="button" onclick="clearAll('mes')">Limpar</button>
+        </div>
+        <div id="listMes"></div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <button class="btn-primary" onclick="aplicar()">Aplicar</button>
+      <button class="btn-clear" onclick="limpar()">Limpar</button>
+    </div>
+  </div>
+
+<script>
+  /*******************************************************
+   * URLs (mantidas conforme você informou)
+   *******************************************************/
+  const LOJAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/0";
+  const ZONAS_URL   = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/1";
+  const BAIRROS_URL = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/2";
+  const VENDAS_URL  = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
+
+  /*******************************************************
+   * Estado dos filtros
+   *******************************************************/
+  let dataset = [];
+  let state = { loja: "", secao: [], canal: [], ano: "", mes: [] };
+
+  /*******************************************************
+   * Camadas e mapa (escopo global)
+   *******************************************************/
+  let map, view;
+  let bairrosLayer, zonasLayer, lojasLayer, vendasLayer;
+
+  /*******************************************************
+   * Helpers
+   *******************************************************/
+  const sanitize = v => v ? String(v).replace(/'/g, "''") : null;
+  const buildIn = (field, values) => {
+    const arr = (values || []).filter(Boolean).map(v => `'${sanitize(v)}'`);
+    if (!arr.length) return null;
+    if (arr.length === 1) return `${field}=${arr[0]}`;
+    return `${field} IN (${arr.join(",")})`;
+  };
+
+  /*******************************************************
+   * Carregar ArcGIS JS API + inicialização
+   *******************************************************/
+  require([
+    "esri/Map",
+    "esri/views/MapView",
+    "esri/layers/FeatureLayer",
+    "esri/identity/OAuthInfo",
+    "esri/identity/IdentityManager"
+  ], function(Map, MapView, FeatureLayer, OAuthInfo, IdentityManager) {
+
+    /* ---------- OAuth ---------- */
+    // const info = new OAuthInfo({
+    //   appId: "6oEhKdonlPthGMTc",
+    //   popup: false,
+    //   portalUrl: "https://igeo.leroymerlin.com.br/portal"
+    // });
+    // IdentityManager.registerOAuthInfos([info]);
+    // IdentityManager.getCredential("https://igeo.leroymerlin.com.br/portal/sharing");
+
+    /* ---------- Mapa e camadas ---------- */
+    map = new Map({ basemap: "streets-navigation-vector" });
+
+    view = new MapView({
+      container: "viewDiv",
+      map,
+      center: [-55, -14],
+      zoom: 3
+    });
+
+    // bairros (2)
+    bairrosLayer = new FeatureLayer({
+      url: BAIRROS_URL,
+      outFields: ["*"],
+      visible: false,
+      labelingInfo: [{
+        labelExpressionInfo: { expression: "$feature.nome_bairr" },
+        symbol: { type: "text", color: "#000", font: { size: 8 } },
+        labelPlacement: "always-horizontal",
+        deconflictionStrategy: "dynamic"
+      }]
+    });
+
+    // zonas (1)
+    zonasLayer = new FeatureLayer({
+      url: ZONAS_URL,
+      outFields: ["*"],
+      visible: false,
+      renderer: {
+        type: "simple",
+        symbol: {
+          type: "simple-fill",
+          color: [0,0,0,0],
+          outline: { color: "#EE861F", width: 2 }
+        }
+      }
+    });
+
+    // lojas (0)
+    lojasLayer = new FeatureLayer({
+      url: LOJAS_URL,
+      outFields: ["*"],
+      visible: false
+    });
+
+    // vendas (8) - usada para montar domínios e buscar valores
+    vendasLayer = new FeatureLayer({
+      url: VENDAS_URL,
+      outFields: ["secao", "id_canal_venda", "ano", "mes", "id_loja_venda", "id_bairro_cep", "valor_vendas_atual", "valor_vendas_anterior"],
+      visible: false
+    });
+
+    map.addMany([zonasLayer, bairrosLayer, lojasLayer]);
+
+    /* ---------- popular lista de lojas (dropdown) ---------- */
+    lojasLayer.queryFeatures({
+      where: "1=1",
+      outFields: ["cod_loja", "nome_loja"],
+      returnGeometry: false
+    }).then(res => {
+      const sel = document.getElementById("selLoja");
+      sel.innerHTML = `<option value="">-- Todas --</option>`;
+      res.features.forEach(f => {
+        sel.innerHTML += `<option value="${f.attributes.cod_loja}">
+          ${f.attributes.cod_loja} - ${f.attributes.nome_loja}
+        </option>`;
+      });
+
+      // se vier cod_loja pela URL, opcionalmente aplica
+      const params = new URLSearchParams(window.location.search);
+      const codLojaURL = params.get("cod_loja");
+      if (codLojaURL) {
+        state.loja = codLojaURL;
+        sel.value = codLojaURL;
+      }
+
+      sel.onchange = () => {
+        state.loja = sel.value;
+        atualizarFiltros();
+      };
+    });
+
+    /* ---------- carregar dataset de vendas (domínios) ---------- */
+    vendasLayer.queryFeatures({
+      where: "1=1",
+      outFields: ["secao", "id_canal_venda", "ano", "mes", "id_loja_venda"],
+      returnGeometry: false,
+      // paged: true // se necessário para grandes datasets, requer paginação
+    }).then(res => {
+      dataset = res.features.map(f => f.attributes);
+
+      // ler possíveis params iniciais (secao, canal, ano, mes)
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("secao")) state.secao = params.get("secao").split(",").filter(Boolean);
+      if (params.get("id_canal_venda")) state.canal = params.get("id_canal_venda").split(",").filter(Boolean);
+      if (params.get("ano")) state.ano = params.get("ano");
+      if (params.get("mes")) state.mes = params.get("mes").split(",").filter(Boolean);
+
+      montarFiltrosIniciais();
+    });
+
+  }); // end require
+
+  /*******************************************************
+   * Logica de filtros (domínios e UI)
+   *******************************************************/
+  function montarFiltrosIniciais() {
+    atualizarFiltros();
+  }
+
+  function atualizarFiltros() {
+    // dataset pode estar vazio se ainda não carregou
+    if (!dataset || !dataset.length) return;
+
+    let filtrado = dataset.filter(r => {
+      if (state.loja && r.id_loja_venda != state.loja) return false;
+      if (state.ano && r.ano != state.ano) return false;
+      if (state.secao.length && !state.secao.includes(r.secao)) return false;
+      if (state.canal.length && !state.canal.includes(r.id_canal_venda)) return false;
+      if (state.mes.length && !state.mes.includes(r.mes)) return false;
+      return true;
+    });
+
+    // Renderiza secao e canal com base no dataset filtrado
+    renderDomain("secao", [...new Set(filtrado.map(r => r.secao))].filter(Boolean).sort());
+    renderDomain("canal", [...new Set(filtrado.map(r => r.id_canal_venda))].filter(Boolean).sort());
+
+    // TODOS OS MESES sempre disponíveis (1..12)
+    renderDomain("mes", ["1","2","3","4","5","6","7","8","9","10","11","12"]);
+
+    renderAnos([...new Set(filtrado.map(r => r.ano))].filter(Boolean).sort());
+  }
+
+  function renderDomain(field, values) {
+    const list = document.getElementById("list" + capitalize(field));
+    const selected = state[field] || [];
+
+    if (!list) return;
+    list.innerHTML = "";
+
+    values.forEach(v => {
+      const checked = selected.includes(String(v)) ? "checked" : "";
+      list.innerHTML += `
+        <label class="item">
+          <input type="checkbox" value="${v}" ${checked}
+            onchange="toggleValue('${field}', this.value, this.checked)">
+          ${v}
+        </label>
+      `;
+    });
+
+    atualizarLabels();
+  }
+
+  function renderAnos(values) {
+    const selAno = document.getElementById("selAno");
+    if (!selAno) return;
+    selAno.innerHTML = `<option value="">-- Todos --</option>`;
+    values.forEach(v => selAno.innerHTML += `<option value="${v}">${v}</option>`);
+    selAno.value = state.ano || "";
+    selAno.onchange = () => { state.ano = selAno.value; atualizarFiltros(); };
+  }
+
+  function toggleValue(field, value, checked) {
+    value = String(value);
+    if (checked) {
+      if (!state[field].includes(value)) state[field].push(value);
+    } else {
+      state[field] = state[field].filter(v => v !== value);
+    }
+    atualizarLabels();
+  }
+
+  function selectAll(field) {
+    const list = document.querySelectorAll(`#list${capitalize(field)} input`);
+    state[field] = [...list].map(i => i.value);
+    renderDomain(field, state[field]);
+  }
+
+  function clearAll(field) {
+    state[field] = [];
+    renderDomain(field, []);
+  }
+
+  function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  function atualizarLabels() {
+    document.getElementById("cntSecao").textContent = state.secao.length;
+    document.getElementById("lblSecao").textContent = state.secao.length ? `${state.secao.length} selecionados` : "Selecionar...";
+
+    document.getElementById("cntCanal").textContent = state.canal.length;
+    document.getElementById("lblCanal").textContent = state.canal.length ? `${state.canal.length} selecionados` : "Selecionar...";
+
+    document.getElementById("cntMes").textContent = state.mes.length;
+    document.getElementById("lblMes").textContent = state.mes.length ? `${state.mes.length} selecionados` : "Selecionar...";
+  }
+
+  /*******************************************************
+   * Dropdowns UI
+   *******************************************************/
+  function openPanel(event, id) {
+    event.stopPropagation();
+    document.querySelectorAll(".dropdown-panel").forEach(p => p.style.display = "none");
+    const el = document.getElementById(id);
+    if (el) el.style.display = "block";
+  }
+
+  document.addEventListener("click", () => {
+    document.querySelectorAll(".dropdown-panel").forEach(p => p.style.display = "none");
+  });
+
+  /*******************************************************
+   * Aplicar / Limpar (ENVIA para Experience Builder + atualiza mapa local)
+   *******************************************************/
+  function aplicar() {
+    const payload = {
+      cod_loja: state.loja || null,
+      secao: state.secao.length ? state.secao : null,
+      id_canal_venda: state.canal.length ? state.canal : null,
+      ano: state.ano || null,
+      mes: state.mes.length ? state.mes : null
+    };
+
+    console.log("ENVIADO AO EXPERIENCE:", payload);
+
+    // 1) envia para o Experience Builder -> widgets nativos devem estar configurados para "Ao receber mensagem → Aplicar filtro"
+    window.parent.postMessage(
+      { type: "EXB_SET_FILTER", filters: payload },
+      "*" // mantemos "*" para compatibilidade iframe; se desejar, restrinja ao origin do portal
+    );
+
+    // 2) atualiza o mapa local (definições e renderer)
+    atualizarMapaComFiltros();
+  }
+
+  function limpar() {
+    state = { loja: "", secao: [], canal: [], ano: "", mes: [] };
+    document.getElementById("selLoja").value = "";
+    document.getElementById("selAno").value = "";
+    montarFiltrosIniciais();
+
+    // ocultar camadas locais
+    if (bairrosLayer && zonasLayer && lojasLayer) {
+      bairrosLayer.visible = false;
+      zonasLayer.visible = false;
+      lojasLayer.visible = false;
+    }
+  }
+
+  /*******************************************************
+   * Atualiza o mapa local com os filtros selecionados
+   *******************************************************/
+  async function atualizarMapaComFiltros() {
+    if (!state.loja) {
+      console.warn("Selecione uma loja para aplicar no mapa.");
+      return;
+    }
+
+    if (!bairrosLayer || !zonasLayer || !lojasLayer || !vendasLayer || !view) {
+      console.warn("Camadas ainda não carregadas.");
+      return;
+    }
+
+    const codLoja = state.loja;
+
+    // definir filtro nas camadas espaciais
+    bairrosLayer.definitionExpression = `cod_loja_zinflu='${sanitize(codLoja)}'`;
+    zonasLayer.definitionExpression   = `COD_LOJA='${sanitize(codLoja)}'`;
+    lojasLayer.definitionExpression   = `cod_loja='${sanitize(codLoja)}'`;
+
+    // Exibir camadas
+    bairrosLayer.visible = true;
+    zonasLayer.visible   = true;
+    lojasLayer.visible   = true;
+
+    // Verificar existência da loja
+    const qLoja = lojasLayer.createQuery();
+    qLoja.where = `cod_loja='${sanitize(codLoja)}'`;
+    const rLoja = await lojasLayer.queryFeatures(qLoja);
+    if (!rLoja.features.length) {
+      console.warn("Loja não encontrada.");
+      return;
+    }
+
+    // Processar bairros e vendas para o renderer
+    processarBairrosEVendas();
+  }
+
+  async function processarBairrosEVendas() {
+    const codLoja = state.loja;
+    if (!codLoja) return;
+
+    // 1) buscar bairros com geometria
+    const q = bairrosLayer.createQuery();
+    q.where = `cod_loja_zinflu='${sanitize(codLoja)}'`;
+    q.returnGeometry = true;
+    q.outFields = ["cod_bairro"];
+    const bairros = await bairrosLayer.queryFeatures(q);
+    if (!bairros.features.length) {
+      console.warn("Nenhum bairro encontrado para a loja.");
+      return;
+    }
+
+    // ajustar extent
+    try {
+      view.goTo(bairros.features.map(f => f.geometry.extent));
+    } catch (e) {
+      console.warn("Erro no zoom para bairros:", e);
+    }
+
+    // lista de ids de bairros para query
+    const listaIDs = bairros.features
+      .map(f => `'${sanitize(f.attributes.cod_bairro)}'`)
+      .join(",");
+
+    // 2) montar filtros extras para vendas
+    const filtros = [];
+
+    const exprSecao = buildIn("secao", state.secao);
+    if (exprSecao) filtros.push(exprSecao);
+
+    const exprCanal = buildIn("id_canal_venda", state.canal);
+    if (exprCanal) filtros.push(exprCanal);
+
+    if (state.ano) filtros.push(`ano='${sanitize(state.ano)}'`);
+
+    const exprMes = buildIn("mes", state.mes);
+    if (exprMes) filtros.push(exprMes);
+
+    const filtroExtra = filtros.length ? " AND " + filtros.join(" AND ") : "";
+
+    const qv = vendasLayer.createQuery();
+    qv.where = `id_bairro_cep IN (${listaIDs})${filtroExtra}`;
+    qv.outFields = ["id_bairro_cep", "valor_vendas_atual", "valor_vendas_anterior"];
+    qv.returnGeometry = false;
+
+    console.log("WHERE vendas aplicado:", qv.where);
+
+    const vendasData = await vendasLayer.queryFeatures(qv);
+
+    // 3) calcular progresso por bairro
+    const progresso = {};
+    vendasData.features.forEach(f => {
+      const a = Number(f.attributes.valor_vendas_atual) || 0;
+      const b = Number(f.attributes.valor_vendas_anterior) || 0;
+      let pct = 0;
+      if (b !== 0) pct = ((a / b) - 1) * 100;
+      progresso[f.attributes.id_bairro_cep] = pct;
+    });
+
+    // 4) aplicar renderer com valueExpression (Arcade) baseado no objeto progresso
+    bairrosLayer.renderer = {
+      type: "simple",
+      symbol: { type: "simple-fill", outline: { color: "#777", width: 0.5 } },
+      visualVariables: [{
+        type: "color",
+        valueExpression: `
+          var pg = ${JSON.stringify(progresso)};
+          var v = pg[$feature.cod_bairro];
+          return DefaultValue(v, 0);
+        `,
+        stops: [
+          { value: -20, color: "rgba(192,0,0,.3)" },
+          { value: -10, color: "rgba(255,63,63,.3)" },
+          { value: 0,   color: "rgba(244,146,75,.3)" },
+          { value: 10,  color: "rgba(127,255,255,.3)" },
+          { value: 20,  color: "rgba(0,192,192,.3)" },
+          { value: 100, color: "rgba(0,128,128,.3)" }
+        ]
+      }]
+    };
+
+    bairrosLayer.refresh();
+  }
+
+  /*******************************************************
+   * Permitir comunicação recebida do Experience (opcional)
+   * Ex.: se outros widgets enviarem filtros ao embutido, podemos reagir
+   *******************************************************/
+  window.addEventListener("message", (evt) => {
+    // segurança: se quiser, restrinja por origin
+    // if (evt.origin !== "https://igeo.leroymerlin.com.br") return;
+
+    const msg = evt.data || {};
+    if (msg.type === "EXB_SET_FILTER") {
+      // aceitar payload vindo do Experience e atualizar o UI local
+      const f = msg.filters || {};
+      if ('cod_loja' in f) {
+        state.loja = f.cod_loja || "";
+        document.getElementById("selLoja").value = state.loja || "";
+      }
+      if ('secao' in f) state.secao = f.secao || [];
+      if ('id_canal_venda' in f) state.canal = f.id_canal_venda || [];
+      if ('ano' in f) state.ano = f.ano || "";
+      if ('mes' in f) state.mes = f.mes || [];
+      atualizarFiltros();
+      // opcional: atualizar mapa local também
+      if (state.loja) atualizarMapaComFiltros();
+    }
+  });
+
+</script>
+</body>
+</html>

@@ -395,24 +395,21 @@
    * Aplicar / Limpar (ENVIA para Experience Builder + atualiza mapa local)
    *******************************************************/
   function aplicar() {
-    const payload = {
-      cod_loja: state.loja || null,
-      secao: state.secao.length ? state.secao : null,
-      id_canal_venda: state.canal.length ? state.canal : null,
-      ano: state.ano || null,
-      mes: state.mes.length ? state.mes : null
-    };
 
-    console.log("ENVIADO AO EXPERIENCE:", payload);
-
-    // 1) envia para o Experience Builder -> widgets nativos devem estar configurados para "Ao receber mensagem → Aplicar filtro"
-    window.parent.postMessage(
-      { type: "EXB_SET_FILTER", filters: payload },
-      "*" // mantemos "*" para compatibilidade iframe; se desejar, restrinja ao origin do portal
-    );
-
-    // 2) atualiza o mapa local (definições e renderer)
-    atualizarMapaComFiltros();
+    const params = new URLSearchParams();
+  
+    if (state.loja) params.set("cod_loja", state.loja);
+    if (state.secao.length) params.set("secao", state.secao.join(","));
+    if (state.canal.length) params.set("id_canal_venda", state.canal.join(","));
+    if (state.ano) params.set("ano", state.ano);
+    if (state.mes.length) params.set("mes", state.mes.join(","));
+  
+    const novaURL = window.location.origin + window.location.pathname + "?" + params.toString();
+  
+    console.log("REDIRECIONANDO PARA:", novaURL);
+  
+    // ✅ ESTA É A ÚNICA FORMA QUE O EB OBEDECE
+    window.parent.location.href = novaURL;
   }
 
   function limpar() {

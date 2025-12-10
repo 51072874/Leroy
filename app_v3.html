@@ -172,13 +172,13 @@
   ], function(Map, MapView, FeatureLayer, OAuthInfo, IdentityManager) {
 
     /* ---------- OAuth ---------- */
-    const info = new OAuthInfo({
-      appId: "6oEhKdonlPthGMTc",
-      popup: false,
-      portalUrl: "https://igeo.leroymerlin.com.br/portal"
-    });
-    IdentityManager.registerOAuthInfos([info]);
-    IdentityManager.getCredential("https://igeo.leroymerlin.com.br/portal/sharing");
+    // const info = new OAuthInfo({
+    //   appId: "6oEhKdonlPthGMTc",
+    //   popup: false,
+    //   portalUrl: "https://igeo.leroymerlin.com.br/portal"
+    // });
+    // IdentityManager.registerOAuthInfos([info]);
+    // IdentityManager.getCredential("https://igeo.leroymerlin.com.br/portal/sharing");
 
     /* ---------- Mapa e camadas ---------- */
     map = new Map({ basemap: "streets-navigation-vector" });

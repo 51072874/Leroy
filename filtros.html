@@ -365,8 +365,20 @@ document.addEventListener("click", () => {
 /* ---------------------- Aplicar / Limpar -------------------------- */
 
 function aplicar() {
-  console.log(state);
-  window.parent.postMessage({ type: "EXB_FILTER", data: state }, "*");
+  const payload = {
+    loja: state.loja,
+    secao: state.secao.join(","),
+    canal: state.canal.join(","),
+    ano: state.ano,
+    mes: state.mes.join(",")
+  };
+
+  console.log("ENVIADO AO EXPERIENCE:", payload);
+
+  window.parent.postMessage(
+    { type: "EXB_FILTER", data: payload },
+    "https://igeo.leroymerlin.com.br/portal"
+  );
 }
 
 function limpar() {

@@ -2,8 +2,7 @@
 <html lang="pt-br">
 <head>
 <meta charset="utf-8"/>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="viewport" content="width=282, initial-scale=1"/>
  
 <style>
 
@@ -13,35 +12,35 @@ html, body{
 
   padding:0;
 
-  height:100%;
+  width:282px;
+
+  height:93px;
 
   background:#fff;
 
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  overflow:hidden;
+
+  font-family: Arial, Helvetica, sans-serif;
+
+  color:#444444;
 
 }
  
+/* container fixo */
+
 #container{
 
   position:relative;
 
-  height:100%;
+  width:282px;
 
-  width:100%;
-
-  display:flex;
-
-  align-items:stretch;
-
-  justify-content:center;
-
-  padding:10px;
+  height:93px;
 
   box-sizing:border-box;
 
 }
  
-/* ===== LOADER: somente o circulo, fundo branco, escondendo conteúdo ===== */
+/* ===== LOADER ===== */
 
 #loader{
 
@@ -55,21 +54,19 @@ html, body{
 
   justify-content:center;
 
-  background:transparent;  /* mantém branco */
+  background:transparent;
 
   z-index:10;
 
-  pointer-events:none;
-
 }
- 
+
 .spinner{
 
-  width:42px;
+  width:22px;
 
-  height:42px;
+  height:22px;
 
-  border:4px solid #e5e5e5;
+  border:3px solid #dddddd;
 
   border-top-color:#2b7cff;
 
@@ -78,8 +75,8 @@ html, body{
   animation:spin 1s linear infinite;
 
 }
- 
-@keyframes spin { to { transform:rotate(360deg); } }
+
+@keyframes spin{ to{ transform:rotate(360deg);} }
  
 #content{
 
@@ -88,16 +85,10 @@ html, body{
   height:100%;
 
 }
+
+.loading #content{ visibility:hidden; }
  
-/* quando estiver carregando, some com cabeçalho e valores */
-
-.loading #content{
-
-  visibility:hidden;
-
-}
- 
-/* ===== KPI layout ===== */
+/* ===== KPI ===== */
 
 .kpiWrap{
 
@@ -107,15 +98,15 @@ html, body{
 
   display:grid;
 
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns:repeat(3,1fr);
 
-  border-radius:10px;
+  border:1px solid #e6e6e6;
+
+  border-radius:6px;
 
   overflow:hidden;
 
-  background:#fff;
-
-  border:1px solid #e6e6e6;
+  box-sizing:border-box;
 
 }
  
@@ -123,59 +114,27 @@ html, body{
 
   display:flex;
 
-  flex-direction:column;
+  align-items:center;
 
   justify-content:center;
 
-  align-items:center;
-
   text-align:center;
 
-  padding:14px 16px;
+  padding:2px;
 
   box-sizing:border-box;
-
-  background:#fff;
-
-  min-width:0;
 
 }
  
 .kpi + .kpi{
 
-  border-left:2px solid #cfcfcf;
+  border-left:1px solid #d0d0d0;
 
 }
  
-.kpiTitle{
+/* valores */
 
-  font-size:12px;
-
-  font-weight:650;
-
-  color:#444;
-
-  margin:0 0 10px 0;
-
-  white-space:nowrap;
-
-  overflow:hidden;
-
-  text-overflow:ellipsis;
-
-  width:100%;
-
-}
- 
 .kpiValue{
-
-  font-size:28px;
-
-  font-weight:700;
-
-  color:#333;
-
-  line-height:1.1;
 
   display:flex;
 
@@ -183,33 +142,25 @@ html, body{
 
   justify-content:center;
 
-  gap:6px;
+  gap:3px;
+
+  font-size:11px;
+
+  font-weight:600;
+
+  line-height:1;
+
+  white-space:nowrap;
 
 }
  
 .kpiUnit{
 
-  font-size:16px;
+  font-size:11px;
 
-  font-weight:650;
+  font-weight:600;
 
-  color:#666;
-
-}
- 
-@media (max-width: 600px){
-
-  .kpiWrap{ grid-template-columns: 1fr; }
-
-  .kpi + .kpi{
-
-    border-left:none;
-
-    border-top:2px solid #cfcfcf;
-
-  }
-
-  .kpiValue{ font-size:26px; }
+  color:#444444;
 
 }
 </style>
@@ -222,7 +173,6 @@ html, body{
   <div id="content">
 <div class="kpiWrap">
 <div class="kpi">
-<div class="kpiTitle">Vendas Brutas</div>
 <div class="kpiValue">
 <span class="kpiUnit">R$</span>
 <span id="vAtual">—</span>
@@ -230,7 +180,6 @@ html, body{
 </div>
  
       <div class="kpi">
-<div class="kpiTitle">Vendas Brutas</div>
 <div class="kpiValue">
 <span id="vPct">—</span>
 <span class="kpiUnit">%</span>
@@ -238,7 +187,6 @@ html, body{
 </div>
  
       <div class="kpi">
-<div class="kpiTitle">Progressao</div>
 <div class="kpiValue">
 <span id="vProg">—</span>
 <span class="kpiUnit">%</span>
@@ -254,211 +202,137 @@ html, body{
 
 const LAYER_URL =
 
-  "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
+"https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
  
 const FIELDS = {
 
-  loja: "id_loja_venda",
+  loja:"id_loja_venda",
 
-  mes: "mes",
+  mes:"mes",
 
-  ano: "ano",
+  ano:"ano",
 
-  canal: "id_canal_venda",
+  canal:"id_canal_venda",
 
-  secao: "secao",
+  secao:"secao",
 
-  valorAtual: "valor_vendas_atual",
+  valorAtual:"valor_vendas_atual",
 
-  valorAnterior: "valor_vendas_anterior"
+  valorAnterior:"valor_vendas_anterior"
 
 };
  
 const qs = new URLSearchParams(window.location.search);
  
-/* ================= UTIL ================= */
+/* ===== utils ===== */
 
 function showLoader(on){
 
-  document.getElementById("loader").style.display = on ? "flex" : "none";
+  document.getElementById("loader").style.display = on ? "flex":"none";
 
   document.body.classList.toggle("loading", on);
 
 }
- 
-function escapeSqlString(s){
 
-  return String(s).replace(/'/g, "''");
+function esc(s){ return String(s).replace(/'/g,"''"); }
 
-}
- 
-function parseList(name){
+function list(n){
 
-  if (!qs.has(name)) return [];
+  if(!qs.has(n)) return [];
 
-  return String(qs.get(name) || "")
-
-    .split(",")
-
-    .map(v => v.trim())
-
-    .filter(v => v !== "");
+  return qs.get(n).split(",").map(v=>v.trim()).filter(Boolean);
 
 }
  
-/**
-
-* where normal: aplica todos filtros
-
-* whereSemMes: remove apenas o filtro do mes, mantendo o resto
-
-*/
-
 function buildWhere(removeMes=false){
 
-  const parts = ["1=1"];
+  const p=["1=1"];
+
+  const lojas=list("loja"), meses=list("mes"), anos=list("ano"),
+
+        canais=list("id_canal_venda"), secoes=list("secao");
  
-  const lojas  = parseList("loja");
+  if(lojas.length) p.push(`${FIELDS.loja} IN (${lojas.map(v=>`'${esc(v)}'`).join(",")})`);
 
-  const meses  = parseList("mes");
+  if(!removeMes && meses.length) p.push(`${FIELDS.mes} IN (${meses.map(v=>`'${esc(v)}'`).join(",")})`);
 
-  const anos   = parseList("ano");
+  if(anos.length) p.push(`${FIELDS.ano} IN (${anos.map(v=>`'${esc(v)}'`).join(",")})`);
 
-  const canais = parseList("id_canal_venda");
+  if(canais.length) p.push(`${FIELDS.canal} IN (${canais.map(v=>`'${esc(v)}'`).join(",")})`);
 
-  const secoes = parseList("secao");
+  if(secoes.length) p.push(`${FIELDS.secao} IN (${secoes.map(v=>`'${esc(v)}'`).join(",")})`);
  
-  if (lojas.length)
-
-    parts.push(`${FIELDS.loja} IN (${lojas.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
- 
-  if (!removeMes && meses.length)
-
-    parts.push(`${FIELDS.mes} IN (${meses.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
- 
-  if (anos.length)
-
-    parts.push(`${FIELDS.ano} IN (${anos.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
- 
-  if (canais.length)
-
-    parts.push(`${FIELDS.canal} IN (${canais.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
- 
-  if (secoes.length)
-
-    parts.push(`${FIELDS.secao} IN (${secoes.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
- 
-  return parts.join(" AND ");
+  return p.join(" AND ");
 
 }
  
 async function esriQuery(params){
 
-  const url = new URL(LAYER_URL.replace(/\/+$/,"") + "/query");
+  const u=new URL(LAYER_URL+"/query");
 
-  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k,v));
+  Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v));
 
-  const r = await fetch(url.toString());
+  const r=await fetch(u); const j=await r.json();
 
-  const j = await r.json();
-
-  if (!r.ok || j.error) throw (j.error || { message: `HTTP ${r.status}` });
-
-  return j;
+  if(!r.ok||j.error) throw j.error; return j;
 
 }
  
-/* formatos */
-
 function fmtBR(n){
 
-  if (!isFinite(n)) n = 0;
-
-  return Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
 
 }
 
-function fmtPct(n){
-
-  if (!isFinite(n)) n = 0;
-
-  return Number(n).toFixed(2).replace(".", ",");
-
-}
+function fmtPct(n){ return Number(n||0).toFixed(2).replace(".",","); }
  
-/* ================= LOAD ================= */
+/* ===== load ===== */
 
 async function load(){
 
   showLoader(true);
  
-  const whereSel    = buildWhere(false); // com mes
-
-  const whereSemMes = buildWhere(true);  // sem filtro de mes
+  const wSel=buildWhere(false), wAll=buildWhere(true);
  
-  // 1) Total atual/ant COM seleção (inclui mes)
+  const sel=await esriQuery({
 
-  const selQ = await esriQuery({
+    f:"json", where:wSel,
 
-    f: "json",
+    outStatistics:JSON.stringify([
 
-    where: whereSel,
+      {statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"A"},
 
-    outStatistics: JSON.stringify([
-
-      { statisticType: "sum", onStatisticField: FIELDS.valorAtual, outStatisticFieldName: "TOTAL_ATUAL_SEL" },
-
-      { statisticType: "sum", onStatisticField: FIELDS.valorAnterior, outStatisticFieldName: "TOTAL_ANT_SEL" }
+      {statisticType:"sum", onStatisticField:FIELDS.valorAnterior, outStatisticFieldName:"B"}
 
     ]),
 
-    returnGeometry: "false"
+    returnGeometry:"false"
 
   });
  
-  // 2) Total atual SEM filtro de mes (mantém os outros filtros)
+  const all=await esriQuery({
 
-  const allQ = await esriQuery({
+    f:"json", where:wAll,
 
-    f: "json",
+    outStatistics:JSON.stringify([
 
-    where: whereSemMes,
-
-    outStatistics: JSON.stringify([
-
-      { statisticType: "sum", onStatisticField: FIELDS.valorAtual, outStatisticFieldName: "TOTAL_ATUAL_ALL" }
+      {statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"T"}
 
     ]),
 
-    returnGeometry: "false"
+    returnGeometry:"false"
 
   });
  
-  const aSel = selQ.features?.[0]?.attributes || {};
+  const a=sel.features?.[0]?.attributes||{}, b=all.features?.[0]?.attributes||{};
 
-  const aAll = allQ.features?.[0]?.attributes || {};
+  const atual=+a.A||0, ant=+a.B||0, total=+b.T||0;
  
-  const totalAtualSel = Number(aSel.TOTAL_ATUAL_SEL || 0);
+  document.getElementById("vAtual").textContent=fmtBR(atual);
 
-  const totalAntSel   = Number(aSel.TOTAL_ANT_SEL || 0);
+  document.getElementById("vPct").textContent=fmtPct(total? (atual/total)*100:0);
 
-  const totalAtualAll = Number(aAll.TOTAL_ATUAL_ALL || 0);
- 
-  // Vendas Brutas: total do filtro (inclui mes)
-
-  document.getElementById("vAtual").textContent = fmtBR(totalAtualSel);
- 
-  // Vendas Brutas %: (total selecionado) / (total sem mes) * 100
-
-  const pctMes = (totalAtualAll === 0) ? 0 : (totalAtualSel / totalAtualAll) * 100;
-
-  document.getElementById("vPct").textContent = fmtPct(pctMes);
- 
-  // Progressao % (no recorte selecionado)
-
-  const prog = (totalAntSel && totalAntSel !== 0) ? ((totalAtualSel / totalAntSel) - 1) * 100 : 0;
-
-  document.getElementById("vProg").textContent = fmtPct(prog);
+  document.getElementById("vProg").textContent=fmtPct(ant? ((atual/ant)-1)*100:0);
  
   showLoader(false);
 

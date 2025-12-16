@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Filtros Avançados - Experience Builder</title>
+<title>Filtros Avançados</title>
 
 <style>
 * { box-sizing: border-box; }
@@ -58,7 +58,6 @@ select, .dropdown-btn {
 
 .dropdown-btn {
   display: flex;
-  justify-content: space-between;
   align-items: center;
 }
 
@@ -73,21 +72,13 @@ select, .dropdown-btn {
   background: #fff;
   border-radius: 8px;
   border: 1px solid #ddd;
-  max-height: 220px;
+  max-height: 240px;
   overflow-y: auto;
   padding: 6px;
   z-index: 1000;
 }
 
 .dropdown-panel.open { display: block; }
-
-.item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px;
-  font-size: 13px;
-}
 
 .controls {
   display: flex;
@@ -100,6 +91,14 @@ select, .dropdown-btn {
   font-size: 11px;
   padding: 6px;
   cursor: pointer;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  font-size: 13px;
 }
 
 .footer {
@@ -144,8 +143,8 @@ select, .dropdown-btn {
     </div>
     <div class="dropdown-panel" id="secaoPanel">
       <div class="controls">
-        <button onclick="selectAll('secao')">Tudo</button>
-        <button onclick="clearAll('secao')">Limpar</button>
+        <button type="button" onclick="selectAll('secao')">Tudo</button>
+        <button type="button" onclick="clearAll('secao')">Limpar</button>
       </div>
       <div id="secaoList"></div>
     </div>
@@ -158,8 +157,8 @@ select, .dropdown-btn {
     </div>
     <div class="dropdown-panel" id="canalPanel">
       <div class="controls">
-        <button onclick="selectAll('canal')">Tudo</button>
-        <button onclick="clearAll('canal')">Limpar</button>
+        <button type="button" onclick="selectAll('canal')">Tudo</button>
+        <button type="button" onclick="clearAll('canal')">Limpar</button>
       </div>
       <div id="canalList"></div>
     </div>
@@ -175,8 +174,8 @@ select, .dropdown-btn {
     </div>
     <div class="dropdown-panel" id="mesPanel">
       <div class="controls">
-        <button onclick="selectAll('mes')">Tudo</button>
-        <button onclick="clearAll('mes')">Limpar</button>
+        <button type="button" onclick="selectAll('mes')">Tudo</button>
+        <button type="button" onclick="clearAll('mes')">Limpar</button>
       </div>
       <div id="mesList"></div>
     </div>
@@ -194,7 +193,6 @@ const VENDAS_URL = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/
 
 let data = [];
 let state = { loja:"", secao:[], canal:[], ano:"", mes:[] };
-
 const qs = new URLSearchParams(window.location.search);
 
 // ---------- INIT ----------
@@ -235,7 +233,7 @@ function renderList(field, values){
     el.innerHTML += `
       <label class="item">
         <input type="checkbox" value="${v}" ${chk}
-          onchange="toggle('${field}',this.value,this.checked)">
+          onchange="toggleValue('${field}',this.value,this.checked)">
         ${v}
       </label>`;
   });
@@ -251,7 +249,7 @@ function renderAnos(values){
 }
 
 // ---------- HELPERS ----------
-function toggle(field,val,on){
+function toggleValue(field,val,on){
   val = String(val);
   if(on && !state[field].includes(val)) state[field].push(val);
   if(!on) state[field] = state[field].filter(v=>v!==val);
@@ -277,10 +275,22 @@ function clearAll(field){
 
 function uniq(a){ return [...new Set(a.filter(Boolean))]; }
 
+// ---------- DROPDOWN FIX ----------
 function togglePanel(id){
-  document.querySelectorAll(".dropdown-panel").forEach(p=>p.classList.remove("open"));
-  document.getElementById(id).classList.toggle("open");
+  const panel = document.getElementById(id);
+  document.querySelectorAll(".dropdown-panel").forEach(p=>{
+    if(p!==panel) p.classList.remove("open");
+  });
+  panel.classList.toggle("open");
 }
+
+document.addEventListener("click",()=>{
+  document.querySelectorAll(".dropdown-panel").forEach(p=>p.classList.remove("open"));
+});
+
+document.querySelectorAll(".dropdown").forEach(d=>{
+  d.addEventListener("click",e=>e.stopPropagation());
+});
 
 // ---------- URL ----------
 function aplicar(){

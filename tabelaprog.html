@@ -196,11 +196,14 @@ function buildWhere(){
  
   if (meses.length)
 
-    parts.push(buildFlexibleIn(FIELDS.mes, meses));
+    //parts.push(buildFlexibleIn(FIELDS.mes, meses));
+    parts.push(`${FIELDS.mes} IN (${meses.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
+ 
  
   if (anos.length)
 
-    parts.push(buildFlexibleIn(FIELDS.ano, anos));
+   // parts.push(buildFlexibleIn(FIELDS.ano, anos));
+    parts.push(`${FIELDS.ano} IN (${anos.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
  
   if (canais.length)
 

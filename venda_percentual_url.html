@@ -27,7 +27,7 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255,255,255,0.75);
+  background: rgba(255,255,255,0.8);
   z-index: 10;
 }
 
@@ -64,13 +64,13 @@ const LAYER_URL =
   "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
 const FIELDS = {
-  loja:   "id_loja_venda",
-  mes:    "mes",
-  ano:    "ano",
-  canal:  "id_canal_venda",
-  secao:  "secao",
+  loja: "id_loja_venda",
+  mes: "mes",
+  ano: "ano",
+  canal: "id_canal_venda",
+  secao: "secao",
   classe: "classe_social",
-  valor:  "valor_vendas_atual"
+  valor: "valor_vendas_atual"
 };
 
 const CLASS_COLORS = {
@@ -90,21 +90,32 @@ const collator = new Intl.Collator("pt-BR", {
 
 /* ================= UTIL ================= */
 
+const qs = new URLSearchParams(window.location.search);
+
 function showLoader(on) {
   document.getElementById("loader").style.display = on ? "flex" : "none";
 }
 
+/* >>> FUNÇÃO CRÍTICA: evita loop com filtros vazios do EB <<< */
 function parseList(name) {
-  const qs = new URLSearchParams(window.location.search);
   if (!qs.has(name)) return [];
-  return qs.get(name)
+
+  const raw = qs.get(name);
+
+  if (
+    !raw ||
+    raw.trim() === "" ||
+    raw.includes("{") ||
+    raw.toLowerCase() === "null" ||
+    raw.toLowerCase() === "undefined"
+  ) {
+    return [];
+  }
+
+  return raw
     .split(",")
     .map(v => v.trim())
     .filter(v => v !== "");
-}
-
-function esc(v) {
-  return String(v).replace(/'/g, "''");
 }
 
 function buildWhere() {
@@ -117,32 +128,32 @@ function buildWhere() {
   const secoes = parseList("secao");
 
   if (lojas.length)
-    parts.push(`${FIELDS.loja} IN (${lojas.map(v => `'${esc(v)}'`).join(",")})`);
+    parts.push(`${FIELDS.loja} IN (${lojas.map(v => `'${v.replace(/'/g,"''")}'`).join(",")})`);
 
   if (meses.length)
-    parts.push(`${FIELDS.mes} IN (${meses.map(v => `'${esc(v)}'`).join(",")})`);
+    parts.push(`${FIELDS.mes} IN (${meses.map(v => `'${v.replace(/'/g,"''")}'`).join(",")})`);
 
   if (anos.length)
-    parts.push(`${FIELDS.ano} IN (${anos.map(v => `'${esc(v)}'`).join(",")})`);
+    parts.push(`${FIELDS.ano} IN (${anos.map(v => `'${v.replace(/'/g,"''")}'`).join(",")})`);
 
   if (canais.length)
-    parts.push(`${FIELDS.canal} IN (${canais.map(v => `'${esc(v)}'`).join(",")})`);
+    parts.push(`${FIELDS.canal} IN (${canais.map(v => `'${v.replace(/'/g,"''")}'`).join(",")})`);
 
   if (secoes.length)
-    parts.push(`${FIELDS.secao} IN (${secoes.map(v => `'${esc(v)}'`).join(",")})`);
+    parts.push(`${FIELDS.secao} IN (${secoes.map(v => `'${v.replace(/'/g,"''")}'`).join(",")})`);
 
   console.log("WHERE:", parts.join(" AND "));
   return parts.join(" AND ");
 }
 
 async function esriQuery(params) {
-  const url = new URL(LAYER_URL.replace(/\/+$/, "") + "/query");
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const url = new URL(LAYER_URL + "/query");
+  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k,v));
 
   const r = await fetch(url.toString());
   const j = await r.json();
 
-  if (!r.ok || j.error) throw (j.error || { message: `HTTP ${r.status}` });
+  if (!r.ok || j.error) throw j.error || { message: "Erro na query" };
   return j;
 }
 
@@ -151,14 +162,14 @@ function fmtPctBR(n) {
   return n.toFixed(2).replace(".", ",") + "%";
 }
 
-/* ================= LABELS ================= */
+/* ================= PLUGIN LABELS ================= */
 
 const valueLabelsPlugin = {
-  id: "valueLabels",
+  id: "valueLabelsPlugin",
   afterDatasetsDraw(chart) {
     const { ctx } = chart;
     const meta = chart.getDatasetMeta(0);
-    const data = chart.data.datasets[0].data;
+    const data = chart.data.datasets[0].data || [];
 
     ctx.save();
     ctx.font = "12px system-ui";
@@ -166,7 +177,8 @@ const valueLabelsPlugin = {
     ctx.textBaseline = "middle";
 
     meta.data.forEach((bar, i) => {
-      ctx.fillText(fmtPctBR(data[i].x), bar.x + 8, bar.y);
+      const v = data[i]?.x ?? 0;
+      ctx.fillText(fmtPctBR(v), bar.x + 8, bar.y);
     });
 
     ctx.restore();
@@ -196,7 +208,10 @@ const chart = new Chart(document.getElementById("chart"), {
       x: {
         beginAtZero: true,
         grid: { display: false },
-        ticks: { callback: v => v + "%" }
+        ticks: {
+          stepSize: 5,
+          callback: v => v + "%"
+        }
       },
       y: {
         grid: { display: false },
@@ -243,37 +258,38 @@ async function load() {
 
     const rows = (byClass.features || [])
       .map(f => ({
-        classe: String(f.attributes?.[FIELDS.classe] || "").trim(),
-        valor: Number(f.attributes?.SUM_V || 0)
+        classe: String(f.attributes[FIELDS.classe] || "").trim(),
+        valor: Number(f.attributes.SUM_V || 0)
       }))
       .filter(r => r.classe);
 
-    rows.sort((a, b) => collator.compare(a.classe, b.classe));
+    if (!rows.length || total === 0) {
+      chart.data.datasets[0].data = [];
+      chart.update();
+      return;
+    }
 
-    const data = rows.map(r => ({
+    rows.sort((a,b) => collator.compare(a.classe, b.classe));
+
+    chart.data.datasets[0].data = rows.map(r => ({
       y: r.classe,
-      x: total === 0 ? 0 : (r.valor / total) * 100
+      x: (r.valor / total) * 100
     }));
 
-    chart.data.datasets[0].data = data;
     chart.data.datasets[0].backgroundColor =
       rows.map(r => CLASS_COLORS[r.classe] || "#999");
 
     chart.options.scales.x.max =
-      Math.ceil((Math.max(...data.map(d => d.x), 0) * 1.05) / 5) * 5 || 5;
+      Math.ceil(Math.max(...rows.map(r => (r.valor / total) * 100)) / 5) * 5;
 
     chart.update();
 
-  } catch (err) {
-    console.error("Erro ao carregar gráfico:", err);
-    chart.data.datasets[0].data = [];
-    chart.update();
+  } catch (e) {
+    console.error("Erro:", e);
   } finally {
     showLoader(false);
   }
 }
-
-/* ================= INIT ================= */
 
 load();
 </script>

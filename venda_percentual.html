@@ -168,11 +168,11 @@ function buildWhere(){
  
   if (meses.length)
 
-    parts.push(`${FIELDS.mes} IN (${meses.map(v => parseInt(v,10)).filter(n=>!isNaN(n)).join(",")})`);
+    parts.push(`${FIELDS.mes} IN (${meses.map(v => `'${v.replace(/'/g,"''")}'`).join(",")})`);
  
   if (anos.length)
 
-    parts.push(`${FIELDS.ano} IN (${anos.map(v => parseInt(v,10)).filter(n=>!isNaN(n)).join(",")})`);
+    parts.push(`${FIELDS.ano} IN (${anos.map(v => `'${v.replace(/'/g,"''")}'`).join(",")})`);
  
   if (canais.length)
 

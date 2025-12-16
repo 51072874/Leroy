@@ -8,7 +8,7 @@
 html, body{
   margin:0;
   padding:0;
-  width:282px;              /* largura fixa */
+  width:282px;
   background:#fff;
   overflow:hidden;
   font-family: Arial, Helvetica, sans-serif;
@@ -20,8 +20,8 @@ html, body{
   position:relative;
   width:282px;
   display:flex;
-  align-items:center;       /* centraliza vertical */
-  justify-content:center;   /* centraliza horizontal */
+  align-items:center;
+  justify-content:center;
   box-sizing:border-box;
 }
 
@@ -47,7 +47,6 @@ html, body{
 
 @keyframes spin{ to{ transform:rotate(360deg);} }
 
-/* esconder conteúdo durante load */
 .loading #content{
   visibility:hidden;
 }
@@ -142,6 +141,7 @@ const FIELDS = {
   ano:"ano",
   canal:"id_canal_venda",
   secao:"secao",
+  codZ:"cod_loja_zinflu2",          // campo usado no filtro
   valorAtual:"valor_vendas_atual",
   valorAnterior:"valor_vendas_anterior"
 };
@@ -154,7 +154,9 @@ function showLoader(on){
   document.body.classList.toggle("loading", on);
 }
 
-function esc(s){ return String(s).replace(/'/g,"''"); }
+function esc(s){
+  return String(s).replace(/'/g,"''");
+}
 
 function list(n){
   if(!qs.has(n)) return [];
@@ -163,14 +165,30 @@ function list(n){
 
 function buildWhere(removeMes=false){
   const p=["1=1"];
-  const lojas=list("loja"), meses=list("mes"), anos=list("ano"),
-        canais=list("id_canal_venda"), secoes=list("secao");
 
-  if(lojas.length) p.push(`${FIELDS.loja} IN (${lojas.map(v=>`'${esc(v)}'`).join(",")})`);
-  if(!removeMes && meses.length) p.push(`${FIELDS.mes} IN (${meses.map(v=>`'${esc(v)}'`).join(",")})`);
-  if(anos.length) p.push(`${FIELDS.ano} IN (${anos.map(v=>`'${esc(v)}'`).join(",")})`);
-  if(canais.length) p.push(`${FIELDS.canal} IN (${canais.map(v=>`'${esc(v)}'`).join(",")})`);
-  if(secoes.length) p.push(`${FIELDS.secao} IN (${secoes.map(v=>`'${esc(v)}'`).join(",")})`);
+  /* ✅ filtro fixo: SOMENTE cod_loja_zinflu2 = '0' */
+  p.push(`${FIELDS.codZ} = '0'`);
+
+  const lojas=list("loja"),
+        meses=list("mes"),
+        anos=list("ano"),
+        canais=list("id_canal_venda"),
+        secoes=list("secao");
+
+  if(lojas.length)
+    p.push(`${FIELDS.loja} IN (${lojas.map(v=>`'${esc(v)}'`).join(",")})`);
+
+  if(!removeMes && meses.length)
+    p.push(`${FIELDS.mes} IN (${meses.map(v=>`'${esc(v)}'`).join(",")})`);
+
+  if(anos.length)
+    p.push(`${FIELDS.ano} IN (${anos.map(v=>`'${esc(v)}'`).join(",")})`);
+
+  if(canais.length)
+    p.push(`${FIELDS.canal} IN (${canais.map(v=>`'${esc(v)}'`).join(",")})`);
+
+  if(secoes.length)
+    p.push(`${FIELDS.secao} IN (${secoes.map(v=>`'${esc(v)}'`).join(",")})`);
 
   return p.join(" AND ");
 }
@@ -185,8 +203,12 @@ async function esriQuery(params){
 }
 
 function fmtBR(n){
-  return Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
+  return Number(n||0).toLocaleString("pt-BR",{
+    minimumFractionDigits:2,
+    maximumFractionDigits:2
+  });
 }
+
 function fmtPct(n){
   return Number(n||0).toFixed(2).replace(".",",");
 }
@@ -208,10 +230,12 @@ function observeHeight(){
 async function load(){
   showLoader(true);
 
-  const wSel=buildWhere(false), wAll=buildWhere(true);
+  const wSel = buildWhere(false); // com mes
+  const wAll = buildWhere(true);  // sem mes
 
-  const sel=await esriQuery({
-    f:"json", where:wSel,
+  const sel = await esriQuery({
+    f:"json",
+    where:wSel,
     outStatistics:JSON.stringify([
       {statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"A"},
       {statisticType:"sum", onStatisticField:FIELDS.valorAnterior, outStatisticFieldName:"B"}
@@ -219,22 +243,25 @@ async function load(){
     returnGeometry:"false"
   });
 
-  const all=await esriQuery({
-    f:"json", where:wAll,
+  const all = await esriQuery({
+    f:"json",
+    where:wAll,
     outStatistics:JSON.stringify([
       {statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"T"}
     ]),
     returnGeometry:"false"
   });
 
-  const a=sel.features?.[0]?.attributes||{};
-  const b=all.features?.[0]?.attributes||{};
+  const a = sel.features?.[0]?.attributes || {};
+  const b = all.features?.[0]?.attributes || {};
 
-  const atual=+a.A||0, ant=+a.B||0, total=+b.T||0;
+  const atual = +a.A || 0;
+  const ant   = +a.B || 0;
+  const total = +b.T || 0;
 
   document.getElementById("vAtual").textContent = fmtBR(atual);
-  document.getElementById("vPct").textContent   = fmtPct(total ? (atual/total)*100 : 0);
-  document.getElementById("vProg").textContent  = fmtPct(ant ? ((atual/ant)-1)*100 : 0);
+  document.getElementById("vPct").textContent   = fmtPct(total ? (atual / total) * 100 : 0);
+  document.getElementById("vProg").textContent  = fmtPct(ant ? ((atual / ant) - 1) * 100 : 0);
 
   showLoader(false);
   observeHeight();

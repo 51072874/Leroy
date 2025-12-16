@@ -72,6 +72,14 @@ canvas {
 // Configurações e constantes
 const LAYER_URL = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
+let FILTERS = {
+  mes: [],
+  ano: [],
+  secao: [],
+  id_canal_venda: [],
+  loja: []
+};
+  
 const FIELDS = {
   loja: "id_loja_venda",
   mes: "mes",
@@ -127,6 +135,9 @@ function applyFiltersFromEB(filters) {
   load();
 }
 
+
+  
+
 function toArray(v) {
   if (!v) return [];
   if (Array.isArray(v)) return v.map(String);
@@ -137,23 +148,27 @@ function toArray(v) {
 function buildWhere() {
   const parts = ["1=1"];
 
-  if (state.loja.length)
-    parts.push(`id_loja_venda IN (${state.loja.map(v => `'${v}'`).join(",")})`);
+  if (FILTERS.mes.length)
+    parts.push(`mes IN (${FILTERS.mes.map(v => `'${v}'`).join(",")})`);
 
-  if (state.mes.length)
-    parts.push(`mes IN (${state.mes.map(v => `'${v}'`).join(",")})`);
+  if (FILTERS.ano.length)
+    parts.push(`ano IN (${FILTERS.ano.map(v => `'${v}'`).join(",")})`);
 
-  if (state.ano.length)
-    parts.push(`ano IN (${state.ano.map(v => `'${v}'`).join(",")})`);
+  if (FILTERS.secao.length)
+    parts.push(`secao IN (${FILTERS.secao.map(v => `'${v.replace(/'/g,"''")}'`).join(",")})`);
 
-  if (state.id_canal_venda.length)
-    parts.push(`id_canal_venda IN (${state.id_canal_venda.map(v => `'${v}'`).join(",")})`);
+  if (FILTERS.id_canal_venda.length)
+    parts.push(`id_canal_venda IN (${FILTERS.id_canal_venda.map(v => `'${v.replace(/'/g,"''")}'`).join(",")})`);
 
-  if (state.secao.length)
-    parts.push(`secao IN (${state.secao.map(v => `'${v}'`).join(",")})`);
+  if (FILTERS.loja.length)
+    parts.push(`id_loja_venda IN (${FILTERS.loja.map(v => `'${v}'`).join(",")})`);
 
-  return parts.join(" AND ");
+  const whereFinal = parts.join(" AND ");
+  console.log("🧩 WHERE FINAL:", whereFinal);
+
+  return whereFinal;
 }
+
 
 // Requisição para o FeatureServer
 async function esriQuery(params) {
@@ -173,6 +188,25 @@ function fmtPctBR(n) {
   return n.toFixed(2).replace(".", ",") + "%";
 }
 
+window.addEventListener("message", (event) => {
+  const msg = event.data;
+  if (!msg || msg.type !== "SPOTX_FILTER_CHANGE") return;
+
+  console.log("📩 Filtros recebidos:", msg.filters);
+
+  FILTERS = {
+    mes: msg.filters.mes || [],
+    ano: msg.filters.ano ? [String(msg.filters.ano)] : [],
+    secao: msg.filters.secao || [],
+    id_canal_venda: msg.filters.id_canal_venda || [],
+    loja: msg.filters.loja ? [String(msg.filters.loja)] : []
+  };
+
+  load(); // 🔥 recarrega o gráfico
+});
+
+
+  
 // Plugin para adicionar labels aos valores
 const valueLabelsPlugin = {
   id: "valueLabelsPlugin",

@@ -174,11 +174,11 @@ function buildWhere(){
  
   /* ✅ FILTRO FIXO: cod_loja_zinflu2 (texto) diferente de '0' */
 
-  //parts.push(`${FIELDS.codZ} IS NOT NULL`);
+  parts.push(`${FIELDS.codZ} IS NOT NULL`);
 
   //parts.push(`TRIM(${FIELDS.codZ}) <> ''`);
 
- // parts.push(`${FIELDS.codZ} <> '0'`);
+  parts.push(`${FIELDS.codZ} <> '0'`);
  
   const lojas  = parseList("loja");
 

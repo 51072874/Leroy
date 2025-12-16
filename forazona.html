@@ -15,10 +15,13 @@ html, body{
   color:#444444;
 }
 
-/* container sem altura fixa */
+/* container centralizador */
 #container{
   position:relative;
   width:282px;
+  display:flex;
+  align-items:center;       /* centraliza vertical */
+  justify-content:center;   /* centraliza horizontal */
   box-sizing:border-box;
 }
 
@@ -44,13 +47,16 @@ html, body{
 
 @keyframes spin{ to{ transform:rotate(360deg);} }
 
-/* esconde conteúdo durante load */
+/* esconder conteúdo durante load */
 .loading #content{
   visibility:hidden;
 }
 
 #content{
   width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
 
 /* ===== KPI ===== */
@@ -68,7 +74,7 @@ html, body{
   display:flex;
   align-items:center;
   justify-content:center;
-  padding:6px 4px;          /* define a altura “natural” */
+  padding:6px 4px;
   box-sizing:border-box;
 }
 
@@ -185,14 +191,15 @@ function fmtPct(n){
   return Number(n||0).toFixed(2).replace(".",",");
 }
 
-/* ===== Ajuste dinâmico de altura ===== */
+/* ===== altura dinâmica ===== */
 function observeHeight(){
   const wrap = document.getElementById("kpiWrap");
   if (!wrap || !window.ResizeObserver) return;
 
   const ro = new ResizeObserver(() => {
-    document.documentElement.style.height = wrap.offsetHeight + "px";
-    document.body.style.height = wrap.offsetHeight + "px";
+    const h = wrap.offsetHeight;
+    document.documentElement.style.height = h + "px";
+    document.body.style.height = h + "px";
   });
   ro.observe(wrap);
 }

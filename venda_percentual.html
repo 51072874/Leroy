@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+ 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+ 
+<style>
+
+html, body {
+
+  margin: 0;
+
+  padding: 0;
+
+  height: 100%;
+
+  background: #fff;
+
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+
+}
+ 
+#container {
+
+  position: relative;
+
+  height: 100%;
+
+  width: 100%;
+
+}
+ 
+#loader {
+
+  position: absolute;
+
+  inset: 0;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  background: rgba(255,255,255,0.75);
+
+  z-index: 10;
+
+}
+ 
+.spinner {
+
+  width: 42px;
+
+  height: 42px;
+
+  border: 4px solid #ddd;
+
+  border-top-color: #2b7cff;
+
+  border-radius: 50%;
+
+  animation: spin 1s linear infinite;
+
+}
+ 
+@keyframes spin { to { transform: rotate(360deg); } }
+ 
+canvas {
+
+  width: 100% !important;
+
+  height: 100% !important;
+
+}
+</style>
+</head>
+ 
+<body>
+<div id="container">
+<div id="loader"><div class="spinner"></div></div>
+<canvas id="chart"></canvas>
+</div>
+ 
+<script>
+
+/* ================= CONFIG ================= */
+ 
+const LAYER_URL =
+
+  "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
+ 
+const FIELDS = {
+
+  loja: "id_loja_venda",
+
+  mes: "mes",
+
+  ano: "ano",
+
+  canal: "id_canal_venda",
+
+  secao: "secao",
+
+  classe: "classe_social",
+
+  valor: "valor_vendas_atual"
+
+};
+ 
+const CLASS_COLORS = {
+
+  "A1": "#0B2C3D",
+
+  "A2": "#1F4E66",
+
+  "B1": "#2E6B3F",
+
+  "B2": "#6FAF8E",
+
+  "C1": "#F2D36B",
+
+  "C2": "#F6E8B1",
+
+  "D/E": "#D9D9D9"
+
+};
+ 
+const collator = new Intl.Collator("pt-BR", { numeric: true, sensitivity: "base" });
+ 
+/* ================= UTIL ================= */
+ 
+const qs = new URLSearchParams(window.location.search);
+ 
+function showLoader(on){
+
+  document.getElementById("loader").style.display = on ? "flex" : "none";
+
+}
+ 
+function parseList(name){
+
+  if (!qs.has(name)) return [];
+
+  return qs.get(name).split(",").map(v => v.trim()).filter(v => v !== "");
+
+}
+ 
+function buildWhere(){
+
+  const parts = ["1=1"];
+ 
+  const lojas  = parseList("loja");
+
+  const meses  = parseList("mes");
+
+  const anos   = parseList("ano");
+
+  const canais = parseList("id_canal_venda");
+
+  const secoes = parseList("secao");
+ 
+  if (lojas.length)
+
+    parts.push(`${FIELDS.loja} IN (${lojas.map(v => `'${v.replace(/'/g,"''")}'`).join(",")})`);
+ 
+  if (meses.length)
+
+    parts.push(`${FIELDS.mes} IN (${meses.map(v => parseInt(v,10)).filter(n=>!isNaN(n)).join(",")})`);
+ 
+  if (anos.length)
+
+    parts.push(`${FIELDS.ano} IN (${anos.map(v => parseInt(v,10)).filter(n=>!isNaN(n)).join(",")})`);
+ 
+  if (canais.length)
+
+    parts.push(`${FIELDS.canal} IN (${canais.map(v => `'${v.replace(/'/g,"''")}'`).join(",")})`);
+ 
+  if (secoes.length)
+
+    parts.push(`${FIELDS.secao} IN (${secoes.map(v => `'${v.replace(/'/g,"''")}'`).join(",")})`);
+ 
+console.log(parts.join(" AND "));
+
+  return parts.join(" AND ");
+
+}
+ 
+async function esriQuery(params){
+
+  const url = new URL(LAYER_URL.replace(/\/+$/,"") + "/query");
+
+  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k,v));
+
+  const r = await fetch(url.toString(), { method: "GET" });
+
+  const j = await r.json();
+
+  if (!r.ok || j.error) throw (j.error || { message: `HTTP ${r.status}` });
+
+  return j;
+
+}
+ 
+function fmtPctBR(n){
+
+  if (!isFinite(n)) return "0,00%";
+
+  return n.toFixed(2).replace(".", ",") + "%";
+
+}
+ 
+/* ================= LABELS À DIREITA ================= */
+ 
+const valueLabelsPlugin = {
+
+  id: "valueLabelsPlugin",
+
+  afterDatasetsDraw(chart) {
+
+    const { ctx } = chart;
+
+    const meta = chart.getDatasetMeta(0);
+
+    const data = chart.data.datasets[0].data || [];
+ 
+    ctx.save();
+
+    ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+
+    ctx.fillStyle = "#222";
+
+    ctx.textBaseline = "middle";
+ 
+    for (let i = 0; i < meta.data.length; i++) {
+
+      const bar = meta.data[i];
+
+      const v = data[i]?.x ?? 0;
+
+      ctx.fillText(fmtPctBR(v), bar.x + 10, bar.y);
+
+    }
+
+    ctx.restore();
+
+  }
+
+};
+ 
+/* ================= CHART ================= */
+ 
+const chart = new Chart(document.getElementById("chart"), {
+
+  type: "bar",
+
+  data: {
+
+    datasets: [{
+
+      data: [],
+
+      backgroundColor: [],
+
+      borderWidth: 0,
+
+      barThickness: 90
+
+    }]
+
+  },
+
+  options: {
+
+    indexAxis: "y",
+
+    responsive: true,
+
+    maintainAspectRatio: false,
+
+    animation: false,
+
+    parsing: { xAxisKey: "x", yAxisKey: "y" },
+
+    layout: { padding: { right: 70 } },
+
+    scales: {
+
+      x: {
+
+        beginAtZero: true,
+
+        grid: { display: false },
+
+        ticks: { stepSize: 5, callback: v => v + "%" }
+
+      },
+
+      y: {
+
+        grid: { display: false },
+
+        ticks: { autoSkip: false }
+
+      }
+
+    },
+
+    plugins: {
+
+      legend: { display: false },
+
+      tooltip: { enabled: false }
+
+    }
+
+  },
+
+  plugins: [valueLabelsPlugin]
+
+});
+ 
+/* ================= DATA ================= */
+ 
+async function load(){
+
+  showLoader(true);
+ 
+  const where = buildWhere();
+ 
+  const byClass = await esriQuery({
+
+    f: "json",
+
+    where,
+
+    outFields: FIELDS.classe,
+
+    groupByFieldsForStatistics: FIELDS.classe,
+
+    outStatistics: JSON.stringify([
+
+      { statisticType: "sum", onStatisticField: FIELDS.valor, outStatisticFieldName: "SUM_V" }
+
+    ]),
+
+    returnGeometry: "false"
+
+  });
+ 
+  const totalQ = await esriQuery({
+
+    f: "json",
+
+    where,
+
+    outStatistics: JSON.stringify([
+
+      { statisticType: "sum", onStatisticField: FIELDS.valor, outStatisticFieldName: "TOTAL" }
+
+    ]),
+
+    returnGeometry: "false"
+
+  });
+ 
+  const total = totalQ.features?.[0]?.attributes?.TOTAL || 0;
+ 
+  let rows = (byClass.features || [])
+
+    .map(f => {
+
+      let cls = f.attributes?.[FIELDS.classe];
+
+      cls = (!cls || String(cls).trim() === "") ? "SEM_CLASSE" : String(cls).trim();
+
+      return { classe: cls, valor: Number(f.attributes?.SUM_V || 0) };
+
+    })
+
+    .filter(r => r.classe !== "SEM_CLASSE");
+ 
+  rows.sort((a,b) => collator.compare(a.classe, b.classe));
+ 
+  const data = rows.map(r => ({
+
+    y: r.classe,
+
+    x: total === 0 ? 0 : (r.valor / total) * 100
+
+  }));
+ 
+  const colors = rows.map(r => CLASS_COLORS[r.classe] || "#999999");
+ 
+  const maxValue = data.reduce((m,d) => Math.max(m, d.x), 0);
+
+  let axisMax = Math.ceil((maxValue * 1.05) / 5) * 5;
+
+  if (axisMax === 0) axisMax = 5;
+
+  chart.options.scales.x.max = axisMax;
+ 
+  chart.data.datasets[0].data = data;
+
+  chart.data.datasets[0].backgroundColor = colors;
+ 
+  chart.update();
+
+  showLoader(false);
+
+}
+ 
+load();
+</script>
+</body>
+</html>
+
+ 

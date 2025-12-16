@@ -7,211 +7,237 @@
  
 <style>
 
-  html, body {
+html, body {
 
-    margin: 0;
+  margin: 0;
 
-    padding: 0;
+  padding: 0;
 
-    height: 100%;
+  height: 100%;
 
-    background: #fff;
+  background: #fff;
 
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
 
-  }
+}
  
-  #container {
+#container {
 
-    position: relative;
+  position: relative;
 
-    height: 100%;
+  height: 100%;
 
-    width: 100%;
+  width: 100%;
 
-    padding: 10px;
+  padding: 10px;
 
-    box-sizing: border-box;
+  box-sizing: border-box;
 
-  }
+}
  
-  /* Loader */
+/* Loader */
 
-  #loader{
+#loader{
 
-    position: absolute;
+  position: absolute;
 
-    inset: 0;
+  inset: 0;
 
-    display: flex;
+  display: flex;
 
-    align-items: center;
+  align-items: center;
 
-    justify-content: center;
+  justify-content: center;
 
-    background: rgba(255,255,255,0.75);
+  background: rgba(255,255,255,0.75);
 
-    z-index: 10;
+  z-index: 10;
 
-  }
+}
+
+.spinner{
+
+  width: 42px;
+
+  height: 42px;
+
+  border: 4px solid #ddd;
+
+  border-top-color: #2b7cff;
+
+  border-radius: 50%;
+
+  animation: spin 1s linear infinite;
+
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
  
-  .spinner{
+/* Wrapper */
 
-    width: 42px;
+.tableWrap{
 
-    height: 42px;
+  width: 100%;
 
-    border: 4px solid #ddd;
+  height: 100%;
 
-    border-top-color: #2b7cff;
+  overflow: auto;
 
-    border-radius: 50%;
+  border: 1px solid #e6e6e6;
 
-    animation: spin 1s linear infinite;
+  border-radius: 10px;
 
-  }
+  background: #fff;
 
-  @keyframes spin { to { transform: rotate(360deg); } }
+}
  
-  /* Wrapper ocupa todo o espaço do iframe */
+/* Table */
 
-  .tableWrap{
+table{
 
-    width: 100%;
+  border-collapse: collapse;
 
-    height: 100%;
+  width: 100%;
 
-    overflow: auto;                /* só cria scroll se realmente precisar */
+  table-layout: fixed;
 
-    border: 1px solid #e6e6e6;
-
-    border-radius: 10px;
-
-    -webkit-overflow-scrolling: touch;
-
-    background: #fff;
-
-  }
+}
  
-  table{
+/* Header */
 
-    border-collapse: collapse;
+thead th{
 
-    width: 100%;
+  position: sticky;
 
-    table-layout: fixed;           /* ajuda a “caber” em telas pequenas */
+  top: 0;
 
-  }
+  background: #fafafa;
+
+  z-index: 1;
+
+  text-align: left;
+
+  font-size: 12px;
+
+  font-weight: 650;
+
+  padding: 7px 12px;          /* ↓ 30% */
+
+  line-height: 1.2;
+
+  border-bottom: 1px solid #e6e6e6;
+
+}
  
-  thead th{
+/* Body */
 
-    position: sticky;
+tbody td{
 
-    top: 0;
+  font-size: 12px;
 
-    background: #fafafa;
+  line-height: 1.2;           /* ↓ altura da linha */
 
-    z-index: 1;
+  padding: 7px 12px;          /* ↓ 30% */
 
-    text-align: left;
+  border-bottom: 1px solid #f0f0f0;
 
-    font-size: 12px;
+  vertical-align: top;
 
-    font-weight: 650;
-
-    padding: 10px 12px;
-
-    border-bottom: 1px solid #e6e6e6;
-
-  }
+}
  
-  tbody td{
+tbody tr:hover{
 
-    font-size: 12px;
+  background: #fcfcff;
 
-    padding: 10px 12px;
-
-    border-bottom: 1px solid #f0f0f0;
-
-    vertical-align: top;
-
-  }
+}
  
-  tbody tr:hover{ background:#fcfcff; }
+/* First column: Secao */
+
+td:first-child, th:first-child{
+
+  white-space: normal;
+
+  word-break: break-word;
+
+  overflow-wrap: anywhere;
+
+}
  
-  /* Coluna Secao: permite quebrar e não estoura */
+/* Numeric columns */
 
-  td:first-child, th:first-child{
+.num{
 
-    white-space: normal;
+  text-align: right;
 
-    word-break: break-word;
+  font-variant-numeric: tabular-nums;
 
-    overflow-wrap: anywhere;
+  white-space: nowrap;
 
-  }
+}
  
-  /* Colunas numéricas: sempre “seguras” */
+.pos{ color:#0a7a2f; }
 
-  .num{
+.neg{ color:#b00020; }
 
-    text-align: right;
-
-    font-variant-numeric: tabular-nums;
-
-    white-space: nowrap;
-
-  }
+.muted{ color:#666; }
  
-  .pos{ color:#0a7a2f; }
+/* Footer */
 
-  .neg{ color:#b00020; }
+tfoot td{
 
-  .muted{ color:#666; }
+  position: sticky;
+
+  bottom: 0;
+
+  background: #fafafa;
+
+  font-size: 12px;
+
+  line-height: 1.2;
+
+  font-weight: 650;
+
+  padding: 7px 12px;          /* ↓ 30% */
+
+  border-top: 1px solid #e6e6e6;
+
+}
  
+/* Column widths */
+
+col.col-secao { width: auto; }
+
+col.col-pct   { width: 90px; }
+
+col.col-prog  { width: 90px; }
+ 
+/* Mobile / iframe estreito */
+
+@media (max-width: 480px){
+
+  #container{ padding: 6px; }
+ 
+  thead th,
+
+  tbody td,
+
   tfoot td{
 
-    position: sticky;              /* opcional: total sempre visível no fim */
+    padding: 6px 8px;        /* ainda mais compacto */
 
-    bottom: 0;
-
-    background: #fafafa;
-
-    font-size: 12px;
-
-    font-weight: 650;
-
-    padding: 10px 12px;
-
-    border-top: 1px solid #e6e6e6;
+    font-size: 11px;
 
   }
  
-  /* Tamanhos de coluna (ajuste fino para caber) */
+  col.col-pct,
 
-  col.col-secao { width: auto; }
+  col.col-prog{
 
-  col.col-pct   { width: 90px; }
-
-  col.col-prog  { width: 90px; }
- 
-  /* Responsivo: reduz espaços no mobile/iframe estreito */
-
-  @media (max-width: 480px){
-
-    #container{ padding: 6px; }
-
-    thead th, tbody td, tfoot td{
-
-      padding: 8px 8px;
-
-      font-size: 11px;
-
-    }
-
-    col.col-pct, col.col-prog { width: 78px; }
+    width: 78px;
 
   }
+
+}
 </style>
 </head>
  
@@ -268,7 +294,7 @@ const FIELDS = {
 
   secao: "secao",
 
-  codZ: "cod_loja_zinflu2",               // ✅ filtro fixo
+  codZ: "cod_loja_zinflu2",
 
   valorAtual: "valor_vendas_atual",
 
@@ -285,13 +311,13 @@ function showLoader(on){
   document.getElementById("loader").style.display = on ? "flex" : "none";
 
 }
-
+ 
 function escapeSqlString(s){
 
   return String(s).replace(/'/g, "''");
 
 }
-
+ 
 function parseList(name){
 
   if (!qs.has(name)) return [];
@@ -305,38 +331,12 @@ function parseList(name){
     .filter(v => v !== "");
 
 }
-
-function buildFlexibleIn(field, values){
-
-  const nums = [];
-
-  const strs = [];
-
-  values.forEach(v => {
-
-    const n = Number(v);
-
-    if (!isNaN(n)) nums.push(n);
-
-    strs.push(`'${escapeSqlString(v)}'`);
-
-  });
-
-  const clauses = [];
-
-  if (nums.length) clauses.push(`${field} IN (${nums.join(",")})`);
-
-  if (strs.length) clauses.push(`${field} IN (${strs.join(",")})`);
-
-  return clauses.length > 1 ? `(${clauses.join(" OR ")})` : clauses[0];
-
-}
  
 function buildWhere(){
 
   const parts = ["1=1"];
  
-  /* ✅ FILTRO FIXO: cod_loja_zinflu2 != '0' */
+  /* filtro fixo */
 
   parts.push(`${FIELDS.codZ} IS NOT NULL`);
 

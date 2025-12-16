@@ -7,55 +7,211 @@
  
 <style>
 
-html, body { margin:0; padding:0; height:100%; background:#fff; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+  html, body {
 
-#container { position:relative; height:100%; width:100%; padding:10px; box-sizing:border-box; }
+    margin: 0;
+
+    padding: 0;
+
+    height: 100%;
+
+    background: #fff;
+
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+
+  }
  
-#loader{
+  #container {
 
-  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    position: relative;
 
-  background:rgba(255,255,255,0.75); z-index:10;
+    height: 100%;
 
-}
+    width: 100%;
 
-.spinner{
+    padding: 10px;
 
-  width:42px; height:42px; border:4px solid #ddd; border-top-color:#2b7cff;
+    box-sizing: border-box;
 
-  border-radius:50%; animation:spin 1s linear infinite;
-
-}
-
-@keyframes spin { to { transform:rotate(360deg);} }
+  }
  
-.tableWrap{ width:100%; height:100%; overflow:auto; border:1px solid #e6e6e6; border-radius:10px; }
+  /* Loader */
 
-table{ border-collapse:collapse; width:100%; min-width:520px; }
+  #loader{
+
+    position: absolute;
+
+    inset: 0;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    background: rgba(255,255,255,0.75);
+
+    z-index: 10;
+
+  }
  
-thead th{
+  .spinner{
 
-  position:sticky; top:0; background:#fafafa; z-index:1;
+    width: 42px;
 
-  text-align:left; font-size:12px; font-weight:650; padding:10px 12px; border-bottom:1px solid #e6e6e6;
+    height: 42px;
 
-}
+    border: 4px solid #ddd;
 
-tbody td{ font-size:12px; padding:10px 12px; border-bottom:1px solid #f0f0f0; }
+    border-top-color: #2b7cff;
 
-tbody tr:hover{ background:#fcfcff; }
+    border-radius: 50%;
+
+    animation: spin 1s linear infinite;
+
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
  
-.num{ text-align:right; font-variant-numeric:tabular-nums; }
+  /* Wrapper ocupa todo o espaço do iframe */
 
-.pos{ color:#0a7a2f; } .neg{ color:#b00020; } .muted{ color:#666; }
+  .tableWrap{
+
+    width: 100%;
+
+    height: 100%;
+
+    overflow: auto;                /* só cria scroll se realmente precisar */
+
+    border: 1px solid #e6e6e6;
+
+    border-radius: 10px;
+
+    -webkit-overflow-scrolling: touch;
+
+    background: #fff;
+
+  }
  
-tfoot td{
+  table{
 
-  font-size:12px; font-weight:650; padding:10px 12px;
+    border-collapse: collapse;
 
-  border-top:1px solid #e6e6e6; background:#fafafa;
+    width: 100%;
 
-}
+    table-layout: fixed;           /* ajuda a “caber” em telas pequenas */
+
+  }
+ 
+  thead th{
+
+    position: sticky;
+
+    top: 0;
+
+    background: #fafafa;
+
+    z-index: 1;
+
+    text-align: left;
+
+    font-size: 12px;
+
+    font-weight: 650;
+
+    padding: 10px 12px;
+
+    border-bottom: 1px solid #e6e6e6;
+
+  }
+ 
+  tbody td{
+
+    font-size: 12px;
+
+    padding: 10px 12px;
+
+    border-bottom: 1px solid #f0f0f0;
+
+    vertical-align: top;
+
+  }
+ 
+  tbody tr:hover{ background:#fcfcff; }
+ 
+  /* Coluna Secao: permite quebrar e não estoura */
+
+  td:first-child, th:first-child{
+
+    white-space: normal;
+
+    word-break: break-word;
+
+    overflow-wrap: anywhere;
+
+  }
+ 
+  /* Colunas numéricas: sempre “seguras” */
+
+  .num{
+
+    text-align: right;
+
+    font-variant-numeric: tabular-nums;
+
+    white-space: nowrap;
+
+  }
+ 
+  .pos{ color:#0a7a2f; }
+
+  .neg{ color:#b00020; }
+
+  .muted{ color:#666; }
+ 
+  tfoot td{
+
+    position: sticky;              /* opcional: total sempre visível no fim */
+
+    bottom: 0;
+
+    background: #fafafa;
+
+    font-size: 12px;
+
+    font-weight: 650;
+
+    padding: 10px 12px;
+
+    border-top: 1px solid #e6e6e6;
+
+  }
+ 
+  /* Tamanhos de coluna (ajuste fino para caber) */
+
+  col.col-secao { width: auto; }
+
+  col.col-pct   { width: 90px; }
+
+  col.col-prog  { width: 90px; }
+ 
+  /* Responsivo: reduz espaços no mobile/iframe estreito */
+
+  @media (max-width: 480px){
+
+    #container{ padding: 6px; }
+
+    thead th, tbody td, tfoot td{
+
+      padding: 8px 8px;
+
+      font-size: 11px;
+
+    }
+
+    col.col-pct, col.col-prog { width: 78px; }
+
+  }
 </style>
 </head>
  
@@ -65,15 +221,23 @@ tfoot td{
  
   <div class="tableWrap">
 <table>
-<thead>
+<colgroup>
+<col class="col-secao">
+<col class="col-pct">
+<col class="col-prog">
+</colgroup>
+ 
+      <thead>
 <tr>
 <th>Secao</th>
 <th class="num">% Vendas</th>
 <th class="num">Prog %</th>
 </tr>
 </thead>
-<tbody id="tbody"></tbody>
-<tfoot>
+ 
+      <tbody id="tbody"></tbody>
+ 
+      <tfoot>
 <tr>
 <td>Total</td>
 <td class="num">100,00%</td>
@@ -87,7 +251,7 @@ tfoot td{
 <script>
 
 /* ================= CONFIG ================= */
- 
+
 const LAYER_URL =
 
   "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
@@ -104,7 +268,7 @@ const FIELDS = {
 
   secao: "secao",
 
-  codZ: "cod_loja_zinflu2",               // ✅ novo campo fixo
+  codZ: "cod_loja_zinflu2",               // ✅ filtro fixo
 
   valorAtual: "valor_vendas_atual",
 
@@ -115,19 +279,19 @@ const FIELDS = {
 const qs = new URLSearchParams(window.location.search);
  
 /* ================= UTIL ================= */
- 
+
 function showLoader(on){
 
   document.getElementById("loader").style.display = on ? "flex" : "none";
 
 }
- 
+
 function escapeSqlString(s){
 
   return String(s).replace(/'/g, "''");
 
 }
- 
+
 function parseList(name){
 
   if (!qs.has(name)) return [];
@@ -141,13 +305,13 @@ function parseList(name){
     .filter(v => v !== "");
 
 }
- 
+
 function buildFlexibleIn(field, values){
 
   const nums = [];
 
   const strs = [];
- 
+
   values.forEach(v => {
 
     const n = Number(v);
@@ -157,13 +321,13 @@ function buildFlexibleIn(field, values){
     strs.push(`'${escapeSqlString(v)}'`);
 
   });
- 
+
   const clauses = [];
 
   if (nums.length) clauses.push(`${field} IN (${nums.join(",")})`);
 
   if (strs.length) clauses.push(`${field} IN (${strs.join(",")})`);
- 
+
   return clauses.length > 1 ? `(${clauses.join(" OR ")})` : clauses[0];
 
 }
@@ -172,11 +336,9 @@ function buildWhere(){
 
   const parts = ["1=1"];
  
-  /* ✅ FILTRO FIXO: cod_loja_zinflu2 (texto) diferente de '0' */
+  /* ✅ FILTRO FIXO: cod_loja_zinflu2 != '0' */
 
   parts.push(`${FIELDS.codZ} IS NOT NULL`);
-
-  //parts.push(`TRIM(${FIELDS.codZ}) <> ''`);
 
   parts.push(`${FIELDS.codZ} <> '0'`);
  
@@ -196,13 +358,10 @@ function buildWhere(){
  
   if (meses.length)
 
-    //parts.push(buildFlexibleIn(FIELDS.mes, meses));
     parts.push(`${FIELDS.mes} IN (${meses.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
- 
  
   if (anos.length)
 
-   // parts.push(buildFlexibleIn(FIELDS.ano, anos));
     parts.push(`${FIELDS.ano} IN (${anos.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
  
   if (canais.length)
@@ -244,7 +403,7 @@ function fmtBR(n){
 function fmtPct(n){ return fmtBR(n) + "%"; }
  
 /* ================= RENDER ================= */
- 
+
 function renderTable(rows, totalAtual, totalAnterior){
 
   const tbody = document.getElementById("tbody");
@@ -285,7 +444,7 @@ function renderTable(rows, totalAtual, totalAnterior){
 }
  
 /* ================= LOAD ================= */
- 
+
 async function load(){
 
   showLoader(true);
@@ -342,7 +501,7 @@ async function load(){
 
     let sec = a[FIELDS.secao];
 
-    sec = (!sec || String(sec).trim()==="") ? "SEM_SECAO" : String(sec).trim();
+    sec = (!sec || String(sec).trim() === "") ? "SEM_SECAO" : String(sec).trim();
  
     const atual = Number(a.SUM_ATUAL || 0);
 
@@ -360,7 +519,7 @@ async function load(){
 
   });
  
-  // ordena por Prog % DESC
+  // Ordena por Prog % DESC
 
   rows.sort((a,b) => {
 

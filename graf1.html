@@ -175,43 +175,47 @@ async function load() {
 // MESSAGE LISTENER (EXB / MessageBus)
 // =====================================================
 window.addEventListener("message", (event) => {
-  console.log("📨 Gráfico recebeu RAW:", event.data);
+  console.log("🟥 EVENT RAW:", JSON.stringify(event.data));
 
-  if (
-    !event.data ||
-    (event.data.type !== "EXB_SET_FILTER" &&
-     event.data.type !== "SPOTX_FILTER_CHANGE")
-  ) {
+  if (!event.data) {
+    console.log("🟥 event.data vazio");
     return;
   }
 
-  // 🔥 NORMALIZAÇÃO DO PAYLOAD (AQUI ESTAVA O BUG)
-  const rawFilters =
-    event.data.filters ||
-    event.data.payload?.filters ||
-    event.data.payload ||
-    {};
+  const type = event.data.type;
+  console.log("🟦 TYPE:", type);
 
-  console.log("🎯 Filtros normalizados:", rawFilters);
+  if (type !== "EXB_SET_FILTER" && type !== "SPOTX_FILTER_CHANGE") {
+    console.log("🟨 Tipo ignorado");
+    return;
+  }
+
+  const raw =
+    event.data.filters ??
+    event.data.payload?.filters ??
+    event.data.payload ??
+    event.data;
+
+  console.log("🟩 RAW FILTERS:", raw);
 
   FILTERS = {
-    loja: toArray(rawFilters.cod_loja),
-    secao: toArray(rawFilters.secao),
-    id_canal_venda: toArray(rawFilters.id_canal_venda),
-    ano: toArray(rawFilters.ano),
-    mes: toArray(rawFilters.mes)
+    loja: toArray(raw.cod_loja),
+    mes: toArray(raw.mes),
+    ano: toArray(raw.ano),
+    secao: toArray(raw.secao),
+    id_canal_venda: toArray(raw.id_canal_venda)
   };
 
-  console.log("🎯 FILTERS aplicados no gráfico:", FILTERS);
+  console.log("🟢 FILTERS SETADOS:", FILTERS);
 
-  atualizarFiltrosAtivos();
   load();
 });
 
 
 
+
 // =====================================================
-load();
+
 console.log("🧠 SpotX Gráfico: listener ativo");
 </script>
 </body>

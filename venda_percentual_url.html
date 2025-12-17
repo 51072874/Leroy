@@ -12,111 +12,46 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background: #fff;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  background: #fff;
 }
-
-#container {
-  position: relative;
-  height: 100%;
-  width: 100%;
-}
-
-#filtrosAtivos {
-  display: none;
-  padding: 12px;
-  background: #e3f2fd;
-  border-bottom: 2px solid #1976d2;
-  font-size: 13px;
-  color: #1976d2;
-}
-
+#container { position: relative; height: 100%; width: 100%; }
 #loader {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255,255,255,0.9);
-  z-index: 10;
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.9); z-index: 10;
 }
-
 .spinner {
-  width: 42px;
-  height: 42px;
+  width: 40px; height: 40px;
   border: 4px solid #ddd;
-  border-top-color: #2b7cff;
+  border-top-color: #1976d2;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-canvas {
-  width: 100% !important;
-  height: 100% !important;
-}
-
+@keyframes spin { to { transform: rotate(360deg); } }
 #nodata {
   display: none;
-  position: absolute;
-  inset: 0;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  font: 14px system-ui;
-  color: #666;
+  position: absolute; inset: 0;
+  align-items: center; justify-content: center;
+  color: #666; font-size: 14px;
 }
+canvas { width: 100% !important; height: 100% !important; }
 </style>
 </head>
 
 <body>
 <div id="container">
-
-  <div id="filtrosAtivos">
-    <strong>🔍 Filtros Ativos:</strong>
-    <span id="filtrosTexto">Nenhum</span>
-  </div>
-
-  <div id="loader">
-    <div class="spinner"></div>
-    <div style="margin-top:10px">Carregando dados...</div>
-  </div>
-
+  <div id="loader"><div class="spinner"></div></div>
+  <div id="nodata">Nenhum dado para os filtros selecionados</div>
   <canvas id="chart"></canvas>
-
-  <div id="nodata">
-    <div>Nenhum dado disponível</div>
-  </div>
 </div>
 
 <script>
-// ======================================================
-// CONFIGURAÇÕES
-// ======================================================
+// =====================================================
+// CONFIG
+// =====================================================
 const LAYER_URL =
   "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
-
-let FILTERS = {
-  loja: [],
-  mes: [],
-  ano: [],
-  secao: [],
-  id_canal_venda: []
-};
-
-const FIELDS = {
-  loja: "id_loja_venda",
-  mes: "mes",
-  ano: "ano",
-  canal: "id_canal_venda",
-  secao: "secao",
-  classe: "classe_social",
-  valor: "valor_vendas_atual"
-};
 
 const CLASS_COLORS = {
   "A1": "#0B2C3D",
@@ -128,193 +63,134 @@ const CLASS_COLORS = {
   "D/E": "#D9D9D9"
 };
 
-// ======================================================
-// UTIL
-// ======================================================
-function toArray(v) {
-  if (!v) return [];
-  if (Array.isArray(v)) return v.map(String);
-  return String(v).split(",").map(s => s.trim()).filter(Boolean);
-}
+const collator = new Intl.Collator("pt-BR", { numeric: true });
 
-function showLoader(on) {
-  document.getElementById("loader").style.display = on ? "flex" : "none";
-}
+let FILTERS = {
+  loja: [], mes: [], ano: [], secao: [], id_canal_venda: []
+};
 
-function showNoData(on) {
-  document.getElementById("nodata").style.display = on ? "flex" : "none";
-}
+// =====================================================
+// HELPERS
+// =====================================================
+const toArray = v =>
+  !v ? [] : Array.isArray(v) ? v.map(String) : String(v).split(",");
 
-function atualizarFiltrosAtivos() {
-  const ativos = [];
-
-  if (FILTERS.loja.length) ativos.push(`Loja: ${FILTERS.loja.join(", ")}`);
-  if (FILTERS.mes.length) ativos.push(`Mês: ${FILTERS.mes.join(", ")}`);
-  if (FILTERS.ano.length) ativos.push(`Ano: ${FILTERS.ano.join(", ")}`);
-  if (FILTERS.secao.length) ativos.push(`Seção: ${FILTERS.secao.join(", ")}`);
-  if (FILTERS.id_canal_venda.length)
-    ativos.push(`Canal: ${FILTERS.id_canal_venda.join(", ")}`);
-
-  const box = document.getElementById("filtrosAtivos");
-  const txt = document.getElementById("filtrosTexto");
-
-  if (ativos.length) {
-    box.style.display = "block";
-    txt.textContent = ativos.join(" | ");
-  } else {
-    box.style.display = "none";
-  }
-}
-
-// ======================================================
-// WHERE
-// ======================================================
 function buildWhere() {
-  const parts = ["1=1"];
-
+  const p = ["1=1"];
   if (FILTERS.loja.length)
-    parts.push(`id_loja_venda IN (${FILTERS.loja.map(v => `'${v}'`).join(",")})`);
-
+    p.push(`id_loja_venda IN (${FILTERS.loja.map(v => `'${v}'`).join(",")})`);
   if (FILTERS.mes.length)
-    parts.push(`mes IN (${FILTERS.mes.map(v => `'${v}'`).join(",")})`);
-
+    p.push(`mes IN (${FILTERS.mes.map(v => `'${v}'`).join(",")})`);
   if (FILTERS.ano.length)
-    parts.push(`ano IN (${FILTERS.ano.map(v => `'${v}'`).join(",")})`);
-
+    p.push(`ano IN (${FILTERS.ano.map(v => `'${v}'`).join(",")})`);
   if (FILTERS.secao.length)
-    parts.push(`secao IN (${FILTERS.secao.map(v => `'${v}'`).join(",")})`);
-
+    p.push(`secao IN (${FILTERS.secao.map(v => `'${v}'`).join(",")})`);
   if (FILTERS.id_canal_venda.length)
-    parts.push(`id_canal_venda IN (${FILTERS.id_canal_venda.map(v => `'${v}'`).join(",")})`);
-
-  const where = parts.join(" AND ");
-  console.log("🧩 WHERE FINAL:", where);
-  return where;
+    p.push(`id_canal_venda IN (${FILTERS.id_canal_venda.map(v => `'${v}'`).join(",")})`);
+  console.log("🧩 WHERE FINAL:", p.join(" AND "));
+  return p.join(" AND ");
 }
 
-// ======================================================
-// QUERY
-// ======================================================
 async function esriQuery(params) {
   const url = new URL(LAYER_URL + "/query");
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-
+  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k,v));
   console.log("🌐 URL:", url.toString());
-
-  const res = await fetch(url.toString());
-  const json = await res.json();
-  return json;
+  return (await fetch(url)).json();
 }
 
-// ======================================================
+// =====================================================
 // CHART
-// ======================================================
+// =====================================================
 const chart = new Chart(document.getElementById("chart"), {
   type: "bar",
-  data: { datasets: [{ data: [], backgroundColor: [] }] },
+  data: { datasets: [{ data: [], backgroundColor: [], barThickness: 28 }] },
   options: {
     indexAxis: "y",
     responsive: true,
     maintainAspectRatio: false,
-    plugins: { legend: { display: false } }
+    scales: {
+      x: { beginAtZero: true, ticks: { callback: v => v + "%" } },
+      y: { ticks: { autoSkip: false, font: { weight: "bold" } } }
+    },
+    plugins: { legend: { display: false }, tooltip: { enabled: false } }
   }
 });
 
-// ======================================================
-// LOAD
-// ======================================================
+// =====================================================
+// LOAD DATA
+// =====================================================
 async function load() {
-  showLoader(true);
-  showNoData(false);
+  document.getElementById("loader").style.display = "flex";
+  document.getElementById("nodata").style.display = "none";
 
-  try {
-    const where = buildWhere();
+  const where = buildWhere();
 
-const byClass = await esriQuery({
-  f: "json",
-  where,
-  outFields: FIELDS.classe,               // 🔥 LINHA CRÍTICA
-  groupByFieldsForStatistics: FIELDS.classe,
-  outStatistics: JSON.stringify([
-    { 
-      statisticType: "sum",
-      onStatisticField: FIELDS.valor,
-      outStatisticFieldName: "SUM_V"
-    }
-  ]),
-  returnGeometry: "false"
-});
+  const byClass = await esriQuery({
+    f: "json",
+    where,
+    outFields: "classe_social",
+    groupByFieldsForStatistics: "classe_social",
+    outStatistics: JSON.stringify([
+      { statisticType: "sum", onStatisticField: "valor_vendas_atual", outStatisticFieldName: "SUM_V" }
+    ]),
+    returnGeometry: "false"
+  });
 
+  const totalQ = await esriQuery({
+    f: "json",
+    where,
+    outStatistics: JSON.stringify([
+      { statisticType: "sum", onStatisticField: "valor_vendas_atual", outStatisticFieldName: "TOTAL" }
+    ]),
+    returnGeometry: "false"
+  });
 
-    const totalQ = await esriQuery({
-      f: "json",
-      where,
-      outStatistics: JSON.stringify([
-        { statisticType: "sum", onStatisticField: FIELDS.valor, outStatisticFieldName: "TOTAL" }
-      ]),
-      returnGeometry: "false"
-    });
+  const total = totalQ.features?.[0]?.attributes?.TOTAL || 0;
 
-    const total = totalQ.features?.[0]?.attributes?.TOTAL || 0;
+  const rows = (byClass.features || []).map(f => ({
+    y: f.attributes.classe_social,
+    x: (f.attributes.SUM_V / total) * 100
+  })).filter(r => r.y);
 
-    const rows = (byClass.features || []).map(f => ({
-      y: f.attributes[FIELDS.classe],
-      x: total ? (f.attributes.SUM_V / total) * 100 : 0
-    }));
+  rows.sort((a,b) => collator.compare(a.y, b.y));
 
-    if (!rows.length) {
-      showNoData(true);
-      chart.data.datasets[0].data = [];
-    } else {
-      chart.data.datasets[0].data = rows;
-      chart.data.datasets[0].backgroundColor =
-        rows.map(r => CLASS_COLORS[r.y] || "#999");
-    }
-
-    chart.update();
-  } catch (e) {
-    console.error(e);
-    showNoData(true);
-  } finally {
-    showLoader(false);
+  if (!rows.length) {
+    document.getElementById("nodata").style.display = "flex";
+    chart.data.datasets[0].data = [];
+  } else {
+    chart.data.datasets[0].data = rows;
+    chart.data.datasets[0].backgroundColor =
+      rows.map(r => CLASS_COLORS[r.y] || "#999");
   }
+
+  chart.update();
+  document.getElementById("loader").style.display = "none";
 }
 
-// ======================================================
-// 🔥 MESSAGE LISTENER (VERSÃO FINAL)
-// ======================================================
-(function initSpotXListener() {
-  console.log("🧠 SpotX Gráfico: listener ativo");
+// =====================================================
+// MESSAGE LISTENER (EXB / MessageBus)
+// =====================================================
+window.addEventListener("message", e => {
+  if (!e.data || !e.data.type) return;
+  if (!["EXB_SET_FILTER", "SPOTX_FILTER_CHANGE"].includes(e.data.type)) return;
 
-  if (window.__SPOTX_LISTENER__) return;
-  window.__SPOTX_LISTENER__ = true;
+  console.log("📨 Gráfico recebeu:", e.data);
 
-  window.addEventListener("message", function (event) {
-    console.log("📨 Mensagem recebida no gráfico:", event.data);
+  const f = e.data.filters || {};
+  FILTERS = {
+    loja: toArray(f.cod_loja),
+    mes: toArray(f.mes),
+    ano: toArray(f.ano),
+    secao: toArray(f.secao),
+    id_canal_venda: toArray(f.id_canal_venda)
+  };
 
-    const msg = event.data;
-    if (!msg || msg.type !== "EXB_SET_FILTER") return;
+  load();
+});
 
-    const f = msg.filters || {};
-
-    FILTERS = {
-      loja: toArray(f.cod_loja || f.loja),
-      secao: toArray(f.secao),
-      id_canal_venda: toArray(f.id_canal_venda),
-      ano: toArray(f.ano),
-      mes: toArray(f.mes)
-    };
-
-    atualizarFiltrosAtivos();
-    load();
-  });
-})();
-
-// ======================================================
-// INIT
-// ======================================================
+// =====================================================
 load();
-console.log("✅ Gráfico pronto e aguardando filtros");
+console.log("🧠 SpotX Gráfico: listener ativo");
 </script>
 </body>
 </html>

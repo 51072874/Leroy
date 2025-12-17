@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Gráfico SpotX</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: system-ui;
+}
+#wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+#loader {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  z-index: 10;
+}
+canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+</style>
+</head>
+
+<body>
+<div id="wrap">
+  <div id="loader">Carregando…</div>
+  <canvas id="chart"></canvas>
+</div>
+
+<script>
+// ======================================================
+// CONFIG
+// ======================================================
+const LAYER_URL =
+  "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
+
+// estado atual
+let FILTERS = {
+  loja: [],
+  mes: [],
+  ano: [],
+  secao: [],
+  id_canal_venda: []
+};
+
+// ======================================================
+// HELPERS
+// ======================================================
+const toArray = v =>
+  !v ? [] : Array.isArray(v) ? v.map(String) : String(v).split(",");
+
+function buildWhere() {
+  const w = ["1=1"];
+
+  if (FILTERS.loja.length)
+    w.push(`id_loja_venda IN (${FILTERS.loja.map(v => `'${v}'`).join(",")})`);
+
+  if (FILTERS.mes.length)
+    w.push(`mes IN (${FILTERS.mes.map(v => `'${v}'`).join(",")})`);
+
+  if (FILTERS.ano.length)
+    w.push(`ano IN (${FILTERS.ano.map(v => `'${v}'`).join(",")})`);
+
+  if (FILTERS.secao.length)
+    w.push(`secao IN (${FILTERS.secao.map(v => `'${v}'`).join(",")})`);
+
+  if (FILTERS.id_canal_venda.length)
+    w.push(`id_canal_venda IN (${FILTERS.id_canal_venda.map(v => `'${v}'`).join(",")})`);
+
+  console.log("🧩 WHERE:", w.join(" AND "));
+  return w.join(" AND ");
+}
+
+async function query(params) {
+  const url = new URL(LAYER_URL + "/query");
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  console.log("🌐 QUERY:", url.toString());
+  return fetch(url).then(r => r.json());
+}
+
+// ======================================================
+// CHART
+// ======================================================
+const chart = new Chart(document.getElementById("chart"), {
+  type: "bar",
+  data: {
+    datasets: [{
+      data: [],
+      backgroundColor: "#1976d2"
+    }]
+  },
+  options: {
+    indexAxis: "y",
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      x: { beginAtZero: true },
+      y: { ticks: { autoSkip: false } }
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: { enabled: false }
+    }
+  }
+});
+
+// ======================================================
+// LOAD
+// ======================================================
+async function load() {
+  document.getElementById("loader").style.display = "flex";
+
+  const where = buildWhere();
+
+  const res = await query({
+    f: "json",
+    where,
+    outFields: "classe_social",
+    groupByFieldsForStatistics: "classe_social",
+    outStatistics: JSON.stringify([
+      {
+        statisticType: "sum",
+        onStatisticField: "valor_vendas_atual",
+        outStatisticFieldName: "VAL"
+      }
+    ]),
+    returnGeometry: "false"
+  });
+
+  const rows = (res.features || [])
+    .map(f => ({
+      y: f.attributes.classe_social,
+      x: f.attributes.VAL
+    }))
+    .filter(r => r.y);
+
+  chart.data.datasets[0].data = rows;
+  chart.update();
+
+  document.getElementById("loader").style.display = "none";
+}
+
+// ======================================================
+// LISTENER – ESTE É O PONTO-CHAVE
+// ======================================================
+window.addEventListener("message", (event) => {
+  if (!event.data) return;
+
+  if (event.data.type !== "SPOTX_FILTER_CHANGE") return;
+
+  console.log("📥 FILTROS RECEBIDOS:", event.data.filters);
+
+  const f = event.data.filters;
+
+  FILTERS = {
+    loja: toArray(f.cod_loja),
+    mes: toArray(f.mes),
+    ano: toArray(f.ano),
+    secao: toArray(f.secao),
+    id_canal_venda: toArray(f.id_canal_venda)
+  };
+
+  load();
+});
+
+console.log("🟢 Gráfico pronto e aguardando filtros");
+</script>
+</body>
+</html>

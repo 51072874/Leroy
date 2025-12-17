@@ -15,7 +15,6 @@ html, body{
   color:#444444;
 }
 
-/* container centralizador */
 #container{
   position:relative;
   width:282px;
@@ -44,12 +43,9 @@ html, body{
   border-radius:50%;
   animation:spin 1s linear infinite;
 }
-
 @keyframes spin{ to{ transform:rotate(360deg);} }
 
-.loading #content{
-  visibility:hidden;
-}
+.loading #content{ visibility:hidden; }
 
 #content{
   width:100%;
@@ -66,7 +62,6 @@ html, body{
   border:1px solid #e6e6e6;
   border-radius:6px;
   overflow:hidden;
-  box-sizing:border-box;
 }
 
 .kpi{
@@ -74,7 +69,6 @@ html, body{
   align-items:center;
   justify-content:center;
   padding:6px 4px;
-  box-sizing:border-box;
 }
 
 .kpi + .kpi{
@@ -84,19 +78,12 @@ html, body{
 .kpiValue{
   display:flex;
   align-items:baseline;
-  justify-content:center;
   gap:3px;
   font-size:11px;
   font-weight:600;
-  line-height:1.1;
   white-space:nowrap;
 }
-
-.kpiUnit{
-  font-size:11px;
-  font-weight:600;
-  color:#444444;
-}
+.kpiUnit{ font-size:11px; }
 </style>
 </head>
 
@@ -106,26 +93,9 @@ html, body{
 
   <div id="content">
     <div class="kpiWrap" id="kpiWrap">
-      <div class="kpi">
-        <div class="kpiValue">
-          <span class="kpiUnit">R$</span>
-          <span id="vAtual">—</span>
-        </div>
-      </div>
-
-      <div class="kpi">
-        <div class="kpiValue">
-          <span id="vPct">—</span>
-          <span class="kpiUnit">%</span>
-        </div>
-      </div>
-
-      <div class="kpi">
-        <div class="kpiValue">
-          <span id="vProg">—</span>
-          <span class="kpiUnit">%</span>
-        </div>
-      </div>
+      <div class="kpi"><div class="kpiValue"><span class="kpiUnit">R$</span><span id="vAtual">—</span></div></div>
+      <div class="kpi"><div class="kpiValue"><span id="vPct">—</span><span class="kpiUnit">%</span></div></div>
+      <div class="kpi"><div class="kpiValue"><span id="vProg">—</span><span class="kpiUnit">%</span></div></div>
     </div>
   </div>
 </div>
@@ -141,7 +111,7 @@ const FIELDS = {
   ano:"ano",
   canal:"id_canal_venda",
   secao:"secao",
-  codZ:"cod_loja_zinflu2",              // ? novo campo
+  codZ:"cod_loja_zinflu2",
   valorAtual:"valor_vendas_atual",
   valorAnterior:"valor_vendas_anterior"
 };
@@ -153,31 +123,33 @@ function showLoader(on){
   document.getElementById("loader").style.display = on ? "flex":"none";
   document.body.classList.toggle("loading", on);
 }
-
-function esc(s){
-  return String(s).replace(/'/g,"''");
-}
-
+function esc(s){ return String(s).replace(/'/g,"''"); }
 function list(n){
   if(!qs.has(n)) return [];
   return qs.get(n).split(",").map(v=>v.trim()).filter(Boolean);
 }
 
+/* ===== BUILD WHERE (COM REGRA loja=0) ===== */
 function buildWhere(removeMes=false){
   const p=["1=1"];
 
-  /* ? filtro fixo: somente registros com cod_loja_zinflu2 != '0' */
+  /* filtro fixo cod_loja_zinflu2 */
   p.push(`${FIELDS.codZ} IS NOT NULL`);
   p.push(`${FIELDS.codZ} <> '0'`);
 
-  const lojas=list("loja"),
-        meses=list("mes"),
-        anos=list("ano"),
-        canais=list("id_canal_venda"),
-        secoes=list("secao");
+  const lojas  = list("loja");
+  const meses  = list("mes");
+  const anos   = list("ano");
+  const canais = list("id_canal_venda");
+  const secoes = list("secao");
 
-  if(lojas.length)
+  /* 👉 REGRA-CHAVE */
+  const lojaTemZero = lojas.includes("0");
+
+  if (lojas.length && !lojaTemZero){
     p.push(`${FIELDS.loja} IN (${lojas.map(v=>`'${esc(v)}'`).join(",")})`);
+  }
+  /* se loja=0 → NÃO adiciona filtro */
 
   if(!removeMes && meses.length)
     p.push(`${FIELDS.mes} IN (${meses.map(v=>`'${esc(v)}'`).join(",")})`);
@@ -203,40 +175,18 @@ async function esriQuery(params){
   return j;
 }
 
-function fmtBR(n){
-  return Number(n||0).toLocaleString("pt-BR",{
-    minimumFractionDigits:2,
-    maximumFractionDigits:2
-  });
-}
-
-function fmtPct(n){
-  return Number(n||0).toFixed(2).replace(".",",");
-}
-
-/* ===== altura dinâmica ===== */
-function observeHeight(){
-  const wrap = document.getElementById("kpiWrap");
-  if (!wrap || !window.ResizeObserver) return;
-
-  const ro = new ResizeObserver(() => {
-    const h = wrap.offsetHeight;
-    document.documentElement.style.height = h + "px";
-    document.body.style.height = h + "px";
-  });
-  ro.observe(wrap);
-}
+function fmtBR(n){ return Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:2}); }
+function fmtPct(n){ return Number(n||0).toFixed(2).replace(".",","); }
 
 /* ===== load ===== */
 async function load(){
   showLoader(true);
 
-  const wSel = buildWhere(false); // com mes
-  const wAll = buildWhere(true);  // sem mes
+  const wSel = buildWhere(false);
+  const wAll = buildWhere(true);
 
   const sel = await esriQuery({
-    f:"json",
-    where:wSel,
+    f:"json", where:wSel,
     outStatistics:JSON.stringify([
       {statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"A"},
       {statisticType:"sum", onStatisticField:FIELDS.valorAnterior, outStatisticFieldName:"B"}
@@ -245,27 +195,23 @@ async function load(){
   });
 
   const all = await esriQuery({
-    f:"json",
-    where:wAll,
+    f:"json", where:wAll,
     outStatistics:JSON.stringify([
       {statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"T"}
     ]),
     returnGeometry:"false"
   });
 
-  const a = sel.features?.[0]?.attributes || {};
-  const b = all.features?.[0]?.attributes || {};
+  const a=sel.features?.[0]?.attributes||{};
+  const b=all.features?.[0]?.attributes||{};
 
-  const atual = +a.A || 0;
-  const ant   = +a.B || 0;
-  const total = +b.T || 0;
+  const atual=+a.A||0, ant=+a.B||0, total=+b.T||0;
 
   document.getElementById("vAtual").textContent = fmtBR(atual);
-  document.getElementById("vPct").textContent   = fmtPct(total ? (atual / total) * 100 : 0);
-  document.getElementById("vProg").textContent  = fmtPct(ant ? ((atual / ant) - 1) * 100 : 0);
+  document.getElementById("vPct").textContent   = fmtPct(total ? (atual/total)*100 : 0);
+  document.getElementById("vProg").textContent  = fmtPct(ant ? ((atual/ant)-1)*100 : 0);
 
   showLoader(false);
-  observeHeight();
 }
 
 load();

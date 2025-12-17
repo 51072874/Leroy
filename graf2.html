@@ -18,7 +18,8 @@ html, body {
 #container { position: relative; height: 100%; width: 100%; }
 #loader {
   position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
+  display: none;
+  align-items: center; justify-content: center;
   background: rgba(255,255,255,0.9); z-index: 10;
 }
 .spinner {
@@ -50,8 +51,6 @@ canvas { width: 100% !important; height: 100% !important; }
 // =====================================================
 // CONFIG
 // =====================================================
-const SPOTX_SOURCE = "SPOTX_FILTER_WIDGET";
-
 const LAYER_URL =
   "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
@@ -71,13 +70,24 @@ let FILTERS = {
   loja: [], mes: [], ano: [], secao: [], id_canal_venda: []
 };
 
-let lastFilterHash = "";
+let IS_LOADING = false;
+let LAST_FILTER_HASH = null;
 
 // =====================================================
 // HELPERS
 // =====================================================
 const toArray = v =>
-  !v ? [] : Array.isArray(v) ? v.map(String) : String(v).split(",");
+  !v ? [] : Array.isArray(v) ? v.map(String) : String(v).split(",").filter(Boolean);
+
+function hashFilters(f) {
+  return JSON.stringify({
+    loja: [...f.loja].sort(),
+    mes: [...f.mes].sort(),
+    ano: [...f.ano].sort(),
+    secao: [...f.secao].sort(),
+    id_canal_venda: [...f.id_canal_venda].sort()
+  });
+}
 
 function buildWhere() {
   const p = ["1=1"];
@@ -89,9 +99,9 @@ function buildWhere() {
   if (FILTERS.ano.length)
     p.push(`ano IN (${FILTERS.ano.map(v => `'${v}'`).join(",")})`);
   if (FILTERS.secao.length)
-    p.push(`secao IN (${FILTERS.secao.map(v => `'${v}'`).join(",")})`);
+    p.push(`secao IN (${FILTERS.secao.map(v => `'${v.replace(/'/g,"''")}'`).join(",")})`);
   if (FILTERS.id_canal_venda.length)
-    p.push(`id_canal_venda IN (${FILTERS.id_canal_venda.map(v => `'${v}'`).join(",")})`);
+    p.push(`id_canal_venda IN (${FILTERS.id_canal_venda.map(v => `'${v.replace(/'/g,"''")}'`).join(",")})`);
 
   console.log("🧩 WHERE FINAL:", p.join(" AND "));
   return p.join(" AND ");
@@ -101,7 +111,11 @@ async function esriQuery(params) {
   const url = new URL(LAYER_URL + "/query");
   Object.entries(params).forEach(([k,v]) => url.searchParams.set(k,v));
   console.log("🌐 URL:", url.toString());
-  return (await fetch(url)).json();
+
+  const res = await fetch(url);
+  const json = await res.json();
+  if (!res.ok || json.error) throw json.error || new Error("Erro ESRI");
+  return json;
 }
 
 // =====================================================
@@ -114,6 +128,7 @@ const chart = new Chart(document.getElementById("chart"), {
     indexAxis: "y",
     responsive: true,
     maintainAspectRatio: false,
+    animation: { duration: 600 },
     scales: {
       x: { beginAtZero: true, ticks: { callback: v => v + "%" } },
       y: { ticks: { autoSkip: false, font: { weight: "bold" } } }
@@ -123,46 +138,107 @@ const chart = new Chart(document.getElementById("chart"), {
 });
 
 // =====================================================
-// LOAD DATA
+// LOAD DATA (ANTI-LOOP)
 // =====================================================
 async function load() {
+  if (IS_LOADING) {
+    console.warn("⏳ Load ignorado (já carregando)");
+    return;
+  }
+
+  IS_LOADING = true;
   document.getElementById("loader").style.display = "flex";
   document.getElementById("nodata").style.display = "none";
 
-  const where = buildWhere();
+  try {
+    const where = buildWhere();
 
-  const byClass = await esriQuery({
-    f: "json",
-    where,
-    outFields: "classe_social",
-    groupByFieldsForStatistics: "classe_social",
-    outStatistics: JSON.stringify([
-      { statisticType: "sum", onStatisticField: "valor_vendas_atual", outStatisticFieldName: "SUM_V" }
-    ]),
-    returnGeometry: "false"
-  });
+    const byClass = await esriQuery({
+      f: "json",
+      where,
+      outFields: "classe_social",
+      groupByFieldsForStatistics: "classe_social",
+      outStatistics: JSON.stringify([
+        { statisticType: "sum", onStatisticField: "valor_vendas_atual", outStatisticFieldName: "SUM_V" }
+      ]),
+      returnGeometry: "false"
+    });
 
-  const totalQ = await esriQuery({
-    f: "json",
-    where,
-    outStatistics: JSON.stringify([
-      { statisticType: "sum", onStatisticField: "valor_vendas_atual", outStatisticFieldName: "TOTAL" }
-    ]),
-    returnGeometry: "false"
-  });
+    const totalQ = await esriQuery({
+      f: "json",
+      where,
+      outStatistics: JSON.stringify([
+        { statisticType: "sum", onStatisticField: "valor_vendas_atual", outStatisticFieldName: "TOTAL" }
+      ]),
+      returnGeometry: "false"
+    });
 
-  const total = totalQ.features?.[0]?.attributes?.TOTAL || 0;
+    const total = totalQ.features?.[0]?.attributes?.TOTAL || 0;
 
-  const rows = (byClass.features || []).map(f => ({
-    y: f.attributes.classe_social,
-    x: total ? (f.attributes.SUM_V / total) * 100 : 0
-  })).filter(r => r.y);
+    const rows = (byClass.features || [])
+      .map(f => ({
+        y: f.attributes.classe_social,
+        x: total ? (f.attributes.SUM_V / total) * 100 : 0
+      }))
+      .filter(r => r.y);
 
-  rows.sort((a,b) => collator.compare(a.y, b.y));
+    rows.sort((a,b) => collator.compare(a.y, b.y));
 
-  if (!rows.length) {
+    if (!rows.length || total === 0) {
+      document.getElementById("nodata").style.display = "flex";
+      chart.data.datasets[0].data = [];
+    } else {
+      chart.data.datasets[0].data = rows;
+      chart.data.datasets[0].backgroundColor =
+        rows.map(r => CLASS_COLORS[r.y] || "#999");
+    }
+
+    chart.update();
+  } catch (e) {
+    console.error("❌ Erro no gráfico:", e);
     document.getElementById("nodata").style.display = "flex";
-    chart.data.datasets[0].data = [];
-  } else {
-    chart.data.datasets[0].data = rows;
-    chart.data.datasets[0].backgr
+  } finally {
+    IS_LOADING = false;
+    document.getElementById("loader").style.display = "none";
+  }
+}
+
+// =====================================================
+// MESSAGE LISTENER (FINAL)
+// =====================================================
+window.addEventListener("message", (event) => {
+  if (!event.data) return;
+
+  if (
+    event.data.type !== "SPOTX_FILTER_CHANGE" &&
+    event.data.type !== "EXB_SET_FILTER"
+  ) return;
+
+  const raw = event.data.filters || event.data.payload?.filters;
+  if (!raw) return;
+
+  const nextFilters = {
+    loja: toArray(raw.cod_loja),
+    mes: toArray(raw.mes),
+    ano: toArray(raw.ano),
+    secao: toArray(raw.secao),
+    id_canal_venda: toArray(raw.id_canal_venda)
+  };
+
+  const hash = hashFilters(nextFilters);
+  if (hash === LAST_FILTER_HASH) {
+    console.warn("🔁 Filtro repetido — ignorado");
+    return;
+  }
+
+  LAST_FILTER_HASH = hash;
+  FILTERS = nextFilters;
+
+  console.log("✅ Filtros aplicados:", FILTERS);
+  load();
+});
+
+console.log("🧠 SpotX Gráfico pronto e aguardando filtros");
+</script>
+</body>
+</html>

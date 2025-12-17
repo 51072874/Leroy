@@ -208,4 +208,15 @@ console.log("🟢 Gráfico iniciado – carga inicial");
 load();
 </script>
 </body>
+// ======================================================
+// HANDSHAKE – avisa o Experience que o iframe está pronto
+// ======================================================
+window.parent.postMessage(
+  { type: "SPOTX_IFRAME_READY" },
+  "*"
+);
+
+console.log("🟢 Iframe avisou que está pronto");
+
+  
 </html>

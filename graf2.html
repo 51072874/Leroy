@@ -1,0 +1,223 @@
+<!doctype html>
+<script>
+  window.__SPOTX_DEBUG__ = true;
+</script>
+
+<html lang="pt-br">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Gráfico SpotX - Vendas por Classe Social</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  background: #fff;
+}
+#container { position: relative; height: 100%; width: 100%; }
+#loader {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.9); z-index: 10;
+}
+.spinner {
+  width: 40px; height: 40px;
+  border: 4px solid #ddd;
+  border-top-color: #1976d2;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#nodata {
+  display: none;
+  position: absolute; inset: 0;
+  align-items: center; justify-content: center;
+  color: #666; font-size: 14px;
+}
+canvas { width: 100% !important; height: 100% !important; }
+</style>
+</head>
+
+<body>
+<div id="container">
+  <div id="loader"><div class="spinner"></div></div>
+  <div id="nodata">Nenhum dado para os filtros selecionados</div>
+  <canvas id="chart"></canvas>
+</div>
+
+<script>
+// =====================================================
+// CONFIG
+// =====================================================
+const LAYER_URL =
+  "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
+
+const CLASS_COLORS = {
+  "A1": "#0B2C3D",
+  "A2": "#1F4E66",
+  "B1": "#2E6B3F",
+  "B2": "#6FAF8E",
+  "C1": "#F2D36B",
+  "C2": "#F6E8B1",
+  "D/E": "#D9D9D9"
+};
+
+const collator = new Intl.Collator("pt-BR", { numeric: true });
+
+let FILTERS = {
+  loja: [], mes: [], ano: [], secao: [], id_canal_venda: []
+};
+
+// =====================================================
+// HELPERS
+// =====================================================
+const toArray = v =>
+  !v ? [] : Array.isArray(v) ? v.map(String) : String(v).split(",");
+
+function buildWhere() {
+  console.log("🚨 buildWhere() recebeu FILTERS:", FILTERS);
+  const p = ["1=1"];
+  if (FILTERS.loja.length)
+    p.push(`id_loja_venda IN (${FILTERS.loja.map(v => `'${v}'`).join(",")})`);
+  if (FILTERS.mes.length)
+    p.push(`mes IN (${FILTERS.mes.map(v => `'${v}'`).join(",")})`);
+  if (FILTERS.ano.length)
+    p.push(`ano IN (${FILTERS.ano.map(v => `'${v}'`).join(",")})`);
+  if (FILTERS.secao.length)
+    p.push(`secao IN (${FILTERS.secao.map(v => `'${v}'`).join(",")})`);
+  if (FILTERS.id_canal_venda.length)
+    p.push(`id_canal_venda IN (${FILTERS.id_canal_venda.map(v => `'${v}'`).join(",")})`);
+  console.log("🧩 WHERE FINAL:", p.join(" AND "));
+  return p.join(" AND ");
+}
+
+async function esriQuery(params) {
+  const url = new URL(LAYER_URL + "/query");
+  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k,v));
+  console.log("🌐 URL:", url.toString());
+  return (await fetch(url)).json();
+}
+
+// =====================================================
+// CHART
+// =====================================================
+const chart = new Chart(document.getElementById("chart"), {
+  type: "bar",
+  data: { datasets: [{ data: [], backgroundColor: [], barThickness: 28 }] },
+  options: {
+    indexAxis: "y",
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      x: { beginAtZero: true, ticks: { callback: v => v + "%" } },
+      y: { ticks: { autoSkip: false, font: { weight: "bold" } } }
+    },
+    plugins: { legend: { display: false }, tooltip: { enabled: false } }
+  }
+});
+
+// =====================================================
+// LOAD DATA
+// =====================================================
+async function load() {
+  document.getElementById("loader").style.display = "flex";
+  document.getElementById("nodata").style.display = "none";
+
+  const where = buildWhere();
+
+  const byClass = await esriQuery({
+    f: "json",
+    where,
+    outFields: "classe_social",
+    groupByFieldsForStatistics: "classe_social",
+    outStatistics: JSON.stringify([
+      { statisticType: "sum", onStatisticField: "valor_vendas_atual", outStatisticFieldName: "SUM_V" }
+    ]),
+    returnGeometry: "false"
+  });
+
+  const totalQ = await esriQuery({
+    f: "json",
+    where,
+    outStatistics: JSON.stringify([
+      { statisticType: "sum", onStatisticField: "valor_vendas_atual", outStatisticFieldName: "TOTAL" }
+    ]),
+    returnGeometry: "false"
+  });
+
+  const total = totalQ.features?.[0]?.attributes?.TOTAL || 0;
+
+  const rows = (byClass.features || []).map(f => ({
+    y: f.attributes.classe_social,
+    x: (f.attributes.SUM_V / total) * 100
+  })).filter(r => r.y);
+
+  rows.sort((a,b) => collator.compare(a.y, b.y));
+
+  if (!rows.length) {
+    document.getElementById("nodata").style.display = "flex";
+    chart.data.datasets[0].data = [];
+  } else {
+    chart.data.datasets[0].data = rows;
+    chart.data.datasets[0].backgroundColor =
+      rows.map(r => CLASS_COLORS[r.y] || "#999");
+  }
+
+  chart.update();
+  document.getElementById("loader").style.display = "none";
+}
+
+// =====================================================
+// MESSAGE LISTENER (EXB / MessageBus)
+// =====================================================
+window.addEventListener("message", (event) => {
+  console.log("🟥 EVENT RAW:", JSON.stringify(event.data));
+
+  if (!event.data) {
+    console.log("🟥 event.data vazio");
+    return;
+  }
+
+  const type = event.data.type;
+  console.log("🟦 TYPE:", type);
+
+  if (type !== "EXB_SET_FILTER" && type !== "SPOTX_FILTER_CHANGE") {
+    console.log("🟨 Tipo ignorado");
+    return;
+  }
+
+  const raw =
+    event.data.filters ??
+    event.data.payload?.filters ??
+    event.data.payload ??
+    event.data;
+
+  console.log("🟩 RAW FILTERS:", raw);
+
+  FILTERS = {
+    loja: toArray(raw.cod_loja),
+    mes: toArray(raw.mes),
+    ano: toArray(raw.ano),
+    secao: toArray(raw.secao),
+    id_canal_venda: toArray(raw.id_canal_venda)
+  };
+
+  console.log("🟢 FILTERS SETADOS:", FILTERS);
+
+  load();
+});
+
+
+
+
+// =====================================================
+
+console.log("🧠 SpotX Gráfico: listener ativo");
+</script>
+</body>
+</html>

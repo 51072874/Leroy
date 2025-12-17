@@ -450,36 +450,26 @@ async function load() {
 // ============================================
 // LISTENER DE MENSAGENS (FILTROS DO WIDGET)
 // ============================================
-
 window.addEventListener("message", (event) => {
-  const msg = event.data || {};
-  
-  console.log("📨 Mensagem recebida:", msg);
-  
-  // Aceita tanto EXB_SET_FILTER quanto SPOTX_FILTER_CHANGE
-  if (msg.type === "EXB_SET_FILTER" || msg.type === "SPOTX_FILTER_CHANGE") {
-    const filters = msg.filters || {};
-    
-    console.log("✅ Filtros recebidos:", filters);
-    
-    // Mapeia os filtros (aceita cod_loja ou loja)
-    FILTERS = {
-      loja: toArray(filters.cod_loja || filters.loja),
-      mes: toArray(filters.mes),
-      ano: toArray(filters.ano),
-      secao: toArray(filters.secao),
-      id_canal_venda: toArray(filters.id_canal_venda)
-    };
-    
-    console.log("🔧 FILTERS convertidos:", FILTERS);
-    
-    // Atualiza UI de filtros
-    atualizarFiltrosAtivos();
-    
-    // Recarrega o gráfico
-    load();
-  }
+  console.log("📨 Gráfico recebeu:", event.data, "ORIGIN:", event.origin);
+
+  if (!event.data || event.data.type !== "EXB_SET_FILTER") return;
+
+  const filters = event.data.filters || {};
+
+  FILTERS = {
+    loja: toArray(filters.cod_loja),
+    secao: toArray(filters.secao),
+    id_canal_venda: toArray(filters.id_canal_venda),
+    ano: toArray(filters.ano),
+    mes: toArray(filters.mes)
+  };
+
+  atualizarFiltrosAtivos();
+  load();
 });
+
+
 
 // ============================================
 // CARREGAR FILTROS DA URL

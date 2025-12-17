@@ -80,6 +80,7 @@ const toArray = v =>
   !v ? [] : Array.isArray(v) ? v.map(String) : String(v).split(",");
 
 function buildWhere() {
+  console.log("🚨 buildWhere() recebeu FILTERS:", FILTERS);
   const p = ["1=1"];
   if (FILTERS.loja.length)
     p.push(`id_loja_venda IN (${FILTERS.loja.map(v => `'${v}'`).join(",")})`);

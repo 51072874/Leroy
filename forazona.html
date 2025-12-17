@@ -2,14 +2,15 @@
 <html lang="pt-br">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=282, initial-scale=1"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
 
 <style>
 html, body{
   margin:0;
   padding:0;
-  width:282px;
-  background:#fff;
+  width:100%;
+  height:100%;
+  background:transparent;            /* ⬅ fundo fora das caixas */
   overflow:hidden;
   font-family: Arial, Helvetica, sans-serif;
   color:#444444;
@@ -18,7 +19,8 @@ html, body{
 /* container centralizador */
 #container{
   position:relative;
-  width:282px;
+  width:100%;
+  height:100%;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -34,6 +36,7 @@ html, body{
   justify-content:center;
   background:transparent;
   z-index:10;
+  pointer-events:none;
 }
 
 .spinner{
@@ -51,47 +54,56 @@ html, body{
 
 #content{
   width:100%;
+  height:100%;
   display:flex;
   align-items:center;
   justify-content:center;
+  box-sizing:border-box;
+  padding:6px;
 }
 
 /* ===== KPI ===== */
 .kpiWrap{
   width:100%;
+  max-width:520px;
   display:grid;
-  grid-template-columns:repeat(3,1fr);
-  border:1px solid #e6e6e6;
+  grid-template-columns:repeat(3, 1fr);
   border-radius:6px;
   overflow:hidden;
   box-sizing:border-box;
+  background:transparent;            /* ⬅ wrapper sem cor */
 }
 
 .kpi{
   display:flex;
   align-items:center;
   justify-content:center;
-  padding:6px 4px;
+  padding:10px 6px;
   box-sizing:border-box;
+  background:#e3e3e3;                /* ✅ cor somente nas caixas */
 }
 
-.kpi + .kpi{ border-left:1px solid #d0d0d0; }
+.kpi + .kpi{
+  border-left:1px solid #ffffff;     /* divisória branca */
+}
 
 .kpiValue{
   display:flex;
   align-items:baseline;
   justify-content:center;
-  gap:3px;
+  gap:4px;
   font-size:11px;
   font-weight:600;
   line-height:1.1;
   white-space:nowrap;
 }
 
-.kpiUnit{
-  font-size:11px;
-  font-weight:600;
-  color:#444444;
+/* responsivo */
+@media (max-width: 360px){
+  .kpiValue{ font-size:10px; }
+}
+@media (min-width: 700px){
+  .kpiValue{ font-size:12px; }
 }
 </style>
 </head>
@@ -104,7 +116,7 @@ html, body{
     <div class="kpiWrap" id="kpiWrap">
       <div class="kpi">
         <div class="kpiValue">
-          <span class="kpiUnit">R$</span>
+          <span>R$</span>
           <span id="vAtual">—</span>
         </div>
       </div>
@@ -112,14 +124,14 @@ html, body{
       <div class="kpi">
         <div class="kpiValue">
           <span id="vPct">—</span>
-          <span class="kpiUnit">%</span>
+          <span>%</span>
         </div>
       </div>
 
       <div class="kpi">
         <div class="kpiValue">
           <span id="vProg">—</span>
-          <span class="kpiUnit">%</span>
+          <span>%</span>
         </div>
       </div>
     </div>
@@ -137,7 +149,7 @@ const FIELDS = {
   ano:"ano",
   canal:"id_canal_venda",
   secao:"secao",
-  codZ:"cod_loja_zinflu2",          // campo usado no filtro
+  codZ:"cod_loja_zinflu2",
   valorAtual:"valor_vendas_atual",
   valorAnterior:"valor_vendas_anterior"
 };
@@ -160,7 +172,7 @@ function list(n){
 function buildWhere(removeMes=false){
   const p=["1=1"];
 
-  /* ✅ filtro fixo: SOMENTE cod_loja_zinflu2 = '0' */
+  /* filtro fixo: SOMENTE cod_loja_zinflu2 = '0' */
   p.push(`${FIELDS.codZ} = '0'`);
 
   const lojas=list("loja"),
@@ -169,7 +181,7 @@ function buildWhere(removeMes=false){
         canais=list("id_canal_venda"),
         secoes=list("secao");
 
-  /* ✅ REGRA: se loja=0, ignora o filtro de loja (como se não tivesse parâmetro) */
+  /* regra: se loja=0, ignora filtro */
   const lojaTemZero = lojas.includes("0");
   if(lojas.length && !lojaTemZero){
     p.push(`${FIELDS.loja} IN (${lojas.map(v=>`'${esc(v)}'`).join(",")})`);
@@ -210,25 +222,12 @@ function fmtPct(n){
   return Number(n||0).toFixed(2).replace(".",",");
 }
 
-/* ===== altura dinâmica ===== */
-function observeHeight(){
-  const wrap = document.getElementById("kpiWrap");
-  if (!wrap || !window.ResizeObserver) return;
-
-  const ro = new ResizeObserver(() => {
-    const h = wrap.offsetHeight;
-    document.documentElement.style.height = h + "px";
-    document.body.style.height = h + "px";
-  });
-  ro.observe(wrap);
-}
-
 /* ===== load ===== */
 async function load(){
   showLoader(true);
 
-  const wSel = buildWhere(false); // com mes
-  const wAll = buildWhere(true);  // sem mes
+  const wSel = buildWhere(false);
+  const wAll = buildWhere(true);
 
   const sel = await esriQuery({
     f:"json",
@@ -261,7 +260,6 @@ async function load(){
   document.getElementById("vProg").textContent  = fmtPct(ant ? ((atual / ant) - 1) * 100 : 0);
 
   showLoader(false);
-  observeHeight();
 }
 
 load();

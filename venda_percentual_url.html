@@ -70,4 +70,245 @@ canvas {
   font: 14px system-ui;
   color: #666;
 }
-<
+</style>
+</head>
+
+<body>
+<div id="container">
+
+  <div id="filtrosAtivos">
+    <strong>🔍 Filtros Ativos:</strong>
+    <span id="filtrosTexto">Nenhum</span>
+  </div>
+
+  <div id="loader">
+    <div class="spinner"></div>
+    <div style="margin-top:10px">Carregando dados...</div>
+  </div>
+
+  <canvas id="chart"></canvas>
+
+  <div id="nodata">
+    <div>Nenhum dado disponível</div>
+  </div>
+</div>
+
+<script>
+// ======================================================
+// CONFIGURAÇÕES
+// ======================================================
+const LAYER_URL =
+  "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
+
+let FILTERS = {
+  loja: [],
+  mes: [],
+  ano: [],
+  secao: [],
+  id_canal_venda: []
+};
+
+const FIELDS = {
+  loja: "id_loja_venda",
+  mes: "mes",
+  ano: "ano",
+  canal: "id_canal_venda",
+  secao: "secao",
+  classe: "classe_social",
+  valor: "valor_vendas_atual"
+};
+
+const CLASS_COLORS = {
+  "A1": "#0B2C3D",
+  "A2": "#1F4E66",
+  "B1": "#2E6B3F",
+  "B2": "#6FAF8E",
+  "C1": "#F2D36B",
+  "C2": "#F6E8B1",
+  "D/E": "#D9D9D9"
+};
+
+// ======================================================
+// UTIL
+// ======================================================
+function toArray(v) {
+  if (!v) return [];
+  if (Array.isArray(v)) return v.map(String);
+  return String(v).split(",").map(s => s.trim()).filter(Boolean);
+}
+
+function showLoader(on) {
+  document.getElementById("loader").style.display = on ? "flex" : "none";
+}
+
+function showNoData(on) {
+  document.getElementById("nodata").style.display = on ? "flex" : "none";
+}
+
+function atualizarFiltrosAtivos() {
+  const ativos = [];
+
+  if (FILTERS.loja.length) ativos.push(`Loja: ${FILTERS.loja.join(", ")}`);
+  if (FILTERS.mes.length) ativos.push(`Mês: ${FILTERS.mes.join(", ")}`);
+  if (FILTERS.ano.length) ativos.push(`Ano: ${FILTERS.ano.join(", ")}`);
+  if (FILTERS.secao.length) ativos.push(`Seção: ${FILTERS.secao.join(", ")}`);
+  if (FILTERS.id_canal_venda.length)
+    ativos.push(`Canal: ${FILTERS.id_canal_venda.join(", ")}`);
+
+  const box = document.getElementById("filtrosAtivos");
+  const txt = document.getElementById("filtrosTexto");
+
+  if (ativos.length) {
+    box.style.display = "block";
+    txt.textContent = ativos.join(" | ");
+  } else {
+    box.style.display = "none";
+  }
+}
+
+// ======================================================
+// WHERE
+// ======================================================
+function buildWhere() {
+  const parts = ["1=1"];
+
+  if (FILTERS.loja.length)
+    parts.push(`id_loja_venda IN (${FILTERS.loja.map(v => `'${v}'`).join(",")})`);
+
+  if (FILTERS.mes.length)
+    parts.push(`mes IN (${FILTERS.mes.map(v => `'${v}'`).join(",")})`);
+
+  if (FILTERS.ano.length)
+    parts.push(`ano IN (${FILTERS.ano.map(v => `'${v}'`).join(",")})`);
+
+  if (FILTERS.secao.length)
+    parts.push(`secao IN (${FILTERS.secao.map(v => `'${v}'`).join(",")})`);
+
+  if (FILTERS.id_canal_venda.length)
+    parts.push(`id_canal_venda IN (${FILTERS.id_canal_venda.map(v => `'${v}'`).join(",")})`);
+
+  const where = parts.join(" AND ");
+  console.log("🧩 WHERE FINAL:", where);
+  return where;
+}
+
+// ======================================================
+// QUERY
+// ======================================================
+async function esriQuery(params) {
+  const url = new URL(LAYER_URL + "/query");
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+
+  console.log("🌐 URL:", url.toString());
+
+  const res = await fetch(url.toString());
+  const json = await res.json();
+  return json;
+}
+
+// ======================================================
+// CHART
+// ======================================================
+const chart = new Chart(document.getElementById("chart"), {
+  type: "bar",
+  data: { datasets: [{ data: [], backgroundColor: [] }] },
+  options: {
+    indexAxis: "y",
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } }
+  }
+});
+
+// ======================================================
+// LOAD
+// ======================================================
+async function load() {
+  showLoader(true);
+  showNoData(false);
+
+  try {
+    const where = buildWhere();
+
+    const byClass = await esriQuery({
+      f: "json",
+      where,
+      groupByFieldsForStatistics: FIELDS.classe,
+      outStatistics: JSON.stringify([
+        { statisticType: "sum", onStatisticField: FIELDS.valor, outStatisticFieldName: "SUM_V" }
+      ]),
+      returnGeometry: "false"
+    });
+
+    const totalQ = await esriQuery({
+      f: "json",
+      where,
+      outStatistics: JSON.stringify([
+        { statisticType: "sum", onStatisticField: FIELDS.valor, outStatisticFieldName: "TOTAL" }
+      ]),
+      returnGeometry: "false"
+    });
+
+    const total = totalQ.features?.[0]?.attributes?.TOTAL || 0;
+
+    const rows = (byClass.features || []).map(f => ({
+      y: f.attributes[FIELDS.classe],
+      x: total ? (f.attributes.SUM_V / total) * 100 : 0
+    }));
+
+    if (!rows.length) {
+      showNoData(true);
+      chart.data.datasets[0].data = [];
+    } else {
+      chart.data.datasets[0].data = rows;
+      chart.data.datasets[0].backgroundColor =
+        rows.map(r => CLASS_COLORS[r.y] || "#999");
+    }
+
+    chart.update();
+  } catch (e) {
+    console.error(e);
+    showNoData(true);
+  } finally {
+    showLoader(false);
+  }
+}
+
+// ======================================================
+// 🔥 MESSAGE LISTENER (VERSÃO FINAL)
+// ======================================================
+(function initSpotXListener() {
+  console.log("🧠 SpotX Gráfico: listener ativo");
+
+  if (window.__SPOTX_LISTENER__) return;
+  window.__SPOTX_LISTENER__ = true;
+
+  window.addEventListener("message", function (event) {
+    console.log("📨 Mensagem recebida no gráfico:", event.data);
+
+    const msg = event.data;
+    if (!msg || msg.type !== "EXB_SET_FILTER") return;
+
+    const f = msg.filters || {};
+
+    FILTERS = {
+      loja: toArray(f.cod_loja || f.loja),
+      secao: toArray(f.secao),
+      id_canal_venda: toArray(f.id_canal_venda),
+      ano: toArray(f.ano),
+      mes: toArray(f.mes)
+    };
+
+    atualizarFiltrosAtivos();
+    load();
+  });
+})();
+
+// ======================================================
+// INIT
+// ======================================================
+load();
+console.log("✅ Gráfico pronto e aguardando filtros");
+</script>
+</body>
+</html>

@@ -230,15 +230,21 @@ async function load() {
   try {
     const where = buildWhere();
 
-    const byClass = await esriQuery({
-      f: "json",
-      where,
-      groupByFieldsForStatistics: FIELDS.classe,
-      outStatistics: JSON.stringify([
-        { statisticType: "sum", onStatisticField: FIELDS.valor, outStatisticFieldName: "SUM_V" }
-      ]),
-      returnGeometry: "false"
-    });
+const byClass = await esriQuery({
+  f: "json",
+  where,
+  outFields: FIELDS.classe,               // 🔥 LINHA CRÍTICA
+  groupByFieldsForStatistics: FIELDS.classe,
+  outStatistics: JSON.stringify([
+    { 
+      statisticType: "sum",
+      onStatisticField: FIELDS.valor,
+      outStatisticFieldName: "SUM_V"
+    }
+  ]),
+  returnGeometry: "false"
+});
+
 
     const totalQ = await esriQuery({
       f: "json",

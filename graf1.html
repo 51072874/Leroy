@@ -171,7 +171,7 @@ async function load() {
 // MESSAGE LISTENER (EXB / MessageBus)
 // =====================================================
 window.addEventListener("message", (event) => {
-  console.log("📨 Gráfico recebeu:", event.data, "ORIGIN:", event.origin);
+  console.log("📨 Gráfico recebeu RAW:", event.data);
 
   if (
     !event.data ||
@@ -181,14 +181,21 @@ window.addEventListener("message", (event) => {
     return;
   }
 
-  const filters = event.data.filters || {};
+  // 🔥 NORMALIZAÇÃO DO PAYLOAD (AQUI ESTAVA O BUG)
+  const rawFilters =
+    event.data.filters ||
+    event.data.payload?.filters ||
+    event.data.payload ||
+    {};
+
+  console.log("🎯 Filtros normalizados:", rawFilters);
 
   FILTERS = {
-    loja: toArray(filters.cod_loja),
-    secao: toArray(filters.secao),
-    id_canal_venda: toArray(filters.id_canal_venda),
-    ano: toArray(filters.ano),
-    mes: toArray(filters.mes)
+    loja: toArray(rawFilters.cod_loja),
+    secao: toArray(rawFilters.secao),
+    id_canal_venda: toArray(rawFilters.id_canal_venda),
+    ano: toArray(rawFilters.ano),
+    mes: toArray(rawFilters.mes)
   };
 
   console.log("🎯 FILTERS aplicados no gráfico:", FILTERS);
@@ -196,6 +203,7 @@ window.addEventListener("message", (event) => {
   atualizarFiltrosAtivos();
   load();
 });
+
 
 
 // =====================================================

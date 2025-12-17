@@ -171,22 +171,35 @@ async function load() {
 // ======================================================
 window.addEventListener("message", (event) => {
   if (!event.data) return;
-  if (event.data.type !== "SPOTX_FILTER_CHANGE") return;
 
-  console.log("📥 FILTROS RECEBIDOS:", event.data.filters);
+  const type = event.data.type;
 
-  const f = event.data.filters || {};
+  if (type !== "SPOTX_FILTER_CHANGE" && type !== "EXB_SET_FILTER") {
+    return;
+  }
+
+  // 🔑 NORMALIZAÇÃO DO PAYLOAD
+  const raw =
+    event.data.filters ||
+    event.data.payload?.filters ||
+    event.data.payload ||
+    {};
+
+  console.log("📥 FILTROS NORMALIZADOS:", raw);
 
   FILTERS = {
-    loja: toArray(f.cod_loja),
-    mes: toArray(f.mes),
-    ano: toArray(f.ano),
-    secao: toArray(f.secao),
-    id_canal_venda: toArray(f.id_canal_venda)
+    loja: toArray(raw.cod_loja),
+    mes: toArray(raw.mes),
+    ano: toArray(raw.ano),
+    secao: toArray(raw.secao),
+    id_canal_venda: toArray(raw.id_canal_venda)
   };
+
+  console.log("🟢 FILTERS APLICADOS:", FILTERS);
 
   load();
 });
+
 
 // ======================================================
 // CARGA INICIAL (SEM FILTRO)

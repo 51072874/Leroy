@@ -102,41 +102,10 @@ const CLASS_COLORS = {
 
 const collator = new Intl.Collator("pt-BR", { numeric: true, sensitivity: "base" });
 
-// Estado de filtros
-let state = {
-  loja: [],
-  mes: [],
-  ano: [],
-  secao: [],
-  id_canal_venda: []
-};
-
 // Funções auxiliares
 function showLoader(on) {
   document.getElementById("loader").style.display = on ? "flex" : "none";
 }
-
-function parseList(name) {
-  const qs = new URLSearchParams(window.location.search);
-  if (!qs.has(name)) return [];
-  const raw = qs.get(name);
-  if (!raw || raw.trim() === "" || raw.includes("{") || raw.toLowerCase() === "null" || raw.toLowerCase() === "undefined") {
-    return [];
-  }
-  return raw.split(",").map(v => v.trim()).filter(v => v !== "");
-}
-
-function applyFiltersFromEB(filters) {
-  state.loja = toArray(filters.loja);
-  state.mes = toArray(filters.mes);
-  state.ano = toArray(filters.ano);
-  state.secao = toArray(filters.secao);
-  state.id_canal_venda = toArray(filters.id_canal_venda);
-  load();
-}
-
-
-  
 
 function toArray(v) {
   if (!v) return [];
@@ -169,7 +138,6 @@ function buildWhere() {
   return whereFinal;
 }
 
-
 // Requisição para o FeatureServer
 async function esriQuery(params) {
   const url = new URL(LAYER_URL + "/query");
@@ -188,25 +156,6 @@ function fmtPctBR(n) {
   return n.toFixed(2).replace(".", ",") + "%";
 }
 
-window.addEventListener("message", (event) => {
-  const msg = event.data;
-  if (!msg || msg.type !== "SPOTX_FILTER_CHANGE") return;
-
-  console.log("📩 Filtros recebidos:", msg.filters);
-
-  FILTERS = {
-    mes: msg.filters.mes || [],
-    ano: msg.filters.ano ? [String(msg.filters.ano)] : [],
-    secao: msg.filters.secao || [],
-    id_canal_venda: msg.filters.id_canal_venda || [],
-    loja: msg.filters.loja ? [String(msg.filters.loja)] : []
-  };
-
-  load(); // 🔥 recarrega o gráfico
-});
-
-
-  
 // Plugin para adicionar labels aos valores
 const valueLabelsPlugin = {
   id: "valueLabelsPlugin",
@@ -331,27 +280,57 @@ async function load() {
   }
 }
 
-// Escutar filtros enviados pelo Experience Builder
-window.addEventListener("message", (evt) => {
-  const msg = evt.data || {};
-  if (msg.type === "EXB_SET_FILTER") {
-    applyFiltersFromEB(msg.filters || {});
+// ============================================
+// 🔥 LISTENER UNIFICADO - RECEBE FILTROS DO WIDGET
+// ============================================
+window.addEventListener("message", (event) => {
+  const msg = event.data || {};
+  
+  console.log("📨 Mensagem recebida:", msg);
+  
+  // Aceita tanto EXB_SET_FILTER quanto SPOTX_FILTER_CHANGE
+  if (msg.type === "EXB_SET_FILTER" || msg.type === "SPOTX_FILTER_CHANGE") {
+    const filters = msg.filters || {};
+    
+    console.log("✅ Filtros recebidos:", filters);
+    
+    // 🔥 CORREÇÃO: Mapeia cod_loja → loja
+    FILTERS = {
+      loja: toArray(filters.cod_loja || filters.loja),
+      mes: toArray(filters.mes),
+      ano: toArray(filters.ano),
+      secao: toArray(filters.secao),
+      id_canal_venda: toArray(filters.id_canal_venda)
+    };
+    
+    console.log("🔧 FILTERS após conversão:", FILTERS);
+    
+    // Recarrega o gráfico
+    load();
   }
 });
 
 // Carregar filtros da URL (se existirem)
 function loadFromURL() {
   const qs = new URLSearchParams(window.location.search);
-  applyFiltersFromEB({
-    loja: qs.get("loja"),
-    mes: qs.get("mes"),
-    ano: qs.get("ano"),
-    secao: qs.get("secao"),
-    id_canal_venda: qs.get("id_canal_venda")
-  });
+  
+  FILTERS = {
+    loja: toArray(qs.get("loja") || qs.get("cod_loja")),
+    mes: toArray(qs.get("mes")),
+    ano: toArray(qs.get("ano")),
+    secao: toArray(qs.get("secao")),
+    id_canal_venda: toArray(qs.get("id_canal_venda"))
+  };
+  
+  console.log("🌐 Filtros da URL:", FILTERS);
+  
+  load();
 }
 
+// Inicialização
 loadFromURL();
+
+console.log("✅ Gráfico carregado e pronto para receber filtros");
 </script>
 </body>
 </html>

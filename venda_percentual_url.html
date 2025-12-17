@@ -170,23 +170,33 @@ async function load() {
 // =====================================================
 // MESSAGE LISTENER (EXB / MessageBus)
 // =====================================================
-window.addEventListener("message", e => {
-  if (!e.data || !e.data.type) return;
-  if (!["EXB_SET_FILTER", "SPOTX_FILTER_CHANGE"].includes(e.data.type)) return;
+window.addEventListener("message", (event) => {
+  console.log("📨 Gráfico recebeu:", event.data, "ORIGIN:", event.origin);
 
-  console.log("📨 Gráfico recebeu:", e.data);
+  if (
+    !event.data ||
+    (event.data.type !== "EXB_SET_FILTER" &&
+     event.data.type !== "SPOTX_FILTER_CHANGE")
+  ) {
+    return;
+  }
 
-  const f = e.data.filters || {};
+  const filters = event.data.filters || {};
+
   FILTERS = {
-    loja: toArray(f.cod_loja),
-    mes: toArray(f.mes),
-    ano: toArray(f.ano),
-    secao: toArray(f.secao),
-    id_canal_venda: toArray(f.id_canal_venda)
+    loja: toArray(filters.cod_loja),
+    secao: toArray(filters.secao),
+    id_canal_venda: toArray(filters.id_canal_venda),
+    ano: toArray(filters.ano),
+    mes: toArray(filters.mes)
   };
 
+  console.log("🎯 FILTERS aplicados no gráfico:", FILTERS);
+
+  atualizarFiltrosAtivos();
   load();
 });
+
 
 // =====================================================
 load();

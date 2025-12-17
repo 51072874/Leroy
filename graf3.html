@@ -37,7 +37,7 @@ canvas {
 
 <body>
 <div id="wrap">
-  <div id="loader">Carregando…</div>
+  <div id="loader">Carregando...</div>
   <canvas id="chart"></canvas>
 </div>
 
@@ -48,7 +48,7 @@ canvas {
 const LAYER_URL =
   "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
-// estado atual
+// Estado atual dos filtros
 let FILTERS = {
   loja: [],
   mes: [],
@@ -61,7 +61,7 @@ let FILTERS = {
 // HELPERS
 // ======================================================
 const toArray = v =>
-  !v ? [] : Array.isArray(v) ? v.map(String) : String(v).split(",");
+  !v ? [] : Array.isArray(v) ? v.map(String) : String(v).split(",").map(s => s.trim()).filter(Boolean);
 
 function buildWhere() {
   const w = ["1=1"];
@@ -76,7 +76,7 @@ function buildWhere() {
     w.push(`ano IN (${FILTERS.ano.map(v => `'${v}'`).join(",")})`);
 
   if (FILTERS.secao.length)
-    w.push(`secao IN (${FILTERS.secao.map(v => `'${v}'`).join(",")})`);
+    w.push(`secao IN (${FILTERS.secao.map(v => `'${v.replace(/'/g,"''")}'`).join(",")})`);
 
   if (FILTERS.id_canal_venda.length)
     w.push(`id_canal_venda IN (${FILTERS.id_canal_venda.map(v => `'${v}'`).join(",")})`);
@@ -89,7 +89,8 @@ async function query(params) {
   const url = new URL(LAYER_URL + "/query");
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   console.log("🌐 QUERY:", url.toString());
-  return fetch(url).then(r => r.json());
+  const res = await fetch(url);
+  return res.json();
 }
 
 // ======================================================
@@ -100,7 +101,8 @@ const chart = new Chart(document.getElementById("chart"), {
   data: {
     datasets: [{
       data: [],
-      backgroundColor: "#1976d2"
+      backgroundColor: "#1976d2",
+      barThickness: 28
     }]
   },
   options: {
@@ -119,52 +121,61 @@ const chart = new Chart(document.getElementById("chart"), {
 });
 
 // ======================================================
-// LOAD
+// LOAD (ÚNICO PONTO DE CARGA)
 // ======================================================
 async function load() {
-  document.getElementById("loader").style.display = "flex";
+  const loader = document.getElementById("loader");
+  loader.style.display = "flex";
 
-  const where = buildWhere();
+  try {
+    const where = buildWhere();
 
-  const res = await query({
-    f: "json",
-    where,
-    outFields: "classe_social",
-    groupByFieldsForStatistics: "classe_social",
-    outStatistics: JSON.stringify([
-      {
-        statisticType: "sum",
-        onStatisticField: "valor_vendas_atual",
-        outStatisticFieldName: "VAL"
-      }
-    ]),
-    returnGeometry: "false"
-  });
+    const res = await query({
+      f: "json",
+      where,
+      outFields: "classe_social",
+      groupByFieldsForStatistics: "classe_social",
+      outStatistics: JSON.stringify([
+        {
+          statisticType: "sum",
+          onStatisticField: "valor_vendas_atual",
+          outStatisticFieldName: "VAL"
+        }
+      ]),
+      returnGeometry: "false"
+    });
 
-  const rows = (res.features || [])
-    .map(f => ({
-      y: f.attributes.classe_social,
-      x: f.attributes.VAL
-    }))
-    .filter(r => r.y);
+    const rows = (res.features || [])
+      .map(f => ({
+        y: f.attributes.classe_social,
+        x: Number(f.attributes.VAL || 0)
+      }))
+      .filter(r => r.y && r.x > 0);
 
-  chart.data.datasets[0].data = rows;
-  chart.update();
+    console.log("📊 Dados do gráfico:", rows);
 
-  document.getElementById("loader").style.display = "none";
+    chart.data.datasets[0].data = rows;
+    chart.update();
+
+  } catch (err) {
+    console.error("❌ Erro ao carregar gráfico:", err);
+    chart.data.datasets[0].data = [];
+    chart.update();
+  } finally {
+    loader.style.display = "none";
+  }
 }
 
 // ======================================================
-// LISTENER – ESTE É O PONTO-CHAVE
+// LISTENER DE FILTROS (SEU WIDGET)
 // ======================================================
 window.addEventListener("message", (event) => {
   if (!event.data) return;
-
   if (event.data.type !== "SPOTX_FILTER_CHANGE") return;
 
   console.log("📥 FILTROS RECEBIDOS:", event.data.filters);
 
-  const f = event.data.filters;
+  const f = event.data.filters || {};
 
   FILTERS = {
     loja: toArray(f.cod_loja),
@@ -177,7 +188,11 @@ window.addEventListener("message", (event) => {
   load();
 });
 
-console.log("🟢 Gráfico pronto e aguardando filtros");
+// ======================================================
+// CARGA INICIAL (SEM FILTRO)
+// ======================================================
+console.log("🟢 Gráfico iniciado – carga inicial");
+load();
 </script>
 </body>
 </html>

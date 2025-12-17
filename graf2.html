@@ -1,8 +1,4 @@
 <!doctype html>
-<script>
-  window.__SPOTX_DEBUG__ = true;
-</script>
-
 <html lang="pt-br">
 <head>
 <meta charset="utf-8"/>
@@ -54,6 +50,8 @@ canvas { width: 100% !important; height: 100% !important; }
 // =====================================================
 // CONFIG
 // =====================================================
+const SPOTX_SOURCE = "SPOTX_FILTER_WIDGET";
+
 const LAYER_URL =
   "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
@@ -73,6 +71,8 @@ let FILTERS = {
   loja: [], mes: [], ano: [], secao: [], id_canal_venda: []
 };
 
+let lastFilterHash = "";
+
 // =====================================================
 // HELPERS
 // =====================================================
@@ -80,8 +80,8 @@ const toArray = v =>
   !v ? [] : Array.isArray(v) ? v.map(String) : String(v).split(",");
 
 function buildWhere() {
-  console.log("🚨 buildWhere() recebeu FILTERS:", FILTERS);
   const p = ["1=1"];
+
   if (FILTERS.loja.length)
     p.push(`id_loja_venda IN (${FILTERS.loja.map(v => `'${v}'`).join(",")})`);
   if (FILTERS.mes.length)
@@ -92,6 +92,7 @@ function buildWhere() {
     p.push(`secao IN (${FILTERS.secao.map(v => `'${v}'`).join(",")})`);
   if (FILTERS.id_canal_venda.length)
     p.push(`id_canal_venda IN (${FILTERS.id_canal_venda.map(v => `'${v}'`).join(",")})`);
+
   console.log("🧩 WHERE FINAL:", p.join(" AND "));
   return p.join(" AND ");
 }
@@ -154,7 +155,7 @@ async function load() {
 
   const rows = (byClass.features || []).map(f => ({
     y: f.attributes.classe_social,
-    x: (f.attributes.SUM_V / total) * 100
+    x: total ? (f.attributes.SUM_V / total) * 100 : 0
   })).filter(r => r.y);
 
   rows.sort((a,b) => collator.compare(a.y, b.y));
@@ -164,60 +165,4 @@ async function load() {
     chart.data.datasets[0].data = [];
   } else {
     chart.data.datasets[0].data = rows;
-    chart.data.datasets[0].backgroundColor =
-      rows.map(r => CLASS_COLORS[r.y] || "#999");
-  }
-
-  chart.update();
-  document.getElementById("loader").style.display = "none";
-}
-
-// =====================================================
-// MESSAGE LISTENER (EXB / MessageBus)
-// =====================================================
-window.addEventListener("message", (event) => {
-  console.log("🟥 EVENT RAW:", JSON.stringify(event.data));
-
-  if (!event.data) {
-    console.log("🟥 event.data vazio");
-    return;
-  }
-
-  const type = event.data.type;
-  console.log("🟦 TYPE:", type);
-
-  if (type !== "EXB_SET_FILTER" && type !== "SPOTX_FILTER_CHANGE") {
-    console.log("🟨 Tipo ignorado");
-    return;
-  }
-
-  const raw =
-    event.data.filters ??
-    event.data.payload?.filters ??
-    event.data.payload ??
-    event.data;
-
-  console.log("🟩 RAW FILTERS:", raw);
-
-  FILTERS = {
-    loja: toArray(raw.cod_loja),
-    mes: toArray(raw.mes),
-    ano: toArray(raw.ano),
-    secao: toArray(raw.secao),
-    id_canal_venda: toArray(raw.id_canal_venda)
-  };
-
-  console.log("🟢 FILTERS SETADOS:", FILTERS);
-
-  load();
-});
-
-
-
-
-// =====================================================
-
-console.log("🧠 SpotX Gráfico: listener ativo");
-</script>
-</body>
-</html>
+    chart.data.datasets[0].backgr

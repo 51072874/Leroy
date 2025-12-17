@@ -2,22 +2,25 @@
 <html lang="pt-br">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=282, initial-scale=1"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
 
 <style>
 html, body{
   margin:0;
   padding:0;
-  width:282px;
-  background:#fff;
+  width:100%;
+  height:100%;
+  background:transparent;          /* ⬅ fora das caixas */
   overflow:hidden;
   font-family: Arial, Helvetica, sans-serif;
   color:#444444;
 }
 
+/* container centralizador */
 #container{
   position:relative;
-  width:282px;
+  width:100%;
+  height:100%;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -33,6 +36,7 @@ html, body{
   justify-content:center;
   background:transparent;
   z-index:10;
+  pointer-events:none;
 }
 
 .spinner{
@@ -49,41 +53,54 @@ html, body{
 
 #content{
   width:100%;
+  height:100%;
   display:flex;
   align-items:center;
   justify-content:center;
+  padding:6px;
+  box-sizing:border-box;
 }
 
 /* ===== KPI ===== */
 .kpiWrap{
   width:100%;
+  max-width:520px;
   display:grid;
   grid-template-columns:repeat(3,1fr);
-  border:1px solid #e6e6e6;
   border-radius:6px;
   overflow:hidden;
+  background:transparent;
 }
 
 .kpi{
   display:flex;
   align-items:center;
   justify-content:center;
-  padding:6px 4px;
+  padding:10px 6px;
+  background:#e3e3e3;              /* ✅ cinza só nas caixas */
+  box-sizing:border-box;
 }
 
 .kpi + .kpi{
-  border-left:1px solid #d0d0d0;
+  border-left:1px solid #ffffff;   /* ✅ divisória branca */
 }
 
 .kpiValue{
   display:flex;
   align-items:baseline;
-  gap:3px;
+  gap:4px;
   font-size:11px;
   font-weight:600;
   white-space:nowrap;
 }
-.kpiUnit{ font-size:11px; }
+
+/* responsivo */
+@media (max-width: 360px){
+  .kpiValue{ font-size:10px; }
+}
+@media (min-width: 700px){
+  .kpiValue{ font-size:12px; }
+}
 </style>
 </head>
 
@@ -93,9 +110,24 @@ html, body{
 
   <div id="content">
     <div class="kpiWrap" id="kpiWrap">
-      <div class="kpi"><div class="kpiValue"><span class="kpiUnit">R$</span><span id="vAtual">—</span></div></div>
-      <div class="kpi"><div class="kpiValue"><span id="vPct">—</span><span class="kpiUnit">%</span></div></div>
-      <div class="kpi"><div class="kpiValue"><span id="vProg">—</span><span class="kpiUnit">%</span></div></div>
+      <div class="kpi">
+        <div class="kpiValue">
+          <span>R$</span>
+          <span id="vAtual">—</span>
+        </div>
+      </div>
+      <div class="kpi">
+        <div class="kpiValue">
+          <span id="vPct">—</span>
+          <span>%</span>
+        </div>
+      </div>
+      <div class="kpi">
+        <div class="kpiValue">
+          <span id="vProg">—</span>
+          <span>%</span>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -133,7 +165,7 @@ function list(n){
 function buildWhere(removeMes=false){
   const p=["1=1"];
 
-  /* filtro fixo cod_loja_zinflu2 */
+  /* filtro fixo cod_loja_zinflu2 != 0 */
   p.push(`${FIELDS.codZ} IS NOT NULL`);
   p.push(`${FIELDS.codZ} <> '0'`);
 
@@ -143,13 +175,11 @@ function buildWhere(removeMes=false){
   const canais = list("id_canal_venda");
   const secoes = list("secao");
 
-  /* 👉 REGRA-CHAVE */
+  /* regra loja=0 */
   const lojaTemZero = lojas.includes("0");
-
   if (lojas.length && !lojaTemZero){
     p.push(`${FIELDS.loja} IN (${lojas.map(v=>`'${esc(v)}'`).join(",")})`);
   }
-  /* se loja=0 → NÃO adiciona filtro */
 
   if(!removeMes && meses.length)
     p.push(`${FIELDS.mes} IN (${meses.map(v=>`'${esc(v)}'`).join(",")})`);

@@ -10,13 +10,12 @@ html, body{
   padding:0;
   width:100%;
   height:100%;
-  background:transparent;          /* ⬅ fora das caixas */
+  background:transparent;          /* fora das caixas */
   overflow:hidden;
   font-family: Arial, Helvetica, sans-serif;
   color:#444444;
 }
 
-/* container centralizador */
 #container{
   position:relative;
   width:100%;
@@ -77,12 +76,12 @@ html, body{
   align-items:center;
   justify-content:center;
   padding:10px 6px;
-  background:#e3e3e3;              /* ✅ cinza só nas caixas */
+  background:#e3e3e3;              /* cinza só nas caixas */
   box-sizing:border-box;
 }
 
 .kpi + .kpi{
-  border-left:1px solid #ffffff;   /* ✅ divisória branca */
+  border-left:1px solid #ffffff;   /* divisória branca 1px */
 }
 
 .kpiValue{
@@ -94,7 +93,6 @@ html, body{
   white-space:nowrap;
 }
 
-/* responsivo */
 @media (max-width: 360px){
   .kpiValue{ font-size:10px; }
 }
@@ -116,12 +114,14 @@ html, body{
           <span id="vAtual">—</span>
         </div>
       </div>
+
       <div class="kpi">
         <div class="kpiValue">
           <span id="vPct">—</span>
           <span>%</span>
         </div>
       </div>
+
       <div class="kpi">
         <div class="kpiValue">
           <span id="vProg">—</span>
@@ -161,11 +161,11 @@ function list(n){
   return qs.get(n).split(",").map(v=>v.trim()).filter(Boolean);
 }
 
-/* ===== BUILD WHERE (COM REGRA loja=0) ===== */
+/* ===== BUILD WHERE (IGNORA =0 PARA TODOS OS PARAMETROS) ===== */
 function buildWhere(removeMes=false){
   const p=["1=1"];
 
-  /* filtro fixo cod_loja_zinflu2 != 0 */
+  /* filtro fixo cod_loja_zinflu2 != '0' */
   p.push(`${FIELDS.codZ} IS NOT NULL`);
   p.push(`${FIELDS.codZ} <> '0'`);
 
@@ -175,23 +175,27 @@ function buildWhere(removeMes=false){
   const canais = list("id_canal_venda");
   const secoes = list("secao");
 
-  /* regra loja=0 */
-  const lojaTemZero = lojas.includes("0");
-  if (lojas.length && !lojaTemZero){
+  const hasZero = arr => arr.includes("0");
+
+  if (lojas.length && !hasZero(lojas)){
     p.push(`${FIELDS.loja} IN (${lojas.map(v=>`'${esc(v)}'`).join(",")})`);
   }
 
-  if(!removeMes && meses.length)
+  if (!removeMes && meses.length && !hasZero(meses)){
     p.push(`${FIELDS.mes} IN (${meses.map(v=>`'${esc(v)}'`).join(",")})`);
+  }
 
-  if(anos.length)
+  if (anos.length && !hasZero(anos)){
     p.push(`${FIELDS.ano} IN (${anos.map(v=>`'${esc(v)}'`).join(",")})`);
+  }
 
-  if(canais.length)
+  if (canais.length && !hasZero(canais)){
     p.push(`${FIELDS.canal} IN (${canais.map(v=>`'${esc(v)}'`).join(",")})`);
+  }
 
-  if(secoes.length)
+  if (secoes.length && !hasZero(secoes)){
     p.push(`${FIELDS.secao} IN (${secoes.map(v=>`'${esc(v)}'`).join(",")})`);
+  }
 
   return p.join(" AND ");
 }
@@ -205,15 +209,20 @@ async function esriQuery(params){
   return j;
 }
 
-function fmtBR(n){ return Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:2}); }
+function fmtBR(n){
+  return Number(n||0).toLocaleString("pt-BR",{
+    minimumFractionDigits:2,
+    maximumFractionDigits:2
+  });
+}
 function fmtPct(n){ return Number(n||0).toFixed(2).replace(".",","); }
 
 /* ===== load ===== */
 async function load(){
   showLoader(true);
 
-  const wSel = buildWhere(false);
-  const wAll = buildWhere(true);
+  const wSel = buildWhere(false); // com mes
+  const wAll = buildWhere(true);  // sem mes
 
   const sel = await esriQuery({
     f:"json", where:wSel,

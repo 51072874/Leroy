@@ -28,11 +28,11 @@ const BAIRROS_URL = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted
 const VENDAS_URL  = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
 /*******************************************************
- * Parâmetros GET (agora: loja=...)
+ * Parâmetros GET (loja=...)
  *******************************************************/
 const params = new URLSearchParams(window.location.search);
 
-let codLoja = params.get("loja");            // <<< loja
+let codLoja = params.get("loja");
 let secao   = params.get("secao");
 let idCanal = params.get("id_canal_venda");
 let ano     = params.get("ano");
@@ -44,22 +44,23 @@ if (codLoja === "0") codLoja = null;
 // Sanitização mínima
 const sanitize = v => v ? v.replace(/'/g, "''") : null;
 
+codLoja = sanitize(codLoja);
 secao   = sanitize(secao);
 idCanal = sanitize(idCanal);
 ano     = sanitize(ano);
 mes     = sanitize(mes);
 
 /*******************************************************
- * Zoom somente quando "loja" mudar
- * (alterações em secao/canal/ano/mes NÃO dão zoom)
+ * Persistência de view (para NÃO voltar ao Brasil)
+ * - Se a loja é a mesma e só mudaram filtros (mes, ano, etc),
+ *   o mapa mantém o último center/zoom salvo.
  *******************************************************/
-const LAST_LOJA_KEY = "spotx_last_loja";
-const lastLoja = sessionStorage.getItem(LAST_LOJA_KEY);
-const shouldZoom = !!codLoja && codLoja !== lastLoja;
+const VIEW_KEY = "spotx_view_state_v1"; // { loja, center:[lon,lat], zoom }
+let savedState = null;
+try { savedState = JSON.parse(sessionStorage.getItem(VIEW_KEY) || "null"); } catch(e){ savedState = null; }
 
-/*******************************************************
- * MAPA
- *******************************************************/
+const sameLojaAsSaved = !!(codLoja && savedState && savedState.loja === codLoja);
+
 require([
   "esri/Map",
   "esri/views/MapView",
@@ -68,11 +69,29 @@ require([
 
   const map = new Map({ basemap:"streets-navigation-vector" });
 
+  // ✅ Se já existe estado salvo para a MESMA loja, inicia nele (não “pisca” Brasil)
+  const initialCenter = (sameLojaAsSaved && savedState.center) ? savedState.center : [-55,-14];
+  const initialZoom   = (sameLojaAsSaved && typeof savedState.zoom === "number") ? savedState.zoom : 3;
+
   const view = new MapView({
     container:"viewDiv",
     map,
-    center:[-55,-14], // Brasil
-    zoom:3
+    center: initialCenter,
+    zoom: initialZoom
+  });
+
+  // ✅ Sempre que o usuário navegar (ou após goTo), salva center/zoom
+  view.when(() => {
+    view.watch(["center", "zoom"], () => {
+      if (!codLoja) return;
+      const c = view.center;
+      if (!c) return;
+      sessionStorage.setItem(VIEW_KEY, JSON.stringify({
+        loja: codLoja,
+        center: [Number(c.longitude), Number(c.latitude)],
+        zoom: Number(view.zoom)
+      }));
+    });
   });
 
   if (!codLoja) {
@@ -81,7 +100,7 @@ require([
   }
 
   /***************************************************
-   * Camadas invisíveis
+   * Camadas
    ***************************************************/
   const bairrosLayer = new FeatureLayer({
     url: BAIRROS_URL,
@@ -142,7 +161,7 @@ require([
   });
 
   /***************************************************
-   * Função de processamento completo
+   * Processamento completo
    ***************************************************/
   async function processarBairrosEVendas() {
 
@@ -154,10 +173,17 @@ require([
     const bairros = await bairrosLayer.queryFeatures(q);
     if (!bairros.features.length) return;
 
-    // ✅ Zoom só quando "loja" mudar
-    if (shouldZoom) {
+    // ✅ Só faz zoom “automático” quando NÃO existe view salvo dessa loja ainda
+    // (se você só adicionou mes/ano/etc, ele mantém a view)
+    if (!sameLojaAsSaved) {
       await view.goTo(bairros.features.map(f => f.geometry.extent));
-      sessionStorage.setItem(LAST_LOJA_KEY, codLoja);
+      // salva imediatamente após o zoom inicial
+      const c = view.center;
+      sessionStorage.setItem(VIEW_KEY, JSON.stringify({
+        loja: codLoja,
+        center: [Number(c.longitude), Number(c.latitude)],
+        zoom: Number(view.zoom)
+      }));
     }
 
     const listaIDs = bairros.features
@@ -168,7 +194,6 @@ require([
      * Montar filtros (tudo STRING)
      ***************************************************/
     const filtros = [];
-
     if (secao)   filtros.push(`secao='${secao}'`);
     if (idCanal) filtros.push(`id_canal_venda='${idCanal}'`);
     if (ano)     filtros.push(`ano='${ano}'`);

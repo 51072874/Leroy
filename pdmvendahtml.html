@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="ISO-8859-1">
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+<style>
+  :root{
+    --text:#111827;
+    --pad:10px;
+
+    --axis:#e5e7eb;
+    --muted:#6b7280;
+
+    --bar:#4F7987;
+    --barHover:#3F6673;
+  }
+
+  html, body{
+    margin:0;
+    padding:0;
+    height:100%;
+    background:transparent;
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+    color:var(--text);
+  }
+
+  *{ box-sizing:border-box; }
+
+  #container{
+    position:relative;
+    height:100%;
+    width:100%;
+    padding:var(--pad);
+    background:transparent;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+
+  /* ===== TÍTULO ===== */
+  .title{
+    font-size:clamp(12px, 1.2vw, 14px);
+    font-weight:600;
+    color:var(--text);
+    line-height:1.1;
+    text-align:center;
+    margin:0;
+  }
+
+  #loader{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:10;
+    pointer-events:none;
+  }
+
+  .spinner{
+    width:clamp(28px, 6vw, 42px);
+    height:clamp(28px, 6vw, 42px);
+    border:clamp(3px, .6vw, 4px) solid #d1d5db;
+    border-top-color:#2563eb;
+    border-radius:50%;
+    animation:spin 1s linear infinite;
+  }
+
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  .chart{
+    flex:1;
+    min-height:0;
+    width:100%;
+    display:flex;
+    gap:6px;
+    padding-top:6px;
+  }
+
+  /* ===== EIXO Y ===== */
+  .yAxis{
+    width:38px;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    padding-bottom:40px;
+  }
+
+  .yTick{
+    font-size:10px;
+    color:var(--muted);
+    line-height:1;
+    transform:translateY(50%);
+  }
+
+  .plot{
+    flex:1;
+    min-height:0;
+    position:relative;
+    /* border-bottom REMOVIDO */
+  }
+
+  .bars{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:flex-end;
+    gap:clamp(8px, 1.6vw, 14px);
+    padding:8px 6px 18px 6px;
+  }
+
+  .barCol{
+    flex:1;
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+  }
+
+  .barValue{
+    font-weight:400;
+    font-variant-numeric: tabular-nums;
+    font-size:clamp(10px, 1.1vw, 12px);
+    white-space:nowrap;
+  }
+
+  .bar{
+    width:100%;
+    max-width:54px;
+    background:var(--bar);
+    border-radius:10px 10px 6px 6px;
+    transition:.15s ease;
+  }
+
+  .bar:hover{
+    background:var(--barHover);
+    transform:translateY(-1px);
+  }
+
+  .barLabel{
+    color:var(--muted);
+    font-size:clamp(10px, 1.1vw, 12px);
+    white-space:nowrap;
+    max-width:100%;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  .empty{
+    height:100%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--muted);
+    font-size:clamp(11px, 1.2vw, 13px);
+  }
+</style>
+</head>
+
+<body>
+<div id="container">
+
+  <div class="title">PDM/PROG</div>
+
+  <div id="loader"><div class="spinner"></div></div>
+
+  <div class="chart" id="chart" style="display:none">
+
+    <div class="yAxis" id="yAxis"></div>
+
+    <div class="plot">
+      <div class="bars" id="bars"></div>
+      <div class="empty" id="empty" style="display:none">
+        Sem dados para os filtros atuais
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ================= CONFIG ================= */
+
+const LAYER_URL =
+  "https://mcndeployserver.shop/server/rest/services/Hosted/Onpageconquistaisocronas/FeatureServer/0";
+
+const FIELDS = {
+  loja: "loja",
+  isocrona: "isocrona",
+  percConquista: "perc_conquista"
+};
+
+const qs = new URLSearchParams(window.location.search);
+
+/* ================= UTIL ================= */
+
+function showLoader(on){
+  document.getElementById("loader").style.display = on ? "flex" : "none";
+}
+
+function escapeSqlString(s){
+  return String(s).replace(/'/g, "''");
+}
+
+function parseList(name){
+  if (!qs.has(name)) return [];
+  return String(qs.get(name) || "")
+    .split(",")
+    .map(v => v.trim())
+    .filter(v => v !== "");
+}
+
+function buildWhere(){
+  const parts = ["1=1"];
+  const lojas = parseList("loja");
+  if (lojas.length){
+    parts.push(`${FIELDS.loja} IN (${lojas.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
+  }
+  return parts.join(" AND ");
+}
+
+async function esriQuery(params){
+  const url = new URL(LAYER_URL.replace(/\/+$/,"") + "/query");
+  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k,v));
+  const r = await fetch(url.toString());
+  const j = await r.json();
+  if (!r.ok || j.error) throw (j.error || { message:`HTTP ${r.status}` });
+  return j;
+}
+
+function fmtBR(n){
+  return (isFinite(n) ? n : 0).toFixed(1).replace(".", ",");
+}
+
+function isocronaKey(v){
+  const s = String(v).toLowerCase();
+  const m = s.match(/-?\d+([.,]\d+)?/);
+  return m ? Number(m[0].replace(",", ".")) : Number.POSITIVE_INFINITY;
+}
+
+/* ===== EIXO Y ===== */
+
+function buildYAxis(maxValue){
+  const steps = 5;
+  const yAxis = document.getElementById("yAxis");
+  yAxis.innerHTML = "";
+
+  for (let i = steps; i >= 0; i--){
+    const val = (maxValue / steps) * i;
+    const tick = document.createElement("div");
+    tick.className = "yTick";
+    tick.textContent = fmtBR(val) + "%";
+    yAxis.appendChild(tick);
+  }
+}
+
+/* ================= RENDER ================= */
+
+function renderBars(rows){
+  const chart = document.getElementById("chart");
+  const barsEl = document.getElementById("bars");
+  const emptyEl = document.getElementById("empty");
+
+  barsEl.innerHTML = "";
+
+  if (!rows.length){
+    chart.style.display = "flex";
+    emptyEl.style.display = "flex";
+    return;
+  }
+
+  emptyEl.style.display = "none";
+  chart.style.display = "flex";
+
+  const maxVal = Math.max(...rows.map(r => r.value));
+  buildYAxis(maxVal);
+
+  rows.forEach(r => {
+    const col = document.createElement("div");
+    col.className = "barCol";
+
+    const v = document.createElement("div");
+    v.className = "barValue";
+    v.textContent = fmtBR(r.value) + "%";
+
+    const bar = document.createElement("div");
+    bar.className = "bar";
+    bar.style.height = (12 + (r.value / maxVal) * 220) + "px";
+
+    const lab = document.createElement("div");
+    lab.className = "barLabel";
+    lab.textContent = r.label;
+
+    col.appendChild(v);
+    col.appendChild(bar);
+    col.appendChild(lab);
+
+    barsEl.appendChild(col);
+  });
+}
+
+/* ================= LOAD ================= */
+
+async function load(){
+  showLoader(true);
+
+  try{
+    const q = await esriQuery({
+      f: "json",
+      where: buildWhere(),
+      groupByFieldsForStatistics: FIELDS.isocrona,
+      outStatistics: JSON.stringify([{
+        statisticType: "sum",
+        onStatisticField: FIELDS.percConquista,
+        outStatisticFieldName: "SUM_PERC_CONQUISTA"
+      }]),
+      outFields: FIELDS.isocrona,
+      returnGeometry: "false"
+    });
+
+    const rows = (q.features || [])
+      .map(f => {
+        const iso = f.attributes[FIELDS.isocrona];
+        const soma = Number(f.attributes.SUM_PERC_CONQUISTA || 0) / 100;
+        return { label:String(iso).trim(), value:soma };
+      })
+      .filter(r => r.label !== "" && r.label !== "null" && r.label !== "undefined")
+      .sort((a,b) => isocronaKey(a.label) - isocronaKey(b.label));
+
+    renderBars(rows);
+
+  }catch(e){
+    console.error("Erro gráfico:", e);
+    renderBars([]);
+  }finally{
+    showLoader(false);
+  }
+}
+
+load();
+</script>
+</body>
+</html>

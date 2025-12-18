@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+
+<style>
+html, body{
+  margin:0;
+  padding:0;
+  width:100%;
+  height:100%;
+  background:transparent;
+  overflow:hidden;
+  font-family: Arial, Helvetica, sans-serif;
+  color:#444444;
+}
+
+/* container centralizador */
+#container{
+  position:relative;
+  width:100%;
+  height:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-sizing:border-box;
+}
+
+/* ===== LOADER ===== */
+#loader{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:transparent;
+  z-index:10;
+  pointer-events:none;
+}
+
+.spinner{
+  width:22px;
+  height:22px;
+  border:3px solid #dddddd;
+  border-top-color:#2b7cff;
+  border-radius:50%;
+  animation:spin 1s linear infinite;
+}
+@keyframes spin{ to{ transform:rotate(360deg);} }
+
+.loading #content{ visibility:hidden; }
+
+#content{
+  width:100%;
+  height:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-sizing:border-box;
+  padding:6px;
+}
+
+/* ===== KPI ===== */
+.kpiWrap{
+  width:100%;
+  max-width:520px;
+  display:grid;
+  grid-template-columns:repeat(3, 1fr);
+  border-radius:6px;
+  overflow:hidden;
+  background:transparent;
+}
+
+.kpi{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:10px 6px;
+  background:#e3e3e3;
+  box-sizing:border-box;
+}
+
+.kpi + .kpi{
+  border-left:1px solid #ffffff;
+}
+
+.kpiValue{
+  display:flex;
+  align-items:baseline;
+  justify-content:center;
+  gap:4px;
+  font-size:11px;
+  font-weight:600;
+  line-height:1.1;
+  white-space:nowrap;
+}
+
+@media (max-width: 360px){
+  .kpiValue{ font-size:10px; }
+}
+@media (min-width: 700px){
+  .kpiValue{ font-size:12px; }
+}
+</style>
+</head>
+
+<body class="loading">
+<div id="container">
+  <div id="loader"><div class="spinner"></div></div>
+
+  <div id="content">
+    <div class="kpiWrap">
+      <div class="kpi">
+        <div class="kpiValue">
+          <span>R$</span>
+          <span id="vAtual">—</span>
+        </div>
+      </div>
+
+      <div class="kpi">
+        <div class="kpiValue">
+          <span id="vPct">—</span>
+          <span>%</span>
+        </div>
+      </div>
+
+      <div class="kpi">
+        <div class="kpiValue">
+          <span id="vProg">—</span>
+          <span>%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= CONFIG ================= */
+const LAYER_URL =
+ "https://mcndeployserver.shop/server/rest/services/Hosted/Onpagefactsalesclientgeohierarchydepartament/FeatureServer/0";
+
+const FIELDS = {
+  loja:"id_loja_venda",
+  mes:"mes",
+  ano:"ano",
+  canal:"id_canal_venda",
+  secao:"secao",
+  codZ:"cod_loja_zinflu2",
+  valorAtual:"valor_vendas_atual",
+  valorAnterior:"valor_vendas_anterior"
+};
+
+const qs = new URLSearchParams(window.location.search);
+
+/* ===== utils ===== */
+function showLoader(on){
+  document.getElementById("loader").style.display = on ? "flex":"none";
+  document.body.classList.toggle("loading", on);
+}
+
+function esc(s){ return String(s).replace(/'/g,"''"); }
+
+function list(n){
+  if(!qs.has(n)) return [];
+  return qs.get(n).split(",").map(v=>v.trim()).filter(Boolean);
+}
+
+/* ===== BUILD WHERE (0 = IGNORAR PARA TODOS) ===== */
+function buildWhere(removeMes=false){
+  const p = ["1=1"];
+
+  /* filtro fixo */
+  p.push(`${FIELDS.codZ} = '0'`);
+
+  const lojas  = list("loja");
+  const meses  = list("mes");
+  const anos   = list("ano");
+  const canais = list("id_canal_venda");
+  const secoes = list("secao");
+
+  const hasZero = arr => arr.includes("0");
+
+  if (lojas.length && !hasZero(lojas)){
+    p.push(`${FIELDS.loja} IN (${lojas.map(v=>`'${esc(v)}'`).join(",")})`);
+  }
+
+  if (!removeMes && meses.length && !hasZero(meses)){
+    p.push(`${FIELDS.mes} IN (${meses.map(v=>`'${esc(v)}'`).join(",")})`);
+  }
+
+  if (anos.length && !hasZero(anos)){
+    p.push(`${FIELDS.ano} IN (${anos.map(v=>`'${esc(v)}'`).join(",")})`);
+  }
+
+  if (canais.length && !hasZero(canais)){
+    p.push(`${FIELDS.canal} IN (${canais.map(v=>`'${esc(v)}'`).join(",")})`);
+  }
+
+  if (secoes.length && !hasZero(secoes)){
+    p.push(`${FIELDS.secao} IN (${secoes.map(v=>`'${esc(v)}'`).join(",")})`);
+  }
+
+  return p.join(" AND ");
+}
+
+async function esriQuery(params){
+  const u = new URL(LAYER_URL + "/query");
+  Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v));
+  const r = await fetch(u);
+  const j = await r.json();
+  if(!r.ok || j.error) throw j.error;
+  return j;
+}
+
+function fmtBR(n){
+  return Number(n||0).toLocaleString("pt-BR",{
+    minimumFractionDigits:2,
+    maximumFractionDigits:2
+  });
+}
+function fmtPct(n){ return Number(n||0).toFixed(2).replace(".",","); }
+
+/* ===== load ===== */
+async function load(){
+  showLoader(true);
+
+  const wSel = buildWhere(false);
+  const wAll = buildWhere(true);
+
+  const sel = await esriQuery({
+    f:"json",
+    where:wSel,
+    outStatistics:JSON.stringify([
+      {statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"A"},
+      {statisticType:"sum", onStatisticField:FIELDS.valorAnterior, outStatisticFieldName:"B"}
+    ]),
+    returnGeometry:"false"
+  });
+
+  const all = await esriQuery({
+    f:"json",
+    where:wAll,
+    outStatistics:JSON.stringify([
+      {statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"T"}
+    ]),
+    returnGeometry:"false"
+  });
+
+  const a = sel.features?.[0]?.attributes || {};
+  const b = all.features?.[0]?.attributes || {};
+
+  const atual = +a.A || 0;
+  const ant   = +a.B || 0;
+  const total = +b.T || 0;
+
+  document.getElementById("vAtual").textContent = fmtBR(atual);
+  document.getElementById("vPct").textContent   = fmtPct(total ? (atual / total) * 100 : 0);
+  document.getElementById("vProg").textContent  = fmtPct(ant ? ((atual / ant) - 1) * 100 : 0);
+
+  showLoader(false);
+}
+
+load();
+</script>
+</body>
+</html>

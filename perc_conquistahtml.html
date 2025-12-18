@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8"/>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+<style>
+  :root{
+    --text:#111827;
+    --pad:10px;
+  }
+
+  html, body{
+    margin:0;
+    padding:0;
+    height:100%;
+    background:transparent;
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+    color:var(--text);
+  }
+
+  #container{
+    position:relative;
+    height:100%;
+    width:100%;
+    padding:var(--pad);
+    box-sizing:border-box;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:transparent;
+  }
+
+  #loader{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:10;
+    pointer-events:none;
+  }
+
+  .spinner{
+    width:clamp(28px, 6vw, 42px);
+    height:clamp(28px, 6vw, 42px);
+    border:clamp(3px, .6vw, 4px) solid #d1d5db;
+    border-top-color:#2563eb;
+    border-radius:50%;
+    animation:spin 1s linear infinite;
+  }
+
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  .kpiValue{
+    font-weight:400; /* <<< sem negrito */
+    line-height:1.05;
+    font-variant-numeric: tabular-nums;
+    white-space:nowrap;
+    visibility:hidden;
+
+    /* fonte reduzida em 10% */
+    font-size:clamp(10.8px, 5.85vw, 36px);
+
+    max-width:100%;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+</style>
+</head>
+
+<body>
+<div id="container">
+  <div id="loader"><div class="spinner"></div></div>
+  <div id="kpiValue" class="kpiValue"></div>
+</div>
+
+<script>
+/* ================= CONFIG ================= */
+
+const LAYER_URL =
+  "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
+
+const FIELDS = {
+  loja: "loja",
+  percConquista: "perc_conquista"
+};
+
+const qs = new URLSearchParams(window.location.search);
+
+/* ================= UTIL ================= */
+
+function showLoader(on){
+  document.getElementById("loader").style.display = on ? "flex" : "none";
+}
+
+function escapeSqlString(s){
+  return String(s).replace(/'/g, "''");
+}
+
+function parseList(name){
+  if (!qs.has(name)) return [];
+  return String(qs.get(name) || "")
+    .split(",")
+    .map(v => v.trim())
+    .filter(v => v !== "");
+}
+
+function buildWhere(){
+  const parts = ["1=1"];
+
+  const lojas = parseList("loja");
+  if (lojas.length){
+    parts.push(`${FIELDS.loja} IN (${lojas.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
+  }
+
+  return parts.join(" AND ");
+}
+
+async function esriQuery(params){
+  const base = LAYER_URL.replace(/\/+$/,"");
+  const url = new URL(base + "/query");
+  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k,v));
+  const r = await fetch(url.toString());
+  const j = await r.json();
+  if (!r.ok || j.error) throw (j.error || { message:`HTTP ${r.status}` });
+  return j;
+}
+
+function fmtBR(n){
+  if (!isFinite(n)) n = 0;
+  return n.toFixed(1).replace(".", ",");
+}
+
+/* ================= LOAD ================= */
+
+async function load(){
+  showLoader(true);
+
+  try{
+    const where = buildWhere();
+
+    const q = await esriQuery({
+      f: "json",
+      where,
+      outStatistics: JSON.stringify([
+        {
+          statisticType: "sum",
+          onStatisticField: FIELDS.percConquista,
+          outStatisticFieldName: "SUM_PERC_CONQUISTA"
+        }
+      ]),
+      returnGeometry: "false"
+    });
+
+    const somaPerc = Number(q.features?.[0]?.attributes?.SUM_PERC_CONQUISTA || 0);
+    const valorFinal = somaPerc / 100;
+
+    const el = document.getElementById("kpiValue");
+    el.textContent = `${fmtBR(valorFinal)}%`;
+    el.style.visibility = "visible";
+
+  }catch(err){
+    const el = document.getElementById("kpiValue");
+    el.textContent = "0,0%";
+    el.style.visibility = "visible";
+    console.error("Erro KPI Conquista:", err);
+  }finally{
+    showLoader(false);
+  }
+}
+
+load();
+</script>
+</body>
+</html>

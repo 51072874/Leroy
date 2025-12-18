@@ -28,12 +28,11 @@ const BAIRROS_URL = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted
 const VENDAS_URL  = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
 /*******************************************************
- * Parâmetros GET
- * (agora: loja=..., não mais cod_loja)
+ * Parâmetros GET (agora: loja=...)
  *******************************************************/
 const params = new URLSearchParams(window.location.search);
 
-let codLoja = params.get("loja"); // <<< ALTERADO AQUI
+let codLoja = params.get("loja");            // <<< loja
 let secao   = params.get("secao");
 let idCanal = params.get("id_canal_venda");
 let ano     = params.get("ano");
@@ -49,6 +48,14 @@ secao   = sanitize(secao);
 idCanal = sanitize(idCanal);
 ano     = sanitize(ano);
 mes     = sanitize(mes);
+
+/*******************************************************
+ * Zoom somente quando "loja" mudar
+ * (alterações em secao/canal/ano/mes NÃO dão zoom)
+ *******************************************************/
+const LAST_LOJA_KEY = "spotx_last_loja";
+const lastLoja = sessionStorage.getItem(LAST_LOJA_KEY);
+const shouldZoom = !!codLoja && codLoja !== lastLoja;
 
 /*******************************************************
  * MAPA
@@ -145,10 +152,13 @@ require([
     q.outFields = ["cod_bairro"];
 
     const bairros = await bairrosLayer.queryFeatures(q);
-
     if (!bairros.features.length) return;
 
-    view.goTo(bairros.features.map(f => f.geometry.extent));
+    // ✅ Zoom só quando "loja" mudar
+    if (shouldZoom) {
+      await view.goTo(bairros.features.map(f => f.geometry.extent));
+      sessionStorage.setItem(LAST_LOJA_KEY, codLoja);
+    }
 
     const listaIDs = bairros.features
       .map(f => `'${sanitize(f.attributes.cod_bairro)}'`)
@@ -181,7 +191,6 @@ require([
     const vendasData = await vendasLayer.queryFeatures(qv);
 
     const progresso = {};
-
     vendasData.features.forEach(f => {
       const a = Number(f.attributes.valor_vendas_atual) || 0;
       const b = Number(f.attributes.valor_vendas_anterior) || 0;

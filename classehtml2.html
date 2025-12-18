@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+  <style>
+    :root{
+      --bg:#ffffff;
+      --text:#1f2937;
+      --muted:#6b7280;
+      --line:#e6e6e6;
+      --box:#ffffff;
+
+      --c-a1:#0f2f45;
+      --c-a2:#1e5670;
+      --c-b1:#2f6f3a;
+      --c-b2:#76b68b;
+      --c-c1:#f2d56a;
+      --c-c2:#f7e8a6;
+      --c-de:#d9d9d9;
+    }
+
+    html,body{
+      height:100%;
+      margin:0;
+      background:var(--bg);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      color:var(--text);
+    }
+    *{ box-sizing:border-box; }
+
+    .wrap{ height:100%; width:100%; padding:10px 10px 6px 10px; }
+
+    /* HEADER */
+    .header{
+      display:grid;
+      grid-template-columns: 56px 1fr 64px 92px;
+      gap:10px;
+      align-items:end;
+      margin-bottom:6px;
+    }
+
+    .header .h-bars{
+      text-align:left;
+      font-weight:900;
+      font-size:12px;
+      color:#111827;
+      padding-left:3px;
+    }
+
+    .header .h-prog{
+      text-align:center;
+      font-weight:900;
+      font-size:12px;
+      color:#111827;
+    }
+
+    /* ROWS */
+    .rows{
+      display:flex;
+      flex-direction:column;
+      gap:7px;
+    }
+
+    .row{
+      display:grid;
+      grid-template-columns: 56px 1fr 64px 92px;
+      gap:10px;
+      align-items:center;
+    }
+
+    .label{
+      font-weight:400;
+      font-size:12px;
+      color:#374151;
+    }
+
+    /* BARRAS – espessura 25px */
+    .barTrack{
+      height:25px;
+      border-radius:7px;
+      background:transparent;
+      position:relative;
+      overflow:visible;
+    }
+
+    .barFill{
+      height:25px;
+      border-radius:7px;
+      width:0%;
+      transition:width .35s ease;
+    }
+
+    .pct{
+      font-weight:400;
+      font-size:12px;
+      color:#374151;
+      text-align:left;
+      white-space:nowrap;
+    }
+
+    .progBox{
+      border:1px solid var(--line);
+      background:var(--box);
+      border-radius:6px;
+      padding:5px 7px;
+      text-align:center;
+      font-weight:400;
+      font-size:12px;
+      color:#374151;
+      line-height:1;
+      box-shadow:0 1px 0 rgba(0,0,0,.03);
+    }
+
+    /* EIXO */
+    .axis{
+      margin-top:10px;
+      padding-left:56px;
+      padding-right:166px;
+    }
+    .axisLine{ height:1px; background:var(--line); width:100%; }
+
+    .ticks{
+      display:flex;
+      justify-content:space-between;
+      margin-top:6px;
+      color:#6b7280;
+      font-weight:400;
+      font-size:11px;
+    }
+
+    /* LOADER */
+    .loading{
+      height:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .spinner{
+      width:18px;
+      height:18px;
+      border:3px solid #e5e7eb;
+      border-top-color:#111827;
+      border-radius:50%;
+      animation:spin 1s linear infinite;
+    }
+
+    @keyframes spin{ to{ transform:rotate(360deg);} }
+
+    @media (max-width:520px){
+      .header, .row{
+        grid-template-columns: 46px 1fr 56px 82px;
+        gap:8px;
+      }
+      .axis{ padding-left:46px; padding-right:146px; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap" id="app">
+    <div class="loading"><div class="spinner"></div></div>
+  </div>
+
+<script>
+const SERVICE_URL =
+  "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
+
+const CLASS_FIELD = "classe_social";
+const FIELDS = {
+  v_atual: "valor_vendas_atual",
+  c_atual: "clientes_atual",
+  v_ant:   "valor_vendas_anterior",
+  c_ant:   "clientes_anterior",
+};
+
+const FILTER_FIELDS = {
+  loja:  "id_loja_venda",
+  secao: "secao",
+  canal: "id_canal_venda",
+  ano:   "ano",
+  mes:   "mes"
+};
+
+const ZINF_FIELD = "cod_loja_zinflu2";
+
+const CLASSES_ORDER = ["A1","A2","B1","B2","C1","C2","D/E"];
+const COLOR_BY_CLASS = {
+  "A1":"var(--c-a1)",
+  "A2":"var(--c-a2)",
+  "B1":"var(--c-b1)",
+  "B2":"var(--c-b2)",
+  "C1":"var(--c-c1)",
+  "C2":"var(--c-c2)",
+  "D/E":"var(--c-de)",
+};
+
+const AXIS_MAX = 35;
+
+/* ================= FILTROS ================= */
+
+// Armazena o SQL atual do widget de filtro
+let currentSQLWhere = null;
+
+// 🎯 ESCUTAR MENSAGENS DO WIDGET DE FILTRO
+window.addEventListener('message', function(event) {
+  if (event.data.type === 'SPOTX_FILTER_CHANGE' && event.data.filters) {
+    console.log('📩 Gráfico Barras recebeu filtros:', event.data.filters);
+    
+    if (event.data.filters.sqlWhere) {
+      currentSQLWhere = event.data.filters.sqlWhere;
+      console.log('🔍 SQL aplicado no Gráfico Barras:', currentSQLWhere);
+      
+      // Recarregar gráfico com o novo filtro
+      loadData();
+    }
+  }
+});
+
+/* ================= UTIL ================= */
+
+function qs(){
+  const p = new URLSearchParams(window.location.search);
+  const getList = k => (p.get(k)||"").split(",").map(s=>s.trim()).filter(Boolean);
+  return {
+    loja: p.get("loja") || "",
+    secao: getList("secao"),
+    canal: getList("id_canal_venda"),
+    ano: p.get("ano") || "",
+    mes: getList("mes"),
+  };
+}
+
+function safeDiv(a,b){ a=Number(a)||0; b=Number(b)||0; return b===0?0:a/b; }
+function escSql(s){ return String(s).replaceAll("'","''"); }
+
+function fmtPct(x){
+  const v = Math.round((x||0)*10)/10;
+  return v.toFixed(1).replace(".",",")+"%";
+}
+function fmtPctBar(x){
+  const v = Math.round((x||0)*100)/100;
+  return v.toFixed(2).replace(".",",")+"%";
+}
+
+function buildWhereFromParams(p){
+  // 🎯 PRIORIDADE 1: Usar SQL do widget de filtro
+  if (currentSQLWhere && currentSQLWhere !== "1=1") {
+    let sqlBase = currentSQLWhere;
+    
+    // Adicionar filtros fixos
+    const fixedFilters = [
+      `(${ZINF_FIELD} IS NOT NULL AND ${ZINF_FIELD} <> '' AND ${ZINF_FIELD} <> '0')`,
+      `${CLASS_FIELD} IN (${CLASSES_ORDER.map(v=>`'${v}'`).join(",")})`
+    ];
+    
+    const finalSQL = `${sqlBase} AND ${fixedFilters.join(" AND ")}`;
+    console.log("✅ SQL Gráfico Barras:", finalSQL);
+    return finalSQL;
+  }
+
+  // 🎯 PRIORIDADE 2: Usar parâmetros da URL (fallback)
+  const w=[];
+  w.push(`(${ZINF_FIELD} IS NOT NULL AND ${ZINF_FIELD} <> '' AND ${ZINF_FIELD} <> '0')`);
+  if(p.loja) w.push(`${FILTER_FIELDS.loja}='${escSql(p.loja)}'`);
+  if(p.secao.length) w.push(`${FILTER_FIELDS.secao} IN (${p.secao.map(v=>`'${escSql(v)}'`).join(",")})`);
+  if(p.canal.length) w.push(`${FILTER_FIELDS.canal} IN (${p.canal.map(v=>`'${escSql(v)}'`).join(",")})`);
+  if(p.ano) w.push(`${FILTER_FIELDS.ano}='${escSql(p.ano)}'`);
+  if(p.mes.length) w.push(`${FILTER_FIELDS.mes} IN (${p.mes.map(v=>`'${escSql(v)}'`).join(",")})`);
+  w.push(`${CLASS_FIELD} IN (${CLASSES_ORDER.map(v=>`'${v}'`).join(",")})`);
+  return w.join(" AND ");
+}
+
+async function fetchArcGIS(p){
+  const body=new URLSearchParams({
+    f:"json",
+    where:buildWhereFromParams(p),
+    returnGeometry:"false",
+    outFields:CLASS_FIELD,
+    groupByFieldsForStatistics:CLASS_FIELD,
+    outStatistics:JSON.stringify([
+      {statisticType:"sum",onStatisticField:FIELDS.v_atual,outStatisticFieldName:"v"},
+      {statisticType:"sum",onStatisticField:FIELDS.c_atual,outStatisticFieldName:"c"},
+      {statisticType:"sum",onStatisticField:FIELDS.v_ant,outStatisticFieldName:"va"},
+      {statisticType:"sum",onStatisticField:FIELDS.c_ant,outStatisticFieldName:"ca"},
+    ])
+  });
+
+  const r=await fetch(SERVICE_URL+"/query",{method:"POST",body});
+  const j=await r.json();
+  return (j.features||[]).map(f=>({
+    classe:f.attributes[CLASS_FIELD],
+    v:f.attributes.v||0,
+    c:f.attributes.c||0,
+    va:f.attributes.va||0,
+    ca:f.attributes.ca||0,
+  }));
+}
+
+function normalize(rows){
+  const map=new Map(rows.map(r=>[r.classe,r]));
+  const ord=CLASSES_ORDER.map(c=>map.get(c)||{classe:c,v:0,c:0,va:0,ca:0});
+  const total=ord.reduce((s,r)=>s+r.v,0);
+
+  return ord.map(r=>{
+    const pctBar=safeDiv(r.v,total)*100;
+    const prog=r.ca===0?0:((safeDiv(r.v,r.c)/safeDiv(r.va,r.ca))-1)*100;
+    return{classe:r.classe,pctBar,prog};
+  });
+}
+
+function render(data){
+  document.getElementById("app").innerHTML=`
+    <div class="header">
+      <div></div>
+      <div class="h-bars">Vendas %</div>
+      <div></div>
+      <div class="h-prog">Prog %</div>
+    </div>
+
+    <div class="rows">
+      ${data.map(d=>{
+        const w=Math.min(AXIS_MAX,d.pctBar);
+        return`
+        <div class="row">
+          <div class="label">${d.classe}</div>
+          <div class="barTrack">
+            <div class="barFill"
+              style="width:${(w/AXIS_MAX)*100}%;background:${COLOR_BY_CLASS[d.classe]}">
+            </div>
+          </div>
+          <div class="pct">${fmtPctBar(d.pctBar)}</div>
+          <div class="progBox">${fmtPct(d.prog)}</div>
+        </div>`;
+      }).join("")}
+    </div>
+
+    <div class="axis">
+      <div class="axisLine"></div>
+      <div class="ticks"><span>0%</span><span>15%</span><span>30%</span></div>
+    </div>`;
+}
+
+async function loadData(){
+  try {
+    document.getElementById("app").innerHTML='<div class="loading"><div class="spinner"></div></div>';
+    const data=normalize(await fetchArcGIS(qs()));
+    render(data);
+  } catch(e) {
+    console.error("❌ Erro ao carregar gráfico de barras:", e);
+    document.getElementById("app").innerHTML='<div class="loading" style="color:#b00020;">Erro ao carregar dados</div>';
+  }
+}
+
+// Carregar dados iniciais
+loadData();
+
+// Debug
+console.log("🎯 Gráfico Barras pronto para receber filtros via postMessage");
+</script>
+</body>
+</html>

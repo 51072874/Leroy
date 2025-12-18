@@ -29,8 +29,7 @@ const VENDAS_URL  = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted
 
 /*******************************************************
  * Parâmetros GET (loja=...)
- * Agora aceita múltiplos valores para ano/mes (e demais, se quiser),
- * ex: ?loja=123&ano=2024,2025&mes=10,11
+ * Aceita multi para ano/mes: ?ano=2024,2025&mes=10,11
  *******************************************************/
 const params = new URLSearchParams(window.location.search);
 
@@ -40,10 +39,10 @@ let idCanal = params.get("id_canal_venda");
 let ano     = params.get("ano");
 let mes     = params.get("mes");
 
-// Loja 0 é equivalente a "sem loja"
+// Loja 0 = sem loja
 if (codLoja === "0") codLoja = null;
 
-// Sanitização mínima (string)
+// Sanitização mínima
 const sanitize = v => (v == null ? null : String(v).replace(/'/g, "''").trim());
 
 codLoja = sanitize(codLoja);
@@ -53,7 +52,8 @@ ano     = sanitize(ano);
 mes     = sanitize(mes);
 
 /*******************************************************
- * Helpers para múltiplas seleções (CSV)
+ * Helpers multi (CSV) -> WHERE SEMPRE STRING (com aspas)
+ * (isso corrige o problema do mes/ano não filtrarem)
  *******************************************************/
 function splitCSV(v){
   if (!v) return [];
@@ -63,24 +63,13 @@ function splitCSV(v){
     .filter(s => s && s.toLowerCase() !== "null" && s.toLowerCase() !== "undefined");
 }
 
-function isNumericStr(s){ return /^[0-9]+$/.test(String(s)); }
-
-/**
- * Monta WHERE do tipo:
- * - campo='X' (1 valor)
- * - campo IN ('X','Y') (multi)
- * Com auto-detect numérico para não usar aspas em ano/mes se vierem números.
- */
-function whereMulti(field, rawValue){
+function whereMultiStr(field, rawValue){
   const arr = splitCSV(rawValue);
   if (!arr.length) return null;
 
-  const allNum = arr.every(isNumericStr);
-  if (arr.length === 1){
-    const v = allNum ? Number(arr[0]) : `'${arr[0]}'`;
-    return `${field}=${v}`;
-  }
-  const list = arr.map(v => allNum ? Number(v) : `'${v}'`).join(",");
+  if (arr.length === 1) return `${field}='${arr[0]}'`;
+
+  const list = arr.map(v => `'${v}'`).join(",");
   return `${field} IN (${list})`;
 }
 
@@ -100,7 +89,7 @@ require([
 
   const map = new Map({ basemap:"streets-navigation-vector" });
 
-  // ✅ Se já existe estado salvo para a MESMA loja, inicia nele (não “pisca” Brasil)
+  // ✅ se já tem view salva dessa loja, inicia nela
   const initialCenter = (sameLojaAsSaved && savedState.center) ? savedState.center : [-55,-14];
   const initialZoom   = (sameLojaAsSaved && typeof savedState.zoom === "number") ? savedState.zoom : 3;
 
@@ -111,7 +100,7 @@ require([
     zoom: initialZoom
   });
 
-  // ✅ Salva center/zoom continuamente
+  // ✅ salva center/zoom continuamente
   view.when(() => {
     view.watch(["center", "zoom"], () => {
       if (!codLoja) return;
@@ -220,14 +209,16 @@ require([
       .join(",");
 
     /***************************************************
-     * Montar filtros (agora com suporte multi para ano/mes)
+     * Montar filtros (STRING com aspas, inclusive ano/mes)
      ***************************************************/
     const filtros = [];
 
-    const wSecao   = whereMulti("secao", secao);
-    const wCanal   = whereMulti("id_canal_venda", idCanal);
-    const wAno     = whereMulti("ano", ano);
-    const wMes     = whereMulti("mes", mes);
+    const wSecao = whereMultiStr("secao", secao);
+    const wCanal = whereMultiStr("id_canal_venda", idCanal);
+
+    // ✅ Aqui está o fix principal:
+    const wAno   = whereMultiStr("ano", ano);
+    const wMes   = whereMultiStr("mes", mes);
 
     if (wSecao) filtros.push(wSecao);
     if (wCanal) filtros.push(wCanal);
@@ -252,7 +243,7 @@ require([
     const vendasData = await vendasLayer.queryFeatures(qv);
 
     /***************************************************
-     * ✅ PROGRESSÃO CORRETA PARA MULTI (ano/mes):
+     * Progressão para multi mes/ano:
      * soma(atual) e soma(anterior) por bairro, depois:
      * pct = ((soma_atual / soma_anterior) - 1) * 100
      ***************************************************/
@@ -270,13 +261,11 @@ require([
       acc[bairro].b += b;
     });
 
-    const progresso = {}; // { bairro: pct }
+    const progresso = {};
     Object.keys(acc).forEach(bairro => {
       const A = acc[bairro].a;
       const B = acc[bairro].b;
-      let pct = 0;
-      if (B !== 0) pct = ((A / B) - 1) * 100;
-      progresso[bairro] = pct;
+      progresso[bairro] = (B !== 0) ? (((A / B) - 1) * 100) : 0;
     });
 
     // 3) Renderer

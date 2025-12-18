@@ -3,56 +3,74 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Gráfico SpotX - Vendas por Classe Social</title>
-
+ 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-
+ 
 <style>
 html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
   background: #fff;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
 }
-#container { position: relative; height: 100%; width: 100%; }
+ 
+#container {
+  position: relative;
+  height: 100%;
+  width: 100%;
+}
+ 
 #loader {
-  position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(255,255,255,0.9); z-index: 10;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.75);
+  z-index: 10;
 }
+ 
 .spinner {
-  width: 40px; height: 40px;
+  width: 42px;
+  height: 42px;
   border: 4px solid #ddd;
-  border-top-color: #1976d2;
+  border-top-color: #2b7cff;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
+ 
 @keyframes spin { to { transform: rotate(360deg); } }
-#nodata {
-  display: none;
-  position: absolute; inset: 0;
-  align-items: center; justify-content: center;
-  color: #666; font-size: 14px;
+ 
+canvas {
+  width: 100% !important;
+  height: 100% !important;
 }
-canvas { width: 100% !important; height: 100% !important; }
 </style>
 </head>
-
+ 
 <body>
 <div id="container">
-  <div id="loader"><div class="spinner"></div></div>
-  <div id="nodata">Nenhum dado para os filtros selecionados</div>
-  <canvas id="chart"></canvas>
+<div id="loader"><div class="spinner"></div></div>
+<canvas id="chart"></canvas>
 </div>
-
+ 
 <script>
-// =====================================================
-// CONFIG
-// =====================================================
+/* ================= CONFIG ================= */
+ 
 const LAYER_URL =
   "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
-
+ 
+const FIELDS = {
+  loja: "id_loja_venda",
+  mes: "mes",
+  ano: "ano",
+  canal: "id_canal_venda",
+  secao: "secao",
+  classe: "classe_social",
+  valor: "valor_vendas_atual"
+};
+ 
 const CLASS_COLORS = {
   "A1": "#0B2C3D",
   "A2": "#1F4E66",
@@ -62,145 +80,217 @@ const CLASS_COLORS = {
   "C2": "#F6E8B1",
   "D/E": "#D9D9D9"
 };
+ 
+const collator = new Intl.Collator("pt-BR", { numeric: true, sensitivity: "base" });
+ 
+/* ================= FILTROS ================= */
 
-const collator = new Intl.Collator("pt-BR", { numeric: true });
+// Armazena o SQL atual (inicia sem filtro)
+let currentSQLWhere = "1=1";
 
-let FILTERS = {
-  loja: [], mes: [], ano: [], secao: [], id_canal_venda: []
-};
+// 🎯 ESCUTAR MENSAGENS DO WIDGET DE FILTRO
+window.addEventListener('message', function(event) {
+  // Verificar se é mensagem do widget SpotX
+  if (event.data.type === 'SPOTX_FILTER_CHANGE' && event.data.filters) {
+    console.log('📩 Filtros recebidos:', event.data.filters);
+    
+    // Pegar o SQL pronto que vem do widget
+    if (event.data.filters.sqlWhere) {
+      currentSQLWhere = event.data.filters.sqlWhere;
+      console.log('🔍 SQL aplicado:', currentSQLWhere);
+      
+      // Recarregar dados com o novo filtro
+      load();
+    }
+  }
+});
 
-// =====================================================
-// HELPERS
-// =====================================================
-const toArray = v =>
-  !v ? [] : Array.isArray(v) ? v.map(String) : String(v).split(",");
-
-function buildWhere() {
-  const p = ["1=1"];
-  if (FILTERS.loja.length)
-    p.push(`id_loja_venda IN (${FILTERS.loja.map(v => `'${v}'`).join(",")})`);
-  if (FILTERS.mes.length)
-    p.push(`mes IN (${FILTERS.mes.map(v => `'${v}'`).join(",")})`);
-  if (FILTERS.ano.length)
-    p.push(`ano IN (${FILTERS.ano.map(v => `'${v}'`).join(",")})`);
-  if (FILTERS.secao.length)
-    p.push(`secao IN (${FILTERS.secao.map(v => `'${v}'`).join(",")})`);
-  if (FILTERS.id_canal_venda.length)
-    p.push(`id_canal_venda IN (${FILTERS.id_canal_venda.map(v => `'${v}'`).join(",")})`);
-  console.log("🧩 WHERE FINAL:", p.join(" AND "));
-  return p.join(" AND ");
+/* ================= UTIL ================= */
+ 
+const qs = new URLSearchParams(window.location.search);
+ 
+function showLoader(on){
+  document.getElementById("loader").style.display = on ? "flex" : "none";
 }
+ 
+function parseList(name){
+  if (!qs.has(name)) return [];
+  return qs.get(name).split(",").map(v => v.trim()).filter(v => v !== "");
+}
+ 
+function buildWhere(){
+  // 🎯 PRIORIDADE 1: Usar SQL do widget de filtro
+  if (currentSQLWhere && currentSQLWhere !== "1=1") {
+    console.log("✅ Usando filtro do widget:", currentSQLWhere);
+    return currentSQLWhere;
+  }
 
-async function esriQuery(params) {
-  const url = new URL(LAYER_URL + "/query");
+  // 🎯 PRIORIDADE 2: Usar parâmetros da URL (fallback)
+  const parts = ["1=1"];
+ 
+  const lojas  = parseList("loja");
+  const meses  = parseList("mes");
+  const anos   = parseList("ano");
+  const canais = parseList("id_canal_venda");
+  const secoes = parseList("secao");
+ 
+  if (lojas.length)
+    parts.push(`${FIELDS.loja} IN (${lojas.map(v => `'${v.replace(/'/g,"''")}'`).join(",")})`);
+ 
+  if (meses.length)
+    parts.push(`${FIELDS.mes} IN (${meses.map(v => `'${v.replace(/'/g,"''")}'`).join(",")})`);
+ 
+  if (anos.length)
+    parts.push(`${FIELDS.ano} IN (${anos.map(v => `'${v.replace(/'/g,"''")}'`).join(",")})`);
+ 
+  if (canais.length)
+    parts.push(`${FIELDS.canal} IN (${canais.map(v => `'${v.replace(/'/g,"''")}'`).join(",")})`);
+ 
+  if (secoes.length)
+    parts.push(`${FIELDS.secao} IN (${secoes.map(v => `'${v.replace(/'/g,"''")}'`).join(",")})`);
+ 
+  console.log("📌 Usando filtro da URL:", parts.join(" AND "));
+  return parts.join(" AND ");
+}
+ 
+async function esriQuery(params){
+  const url = new URL(LAYER_URL.replace(/\/+$/,"") + "/query");
   Object.entries(params).forEach(([k,v]) => url.searchParams.set(k,v));
-  console.log("🌐 URL:", url.toString());
-  return (await fetch(url)).json();
+  const r = await fetch(url.toString(), { method: "GET" });
+  const j = await r.json();
+  if (!r.ok || j.error) throw (j.error || { message: `HTTP ${r.status}` });
+  return j;
 }
-
-// =====================================================
-// CHART
-// =====================================================
+ 
+function fmtPctBR(n){
+  if (!isFinite(n)) return "0,00%";
+  return n.toFixed(2).replace(".", ",") + "%";
+}
+ 
+/* ================= LABELS À DIREITA ================= */
+ 
+const valueLabelsPlugin = {
+  id: "valueLabelsPlugin",
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    const meta = chart.getDatasetMeta(0);
+    const data = chart.data.datasets[0].data || [];
+ 
+    ctx.save();
+    ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+    ctx.fillStyle = "#222";
+    ctx.textBaseline = "middle";
+ 
+    for (let i = 0; i < meta.data.length; i++) {
+      const bar = meta.data[i];
+      const v = data[i]?.x ?? 0;
+      ctx.fillText(fmtPctBR(v), bar.x + 10, bar.y);
+    }
+    ctx.restore();
+  }
+};
+ 
+/* ================= CHART ================= */
+ 
 const chart = new Chart(document.getElementById("chart"), {
   type: "bar",
-  data: { datasets: [{ data: [], backgroundColor: [], barThickness: 28 }] },
+  data: {
+    datasets: [{
+      data: [],
+      backgroundColor: [],
+      borderWidth: 0,
+      barThickness: 25
+    }]
+  },
   options: {
     indexAxis: "y",
     responsive: true,
     maintainAspectRatio: false,
+    animation: false,
+    parsing: { xAxisKey: "x", yAxisKey: "y" },
+    layout: { padding: { right: 70 } },
     scales: {
-      x: { beginAtZero: true, ticks: { callback: v => v + "%" } },
-      y: { ticks: { autoSkip: false, font: { weight: "bold" } } }
+      x: {
+        beginAtZero: true,
+        grid: { display: false },
+        ticks: { stepSize: 5, callback: v => v + "%" }
+      },
+      y: {
+        grid: { display: false },
+        ticks: { autoSkip: false }
+      }
     },
-    plugins: { legend: { display: false }, tooltip: { enabled: false } }
-  }
+    plugins: {
+      legend: { display: false },
+      tooltip: { enabled: false }
+    }
+  },
+  plugins: [valueLabelsPlugin]
 });
-
-// =====================================================
-// LOAD DATA
-// =====================================================
-async function load() {
-  document.getElementById("loader").style.display = "flex";
-  document.getElementById("nodata").style.display = "none";
-
+ 
+/* ================= DATA ================= */
+ 
+async function load(){
+  showLoader(true);
+ 
   const where = buildWhere();
-
+ 
   const byClass = await esriQuery({
     f: "json",
     where,
-    outFields: "classe_social",
-    groupByFieldsForStatistics: "classe_social",
+    outFields: FIELDS.classe,
+    groupByFieldsForStatistics: FIELDS.classe,
     outStatistics: JSON.stringify([
-      { statisticType: "sum", onStatisticField: "valor_vendas_atual", outStatisticFieldName: "SUM_V" }
+      { statisticType: "sum", onStatisticField: FIELDS.valor, outStatisticFieldName: "SUM_V" }
     ]),
     returnGeometry: "false"
   });
-
+ 
   const totalQ = await esriQuery({
     f: "json",
     where,
     outStatistics: JSON.stringify([
-      { statisticType: "sum", onStatisticField: "valor_vendas_atual", outStatisticFieldName: "TOTAL" }
+      { statisticType: "sum", onStatisticField: FIELDS.valor, outStatisticFieldName: "TOTAL" }
     ]),
     returnGeometry: "false"
   });
-
+ 
   const total = totalQ.features?.[0]?.attributes?.TOTAL || 0;
-
-  const rows = (byClass.features || []).map(f => ({
-    y: f.attributes.classe_social,
-    x: (f.attributes.SUM_V / total) * 100
-  })).filter(r => r.y);
-
-  rows.sort((a,b) => collator.compare(a.y, b.y));
-
-  if (!rows.length) {
-    document.getElementById("nodata").style.display = "flex";
-    chart.data.datasets[0].data = [];
-  } else {
-    chart.data.datasets[0].data = rows;
-    chart.data.datasets[0].backgroundColor =
-      rows.map(r => CLASS_COLORS[r.y] || "#999");
-  }
-
+ 
+  let rows = (byClass.features || [])
+    .map(f => {
+      let cls = f.attributes?.[FIELDS.classe];
+      cls = (!cls || String(cls).trim() === "") ? "SEM_CLASSE" : String(cls).trim();
+      return { classe: cls, valor: Number(f.attributes?.SUM_V || 0) };
+    })
+    .filter(r => r.classe !== "SEM_CLASSE");
+ 
+  rows.sort((a,b) => collator.compare(a.classe, b.classe));
+ 
+  const data = rows.map(r => ({
+    y: r.classe,
+    x: total === 0 ? 0 : (r.valor / total) * 100
+  }));
+ 
+  const colors = rows.map(r => CLASS_COLORS[r.classe] || "#999999");
+ 
+  const maxValue = data.reduce((m,d) => Math.max(m, d.x), 0);
+  let axisMax = Math.ceil((maxValue * 1.05) / 5) * 5;
+  if (axisMax === 0) axisMax = 5;
+  chart.options.scales.x.max = axisMax;
+ 
+  chart.data.datasets[0].data = data;
+  chart.data.datasets[0].backgroundColor = colors;
+ 
   chart.update();
-  document.getElementById("loader").style.display = "none";
+  showLoader(false);
 }
-
-// =====================================================
-// MESSAGE LISTENER (EXB / MessageBus)
-// =====================================================
-window.addEventListener("message", (event) => {
-  console.log("📨 Gráfico recebeu:", event.data, "ORIGIN:", event.origin);
-
-  if (
-    !event.data ||
-    (event.data.type !== "EXB_SET_FILTER" &&
-     event.data.type !== "SPOTX_FILTER_CHANGE")
-  ) {
-    return;
-  }
-
-  const filters = event.data.filters || {};
-
-  FILTERS = {
-    loja: toArray(filters.cod_loja),
-    secao: toArray(filters.secao),
-    id_canal_venda: toArray(filters.id_canal_venda),
-    ano: toArray(filters.ano),
-    mes: toArray(filters.mes)
-  };
-
-  console.log("🎯 FILTERS aplicados no gráfico:", FILTERS);
-
-  atualizarFiltrosAtivos();
-  load();
-});
-
-
-// =====================================================
+ 
+// Carregar dados iniciais
 load();
-console.log("🧠 SpotX Gráfico: listener ativo");
+
+// Debug: avisar que está pronto para receber filtros
+console.log("🎯 Gráfico pronto para receber filtros via postMessage");
 </script>
 </body>
 </html>

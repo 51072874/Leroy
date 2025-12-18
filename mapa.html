@@ -29,6 +29,8 @@ const VENDAS_URL  = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted
 
 /*******************************************************
  * Parâmetros GET (loja=...)
+ * Agora aceita múltiplos valores para ano/mes (e demais, se quiser),
+ * ex: ?loja=123&ano=2024,2025&mes=10,11
  *******************************************************/
 const params = new URLSearchParams(window.location.search);
 
@@ -41,8 +43,8 @@ let mes     = params.get("mes");
 // Loja 0 é equivalente a "sem loja"
 if (codLoja === "0") codLoja = null;
 
-// Sanitização mínima
-const sanitize = v => v ? v.replace(/'/g, "''") : null;
+// Sanitização mínima (string)
+const sanitize = v => (v == null ? null : String(v).replace(/'/g, "''").trim());
 
 codLoja = sanitize(codLoja);
 secao   = sanitize(secao);
@@ -51,14 +53,43 @@ ano     = sanitize(ano);
 mes     = sanitize(mes);
 
 /*******************************************************
+ * Helpers para múltiplas seleções (CSV)
+ *******************************************************/
+function splitCSV(v){
+  if (!v) return [];
+  return String(v)
+    .split(",")
+    .map(s => sanitize(s))
+    .filter(s => s && s.toLowerCase() !== "null" && s.toLowerCase() !== "undefined");
+}
+
+function isNumericStr(s){ return /^[0-9]+$/.test(String(s)); }
+
+/**
+ * Monta WHERE do tipo:
+ * - campo='X' (1 valor)
+ * - campo IN ('X','Y') (multi)
+ * Com auto-detect numérico para não usar aspas em ano/mes se vierem números.
+ */
+function whereMulti(field, rawValue){
+  const arr = splitCSV(rawValue);
+  if (!arr.length) return null;
+
+  const allNum = arr.every(isNumericStr);
+  if (arr.length === 1){
+    const v = allNum ? Number(arr[0]) : `'${arr[0]}'`;
+    return `${field}=${v}`;
+  }
+  const list = arr.map(v => allNum ? Number(v) : `'${v}'`).join(",");
+  return `${field} IN (${list})`;
+}
+
+/*******************************************************
  * Persistência de view (para NÃO voltar ao Brasil)
- * - Se a loja é a mesma e só mudaram filtros (mes, ano, etc),
- *   o mapa mantém o último center/zoom salvo.
  *******************************************************/
 const VIEW_KEY = "spotx_view_state_v1"; // { loja, center:[lon,lat], zoom }
 let savedState = null;
 try { savedState = JSON.parse(sessionStorage.getItem(VIEW_KEY) || "null"); } catch(e){ savedState = null; }
-
 const sameLojaAsSaved = !!(codLoja && savedState && savedState.loja === codLoja);
 
 require([
@@ -80,7 +111,7 @@ require([
     zoom: initialZoom
   });
 
-  // ✅ Sempre que o usuário navegar (ou após goTo), salva center/zoom
+  // ✅ Salva center/zoom continuamente
   view.when(() => {
     view.watch(["center", "zoom"], () => {
       if (!codLoja) return;
@@ -147,7 +178,6 @@ require([
     q.where = `cod_loja='${codLoja}'`;
 
     const r = await lojasLayer.queryFeatures(q);
-
     if (!r.features.length) {
       console.warn("Loja não encontrada.");
       return;
@@ -165,6 +195,7 @@ require([
    ***************************************************/
   async function processarBairrosEVendas() {
 
+    // 1) Bairros da ZI
     const q = bairrosLayer.createQuery();
     q.where = `cod_loja_zinflu='${codLoja}'`;
     q.returnGeometry = true;
@@ -173,11 +204,9 @@ require([
     const bairros = await bairrosLayer.queryFeatures(q);
     if (!bairros.features.length) return;
 
-    // ✅ Só faz zoom “automático” quando NÃO existe view salvo dessa loja ainda
-    // (se você só adicionou mes/ano/etc, ele mantém a view)
+    // ✅ Zoom só na 1ª vez da loja (se só mudar mes/ano/etc, mantém view)
     if (!sameLojaAsSaved) {
       await view.goTo(bairros.features.map(f => f.geometry.extent));
-      // salva imediatamente após o zoom inicial
       const c = view.center;
       sessionStorage.setItem(VIEW_KEY, JSON.stringify({
         loja: codLoja,
@@ -191,16 +220,23 @@ require([
       .join(",");
 
     /***************************************************
-     * Montar filtros (tudo STRING)
+     * Montar filtros (agora com suporte multi para ano/mes)
      ***************************************************/
     const filtros = [];
-    if (secao)   filtros.push(`secao='${secao}'`);
-    if (idCanal) filtros.push(`id_canal_venda='${idCanal}'`);
-    if (ano)     filtros.push(`ano='${ano}'`);
-    if (mes)     filtros.push(`mes='${mes}'`);
+
+    const wSecao   = whereMulti("secao", secao);
+    const wCanal   = whereMulti("id_canal_venda", idCanal);
+    const wAno     = whereMulti("ano", ano);
+    const wMes     = whereMulti("mes", mes);
+
+    if (wSecao) filtros.push(wSecao);
+    if (wCanal) filtros.push(wCanal);
+    if (wAno)   filtros.push(wAno);
+    if (wMes)   filtros.push(wMes);
 
     const filtroExtra = filtros.length ? " AND " + filtros.join(" AND ") : "";
 
+    // 2) Consulta vendas filtradas
     const vendasLayer = new FeatureLayer({ url: VENDAS_URL });
 
     const qv = vendasLayer.createQuery();
@@ -215,18 +251,35 @@ require([
 
     const vendasData = await vendasLayer.queryFeatures(qv);
 
-    const progresso = {};
+    /***************************************************
+     * ✅ PROGRESSÃO CORRETA PARA MULTI (ano/mes):
+     * soma(atual) e soma(anterior) por bairro, depois:
+     * pct = ((soma_atual / soma_anterior) - 1) * 100
+     ***************************************************/
+    const acc = {}; // { bairro: {a:sumAtual, b:sumAnterior} }
+
     vendasData.features.forEach(f => {
+      const bairro = String(f.attributes.id_bairro_cep ?? "");
+      if (!bairro) return;
+
       const a = Number(f.attributes.valor_vendas_atual) || 0;
       const b = Number(f.attributes.valor_vendas_anterior) || 0;
-      let pct = 0;
-      if (b !== 0) pct = ((a/b) - 1) * 100;
-      progresso[f.attributes.id_bairro_cep] = pct;
+
+      if (!acc[bairro]) acc[bairro] = { a:0, b:0 };
+      acc[bairro].a += a;
+      acc[bairro].b += b;
     });
 
-    /***************************************************
-     * Renderer
-     ***************************************************/
+    const progresso = {}; // { bairro: pct }
+    Object.keys(acc).forEach(bairro => {
+      const A = acc[bairro].a;
+      const B = acc[bairro].b;
+      let pct = 0;
+      if (B !== 0) pct = ((A / B) - 1) * 100;
+      progresso[bairro] = pct;
+    });
+
+    // 3) Renderer
     bairrosLayer.renderer = {
       type:"simple",
       symbol:{ type:"simple-fill", outline:{ color:"#777", width:0.5 } },

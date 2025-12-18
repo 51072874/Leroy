@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="ISO-8859-1">
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+<style>
+  :root{
+    --text:#111827;
+    --pad:10px;
+    --muted:#6b7280;
+
+    /* cores: 2025 azul, 2024 laranja */
+    --c1:#4F7987; /* Conquista Ano */
+    --c2:#F2A93B; /* Conquista -1 */
+  }
+
+  html, body{
+    margin:0;
+    padding:0;
+    height:100%;
+    background:transparent;
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+    color:var(--text);
+  }
+
+  *{ box-sizing:border-box; }
+
+  #container{
+    position:relative;
+    height:100%;
+    width:100%;
+    padding:var(--pad);
+    background:transparent;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+
+  .title{
+    font-size:clamp(12px, 1.2vw, 14px);
+    font-weight:600;
+    line-height:1.1;
+    text-align:center;
+    margin:0;
+    padding:0;
+  }
+
+  #loader{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:10;
+    pointer-events:none;
+  }
+
+  .spinner{
+    width:clamp(28px, 6vw, 42px);
+    height:clamp(28px, 6vw, 42px);
+    border:clamp(3px, .6vw, 4px) solid #d1d5db;
+    border-top-color:#2563eb;
+    border-radius:50%;
+    animation:spin 1s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  /* ===== área do gráfico ===== */
+  .chart{
+    flex:1;
+    min-height:0;
+    width:100%;
+    display:flex;
+    gap:8px;
+    padding-top:5px; /* fôlego exato */
+  }
+
+  /* eixo Y */
+  .yAxis{
+    width:44px;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    padding-bottom:50px; /* deve casar com o "padding-bottom" das barras */
+  }
+  .yTick{
+    font-size:10px;
+    color:var(--muted);
+    line-height:1;
+    transform:translateY(50%);
+    white-space:nowrap;
+  }
+
+  .plotWrap{
+    flex:1;
+    min-height:0;
+    position:relative;
+  }
+
+  /* Área do plot fica fixa e NÃO é empurrada pela legenda */
+  .plot{
+    position:absolute;
+    left:0; right:0; top:0;
+    bottom:5px;          /* <<< reserva fixa para a legenda */
+    min-height:0;
+  }
+
+  .bars{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:flex-end;
+    gap:clamp(10px, 1.6vw, 16px);
+    padding:12px 6px 20px 6px; /* topo + base (base casa com yAxis) */
+  }
+
+  /* Cada isócrona = um grupo no eixo X */
+  .xGroup{
+    flex:1;
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+  }
+
+  .groupBars{
+    width:100%;
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+    gap:6px;
+  }
+
+  .barCol{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    min-width:0;
+  }
+
+  .barValue{
+    font-weight:400;
+    font-variant-numeric: tabular-nums;
+    font-size:clamp(10px, 1.1vw, 12px);
+    white-space:nowrap;
+  }
+
+  /* colunas 20% mais grossas */
+  .bar{
+    width:30px;
+    max-width:30px;
+    border-radius:10px 10px 6px 6px;
+    transition:.15s ease;
+    background:#999;
+  }
+  .bar:hover{ transform:translateY(-1px); filter:brightness(1.03); }
+
+  .xLabel{
+    color:var(--muted);
+    font-size:clamp(10px, 1.1vw, 12px);
+    white-space:nowrap;
+    max-width:100%;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  /* legenda fixa no rodapé do plotWrap */
+  .legendBottom{
+    position:absolute;
+    left:0; right:0; bottom:-10px;
+    height:28px;                 /* <<< igual ao bottom do .plot */
+    display:flex;
+    justify-content:center;
+    gap:16px;
+    align-items:center;
+    font-size:11px;
+    color:var(--muted);
+    pointer-events:none;
+  }
+  .legItem{ display:flex; gap:6px; align-items:center; }
+  .swatch{ width:10px; height:10px; border-radius:3px; }
+
+  .empty{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--muted);
+    font-size:clamp(11px, 1.2vw, 13px);
+  }
+</style>
+</head>
+
+<body>
+<div id="container">
+  <div class="title">Conquista</div>
+
+  <div id="loader"><div class="spinner"></div></div>
+
+  <div class="chart" id="chart" style="display:none">
+    <div class="yAxis" id="yAxis"></div>
+
+    <div class="plotWrap">
+      <div class="plot">
+        <div class="bars" id="bars"></div>
+        <div class="empty" id="empty" style="display:none">Sem dados para os filtros atuais</div>
+      </div>
+
+      <div class="legendBottom" id="legendBottom" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const LAYER_URL =
+  "https://mcndeployserver.shop/server/rest/services/Hosted/Onpageconquistaisocronas/FeatureServer/0";
+
+const FIELDS = { loja:"loja", isocrona:"isocrona", ano:"ano", percConquista:"perc_conquista" };
+const qs = new URLSearchParams(window.location.search);
+
+function showLoader(on){
+  document.getElementById("loader").style.display = on ? "flex" : "none";
+}
+function escapeSqlString(s){ return String(s).replace(/'/g, "''"); }
+function parseList(name){
+  if (!qs.has(name)) return [];
+  return String(qs.get(name) || "").split(",").map(v => v.trim()).filter(v => v !== "");
+}
+function buildWhere(){
+  const parts = ["1=1"];
+  const lojas = parseList("loja");
+  if (lojas.length){
+    parts.push(`${FIELDS.loja} IN (${lojas.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
+  }
+  return parts.join(" AND ");
+}
+async function esriQuery(params){
+  const url = new URL(LAYER_URL.replace(/\/+$/,"") + "/query");
+  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k,v));
+  const r = await fetch(url.toString());
+  const j = await r.json();
+  if (!r.ok || j.error) throw (j.error || { message:`HTTP ${r.status}` });
+  return j;
+}
+function fmtBR(n){ return (isFinite(n) ? n : 0).toFixed(1).replace(".", ","); }
+function isocronaKey(v){
+  const s = String(v).toLowerCase();
+  const m = s.match(/-?\d+([.,]\d+)?/);
+  return m ? Number(m[0].replace(",", ".")) : Number.POSITIVE_INFINITY;
+}
+
+const SERIES_COLORS = [
+  getComputedStyle(document.documentElement).getPropertyValue("--c1").trim() || "#4F7987",
+  getComputedStyle(document.documentElement).getPropertyValue("--c2").trim() || "#F2A93B"
+];
+function colorForSeries(i){ return SERIES_COLORS[i % SERIES_COLORS.length]; }
+
+function buildYAxis(maxValue){
+  const steps = 5;
+  const yAxis = document.getElementById("yAxis");
+  yAxis.innerHTML = "";
+  for (let i = steps; i >= 0; i--){
+    const val = (maxValue / steps) * i;
+    const tick = document.createElement("div");
+    tick.className = "yTick";
+    tick.textContent = fmtBR(val) + "%";
+    yAxis.appendChild(tick);
+  }
+}
+
+function renderLegendBottom(labels){
+  const el = document.getElementById("legendBottom");
+  el.innerHTML = "";
+  if (!labels.length){
+    el.style.display = "none";
+    return;
+  }
+  labels.forEach((lab, idx) => {
+    const item = document.createElement("div");
+    item.className = "legItem";
+    const sw = document.createElement("span");
+    sw.className = "swatch";
+    sw.style.background = colorForSeries(idx);
+    const tx = document.createElement("span");
+    tx.textContent = lab;
+    item.appendChild(sw);
+    item.appendChild(tx);
+    el.appendChild(item);
+  });
+  el.style.display = "flex";
+}
+
+function renderGroupedBars(isocronas, seriesKeys, values, seriesLabels){
+  const chart = document.getElementById("chart");
+  const barsEl = document.getElementById("bars");
+  const emptyEl = document.getElementById("empty");
+
+  barsEl.innerHTML = "";
+
+  if (!isocronas.length || !seriesKeys.length){
+    chart.style.display = "flex";
+    emptyEl.style.display = "flex";
+    renderLegendBottom([]);
+    return;
+  }
+
+  emptyEl.style.display = "none";
+  chart.style.display = "flex";
+  renderLegendBottom(seriesLabels);
+
+  let maxVal = 0;
+  for (const iso of isocronas){
+    for (const s of seriesKeys){
+      const v = values?.[iso]?.[s] ?? 0;
+      if (v > maxVal) maxVal = v;
+    }
+  }
+  buildYAxis(maxVal || 0);
+
+  for (const iso of isocronas){
+    const xg = document.createElement("div");
+    xg.className = "xGroup";
+
+    const groupBars = document.createElement("div");
+    groupBars.className = "groupBars";
+
+    seriesKeys.forEach((s, idx) => {
+      const v = Number(values?.[iso]?.[s] ?? 0);
+
+      const col = document.createElement("div");
+      col.className = "barCol";
+
+      const valEl = document.createElement("div");
+      valEl.className = "barValue";
+      valEl.textContent = fmtBR(v) + "%";
+
+      const bar = document.createElement("div");
+      bar.className = "bar";
+      bar.style.background = colorForSeries(idx);
+
+      const h = (maxVal > 0) ? (12 + (v / maxVal) * 220) : 12;
+      bar.style.height = h + "px";
+      bar.title = `${iso} | ${s}: ${fmtBR(v)}%`;
+
+      col.appendChild(valEl);
+      col.appendChild(bar);
+      groupBars.appendChild(col);
+    });
+
+    const lab = document.createElement("div");
+    lab.className = "xLabel";
+    lab.textContent = iso;
+
+    xg.appendChild(groupBars);
+    xg.appendChild(lab);
+    barsEl.appendChild(xg);
+  }
+}
+
+async function load(){
+  showLoader(true);
+  try{
+    const q = await esriQuery({
+      f:"json",
+      where: buildWhere(),
+      groupByFieldsForStatistics: `${FIELDS.isocrona},${FIELDS.ano}`,
+      outStatistics: JSON.stringify([{
+        statisticType:"sum",
+        onStatisticField: FIELDS.percConquista,
+        outStatisticFieldName:"SUM_PERC_CONQUISTA"
+      }]),
+      outFields: `${FIELDS.isocrona},${FIELDS.ano}`,
+      returnGeometry:"false"
+    });
+
+    const values = {};
+    const isoSet = new Set();
+    const yearSet = new Set();
+
+    (q.features || []).forEach(f => {
+      const isoRaw = f?.attributes?.[FIELDS.isocrona];
+      const anoRaw = f?.attributes?.[FIELDS.ano];
+
+      const iso = String(isoRaw ?? "").trim();
+      if (!iso || iso === "null" || iso === "undefined") return;
+
+      const ano = String(anoRaw ?? "").trim();
+      if (!ano || ano === "null" || ano === "undefined") return;
+
+      const soma = Number(f?.attributes?.SUM_PERC_CONQUISTA || 0) / 100;
+
+      isoSet.add(iso);
+      yearSet.add(ano);
+
+      if (!values[iso]) values[iso] = {};
+      values[iso][ano] = (values[iso][ano] || 0) + (isFinite(soma) ? soma : 0);
+    });
+
+    const isocronas = Array.from(isoSet).sort((a,b) => isocronaKey(a) - isocronaKey(b));
+    const years = Array.from(yearSet).sort((a,b) => {
+      const A = Number(String(a).replace(",", "."));
+      const B = Number(String(b).replace(",", "."));
+      const aNum = isFinite(A), bNum = isFinite(B);
+      if (aNum && bNum) return A - B;
+      if (aNum !== bNum) return aNum ? -1 : 1;
+      return String(a).localeCompare(String(b));
+    });
+
+    let seriesKeys = [];
+    let seriesLabels = [];
+
+    if (years.length >= 2){
+      const anoAtual = years[years.length - 1];
+      const anoMenos1 = years[years.length - 2];
+      seriesKeys = [anoAtual, anoMenos1];
+      seriesLabels = ["Conquista Ano", "Conquista Ano -1"];
+    }else if (years.length === 1){
+      seriesKeys = [years[0]];
+      seriesLabels = ["Conquista Ano"];
+    }
+
+    renderGroupedBars(isocronas, seriesKeys, values, seriesLabels);
+
+  }catch(e){
+    console.error("Erro gráfico:", e);
+    renderGroupedBars([], [], {}, []);
+  }finally{
+    showLoader(false);
+  }
+}
+load();
+</script>
+</body>
+</html>

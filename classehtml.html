@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="pt-br">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <me<meta charset="ISO-8859-1">
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
 
   <style>
     :root{
@@ -156,12 +156,136 @@
       }
       .axis{ padding-left:46px; padding-right:146px; }
     }
+
+    /* =========================
+       LEGENDA (botão abre/fecha)
+       ========================= */
+    .legendWrap{
+      position:fixed;
+      right:2px;
+      bottom:2px;
+      z-index:9999;
+      display:flex;
+      flex-direction:column;
+      align-items:flex-end;
+      gap:6px;
+      pointer-events:none; /* libera o painel/botão individualmente */
+    }
+
+    .legendPanel{
+      pointer-events:auto;
+      width:min(320px, calc(100vw - 12px));
+      background:#fff;
+      border:1px solid #e5e7eb;
+      border-radius:10px;
+      box-shadow:0 10px 24px rgba(0,0,0,.14);
+      padding:10px 12px;
+      transform:translateY(6px);
+      opacity:0;
+      visibility:hidden;
+      transition:opacity .18s ease, transform .18s ease, visibility .18s ease;
+    }
+    .legendWrap.open .legendPanel{
+      transform:translateY(0);
+      opacity:1;
+      visibility:visible;
+    }
+
+    .legendTitle{
+      font-weight:800;
+      font-size:13px;
+      color:#111827;
+      margin:0 0 8px 0;
+    }
+    .legendRow{
+      display:flex;
+      align-items:flex-start;
+      gap:10px;
+      margin:6px 0;
+      font-size:12px;
+      color:#374151;
+      line-height:1.2;
+    }
+    .legendSwatch{
+      width:18px;
+      height:12px;
+      border-radius:2px;
+      border:1px solid rgba(0,0,0,.10);
+      flex:0 0 auto;
+      margin-top:2px;
+    }
+
+    .legendBtn{
+      pointer-events:auto;
+      border:1px solid #e5e7eb;
+      background:#fff;
+      color:#111827;
+      border-radius:999px;
+      padding:8px 10px;
+      font-size:12px;
+      font-weight:700;
+      line-height:1;
+      box-shadow:0 6px 16px rgba(0,0,0,.12);
+      cursor:pointer;
+      user-select:none;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .legendDot{
+      width:10px;
+      height:10px;
+      border-radius:50%;
+      background:#111827;
+      opacity:.7;
+    }
   </style>
 </head>
 
 <body>
   <div class="wrap" id="app">
     <div class="loading"><div class="spinner"></div></div>
+  </div>
+
+  <!-- Legenda fixa (abre/fecha) -->
+  <div class="legendWrap" id="legendWrap" aria-live="polite">
+    <div class="legendPanel" role="dialog" aria-label="Legenda Renda Média">
+      <div class="legendTitle">Renda Média</div>
+
+      <div class="legendRow">
+        <span class="legendSwatch" style="background:var(--c-a1)"></span>
+        <span>A1 (acima de R$32.049,01)</span>
+      </div>
+      <div class="legendRow">
+        <span class="legendSwatch" style="background:var(--c-a2)"></span>
+        <span>A2 (de R$ 18.418,01 a R$32.049)</span>
+      </div>
+      <div class="legendRow">
+        <span class="legendSwatch" style="background:var(--c-b1)"></span>
+        <span>B1 (de R$ 9.222,01 a R$18.418)</span>
+      </div>
+      <div class="legendRow">
+        <span class="legendSwatch" style="background:var(--c-b2)"></span>
+        <span>B2 (de R$ 5.167,01 a R$9.222)</span>
+      </div>
+      <div class="legendRow">
+        <span class="legendSwatch" style="background:var(--c-c1)"></span>
+        <span>C1 (de R$ 3.000,01 a R$5.167)</span>
+      </div>
+      <div class="legendRow">
+        <span class="legendSwatch" style="background:var(--c-c2)"></span>
+        <span>C2 (de R$ 1.640,01 a R$3.000)</span>
+      </div>
+      <div class="legendRow">
+        <span class="legendSwatch" style="background:var(--c-de)"></span>
+        <span>D/E (até R$ 1.640)</span>
+      </div>
+    </div>
+
+    <button class="legendBtn" id="legendBtn" type="button" aria-expanded="false">
+      <span class="legendDot"></span>
+      Legenda
+    </button>
   </div>
 
 <script>
@@ -304,6 +428,17 @@ function render(data){
       <div class="ticks"><span>0%</span><span>15%</span><span>30%</span></div>
     </div>`;
 }
+
+/* Toggle legenda */
+(function initLegend(){
+  const wrap = document.getElementById("legendWrap");
+  const btn  = document.getElementById("legendBtn");
+
+  btn.addEventListener("click", () => {
+    const open = wrap.classList.toggle("open");
+    btn.setAttribute("aria-expanded", open ? "true" : "false");
+  });
+})();
 
 (async()=>{
   const data=normalize(await fetchArcGIS(qs()));

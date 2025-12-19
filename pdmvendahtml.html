@@ -2,293 +2,404 @@
 <html lang="pt-br">
 <head>
 <meta charset="ISO-8859-1">
-<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 
 <style>
-  :root{
-    --text:#111827;
-    --pad:10px;
+:root{
+  --text:#111827;
+  --muted:#6b7280;
+  --bar:#4F7987;
+  --barHover:#3F6673;
+  --axis:#e5e7eb;
+}
 
-    --axis:#e5e7eb;
-    --muted:#6b7280;
+html,body{
+  margin:0;
+  height:100%;
+  background:transparent;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  color:var(--text);
+}
+*{ box-sizing:border-box; }
 
-    --bar:#4F7987;
-    --barHover:#3F6673;
-  }
+#container{
+  height:100%;
+  padding:10px;
+  display:flex;
+  flex-direction:column;
+}
 
-  html, body{
-    margin:0;
-    padding:0;
-    height:100%;
-    background:transparent;
-    font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-    color:var(--text);
-  }
+.title{
+  flex:0 0 auto;
+  text-align:center;
+  font-weight:600;
+  font-size:14px;
+  line-height:1.2;
+  margin:0 0 10px 0;
+}
 
-  *{ box-sizing:border-box; }
+#content{
+  position:relative;
+  flex:1 1 auto;
+  min-height:0;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
 
-  #container{
-    position:relative;
-    height:100%;
-    width:100%;
-    padding:var(--pad);
-    background:transparent;
-    display:flex;
-    flex-direction:column;
-    gap:14px;
-  }
+/* loader */
+#loader{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:10;
+  pointer-events:none;
+}
+.spinner{
+  width:36px;
+  height:36px;
+  border:4px solid #d1d5db;
+  border-top-color:#2563eb;
+  border-radius:50%;
+  animation:spin 1s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
 
-  /* ===== TÍTULO ===== */
-  .title{
-    font-size:clamp(12px, 1.2vw, 14px);
-    font-weight:600;
-    color:var(--text);
-    line-height:1.1;
-    text-align:center;
-    margin:0;
-  }
+/* chart */
+.chart{
+  flex:1 1 auto;
+  min-height:0;
+  display:flex;
+  gap:8px;
+}
 
-  #loader{
-    position:absolute;
-    inset:0;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    z-index:10;
-    pointer-events:none;
-  }
+/* eixo Y */
+.yAxis{
+  width:46px;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  padding-top:25px; 
+  padding-bottom:44px;
+}
+.yTick{
+  font-size:10px;
+  color:var(--muted);
+  transform:translateY(50%);
+}
 
-  .spinner{
-    width:clamp(28px, 6vw, 42px);
-    height:clamp(28px, 6vw, 42px);
-    border:clamp(3px, .6vw, 4px) solid #d1d5db;
-    border-top-color:#2563eb;
-    border-radius:50%;
-    animation:spin 1s linear infinite;
-  }
+.plot{
+  flex:1;
+  position:relative;
+  min-height:0;
+}
 
-  @keyframes spin{ to{ transform:rotate(360deg); } }
+.bars{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:flex-end;
+  gap:clamp(10px, 2vw, 16px);
+  padding:10px 14px 14px 14px;
+}
 
-  .chart{
-    flex:1;
-    min-height:0;
-    width:100%;
-    display:flex;
-    gap:6px;
-    padding-top:6px;
-  }
+.barCol{
+  flex:1;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:6px;
+}
 
-  /* ===== EIXO Y ===== */
-  .yAxis{
-    width:38px;
-    display:flex;
-    flex-direction:column;
-    justify-content:space-between;
-    padding-bottom:40px;
-  }
+.barValue{
+  font-weight:400;
+  font-variant-numeric: tabular-nums;
+  font-size:11px;
+  white-space:nowrap;
+}
 
-  .yTick{
-    font-size:10px;
-    color:var(--muted);
-    line-height:1;
-    transform:translateY(50%);
-  }
+.bar{
+  width:min(54px, 100%);
+  background:var(--bar);
+  border-radius:10px 10px 6px 6px;
+  transition:.15s ease;
+}
+.bar:hover{ background:var(--barHover); transform:translateY(-1px); }
 
-  .plot{
-    flex:1;
-    min-height:0;
-    position:relative;
-    /* border-bottom REMOVIDO */
-  }
+.barLabel{
+  height:14px;
+  line-height:14px;
+  color:var(--muted);
+  font-size:11px;
+  width:100%;
+  text-align:center;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
 
-  .bars{
-    position:absolute;
-    inset:0;
-    display:flex;
-    align-items:flex-end;
-    gap:clamp(8px, 1.6vw, 14px);
-    padding:8px 6px 18px 6px;
-  }
-
-  .barCol{
-    flex:1;
-    min-width:0;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    gap:6px;
-  }
-
-  .barValue{
-    font-weight:400;
-    font-variant-numeric: tabular-nums;
-    font-size:clamp(10px, 1.1vw, 12px);
-    white-space:nowrap;
-  }
-
-  .bar{
-    width:100%;
-    max-width:54px;
-    background:var(--bar);
-    border-radius:10px 10px 6px 6px;
-    transition:.15s ease;
-  }
-
-  .bar:hover{
-    background:var(--barHover);
-    transform:translateY(-1px);
-  }
-
-  .barLabel{
-    color:var(--muted);
-    font-size:clamp(10px, 1.1vw, 12px);
-    white-space:nowrap;
-    max-width:100%;
-    overflow:hidden;
-    text-overflow:ellipsis;
-  }
-
-  .empty{
-    height:100%;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    color:var(--muted);
-    font-size:clamp(11px, 1.2vw, 13px);
-  }
+/* PROG */
+.prog{
+  flex:0 0 auto;
+  display:grid;
+  gap:6px;
+  font-size:12px;
+}
+.prog div{
+  text-align:center;
+  padding:4px 0;
+  border-top:1px solid var(--axis);
+  font-variant-numeric: tabular-nums;
+}
+.prog-title{
+  text-align:left;
+  padding-left:6px;
+  font-weight:600;
+  color:var(--muted);
+}
 </style>
 </head>
 
 <body>
 <div id="container">
+  <div class="title">PDM / PROG</div>
 
-  <div class="title">PDM/PROG</div>
+  <div id="content">
+    <div id="loader"><div class="spinner"></div></div>
 
-  <div id="loader"><div class="spinner"></div></div>
-
-  <div class="chart" id="chart" style="display:none">
-
-    <div class="yAxis" id="yAxis"></div>
-
-    <div class="plot">
-      <div class="bars" id="bars"></div>
-      <div class="empty" id="empty" style="display:none">
-        Sem dados para os filtros atuais
+    <div class="chart" id="chart" style="display:none">
+      <div class="yAxis" id="yAxis"></div>
+      <div class="plot" id="plot">
+        <div class="bars" id="bars"></div>
       </div>
     </div>
 
+    <div class="prog" id="prog"></div>
   </div>
 </div>
 
 <script>
 /* ================= CONFIG ================= */
 
-const LAYER_URL =
+const LAYER_PDM =
   "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/3";
 
-const FIELDS = {
+const LAYER_PROG =
+  "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
+
+const PDM_FIELDS = {
   loja: "loja",
   isocrona: "isocrona",
   percConquista: "perc_conquista"
+};
+
+const PROG_FIELDS = {
+  isocrona: "descricao_regiao_isocrona",
+  vendasAtual: "valor_vendas_atual",
+  vendasAnterior: "valor_vendas_anterior",
+  zinflu: "cod_loja_zinflu2"
 };
 
 const qs = new URLSearchParams(window.location.search);
 
 /* ================= UTIL ================= */
 
-function showLoader(on){
-  document.getElementById("loader").style.display = on ? "flex" : "none";
+function parseList(paramName){
+  if (!qs.has(paramName)) return [];
+  return String(qs.get(paramName) || "")
+    .split(",")
+    .map(v=>v.trim())
+    .filter(v=>v !== "");
 }
 
 function escapeSqlString(s){
-  return String(s).replace(/'/g, "''");
+  return String(s).replace(/'/g,"''");
 }
 
-function parseList(name){
-  if (!qs.has(name)) return [];
-  return String(qs.get(name) || "")
-    .split(",")
-    .map(v => v.trim())
-    .filter(v => v !== "");
+function isBlank(v){
+  const s = String(v ?? "").trim().toLowerCase();
+  return !s || s === "null" || s === "undefined";
 }
 
-function buildWhere(){
-  const parts = ["1=1"];
-  const lojas = parseList("loja");
-  if (lojas.length){
-    parts.push(`${FIELDS.loja} IN (${lojas.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
-  }
-  return parts.join(" AND ");
-}
-
-async function esriQuery(params){
-  const url = new URL(LAYER_URL.replace(/\/+$/,"") + "/query");
-  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k,v));
-  const r = await fetch(url.toString());
-  const j = await r.json();
-  if (!r.ok || j.error) throw (j.error || { message:`HTTP ${r.status}` });
-  return j;
-}
-
-function fmtBR(n){
-  return (isFinite(n) ? n : 0).toFixed(1).replace(".", ",");
-}
-
-function isocronaKey(v){
-  const s = String(v).toLowerCase();
+function isocronaKey(label){
+  const s = String(label ?? "").toLowerCase();
+  if (s.includes("fora")) return Number.POSITIVE_INFINITY;
   const m = s.match(/-?\d+([.,]\d+)?/);
   return m ? Number(m[0].replace(",", ".")) : Number.POSITIVE_INFINITY;
 }
 
-/* ===== EIXO Y ===== */
+async function esriQuery(layerUrl, params){
+  const u = new URL(layerUrl.replace(/\/+$/,"") + "/query");
+  Object.entries(params).forEach(([k,v]) => u.searchParams.set(k,v));
+  const r = await fetch(u.toString());
+  const j = await r.json();
+  if (!r.ok || j.error) throw (j.error || {message:`HTTP ${r.status}`});
+  return j;
+}
 
-function buildYAxis(maxValue){
-  const steps = 5;
-  const yAxis = document.getElementById("yAxis");
-  yAxis.innerHTML = "";
+/* valores (barras) com 1 casa */
+function fmt1(n){
+  return (isFinite(n) ? n : 0).toFixed(1).replace(".",",");
+}
 
-  for (let i = steps; i >= 0; i--){
-    const val = (maxValue / steps) * i;
-    const tick = document.createElement("div");
-    tick.className = "yTick";
-    tick.textContent = fmtBR(val) + "%";
-    yAxis.appendChild(tick);
+/* eixo Y “escala 0” (sem casas) */
+function fmt0(n){
+  return String(Math.round(isFinite(n) ? n : 0)).replace(".",",");
+}
+
+/* escolhe um passo “bonito” para o eixo (1,2,5,10 * 10^k) */
+function niceStep(target){
+  if (target <= 0) return 1;
+  const pow = Math.pow(10, Math.floor(Math.log10(target)));
+  const n = target / pow;
+  let s;
+  if (n <= 1) s = 1;
+  else if (n <= 2) s = 2;
+  else if (n <= 5) s = 5;
+  else s = 10;
+  return s * pow;
+}
+
+/* eixo Y: sempre 0..(step*5), ticks inteiros */
+function buildYAxis(axisMax, step){
+  const y = document.getElementById("yAxis");
+  y.innerHTML = "";
+  for (let i=5;i>=0;i--){
+    const val = step * i;           // garante números inteiros “redondos”
+    y.innerHTML += `<div class="yTick">${fmt0(val)}%</div>`;
   }
 }
 
-/* ================= RENDER ================= */
+function buildInClause(field, values){
+  const inList = values.map(v => `'${escapeSqlString(v)}'`).join(",");
+  return `${field} IN (${inList})`;
+}
+
+/* ===== detect fields (PROG loja/mes/ano) ===== */
+const DETECT_CACHE = new Map();
+
+async function detectExistingField(layerUrl, candidates, sampleValue){
+  const key = layerUrl + "::" + candidates.join("|");
+  if (DETECT_CACHE.has(key)) return DETECT_CACHE.get(key);
+
+  for (const field of candidates){
+    try{
+      await esriQuery(layerUrl, {
+        f:"json",
+        where:`${field}='${escapeSqlString(sampleValue)}'`,
+        returnCountOnly:"true"
+      });
+      DETECT_CACHE.set(key, field);
+      return field;
+    }catch(e){
+      const msg = (e && e.message) ? String(e.message) : JSON.stringify(e);
+      if (msg.toLowerCase().includes("does not exist")) continue;
+      continue;
+    }
+  }
+
+  DETECT_CACHE.set(key, null);
+  return null;
+}
+
+/* ================= WHERE ================= */
+
+function buildWherePdm(){
+  const parts = ["1=1"];
+  const lojas = parseList("loja");
+  if (lojas.length) parts.push(buildInClause(PDM_FIELDS.loja, lojas));
+  return parts.join(" AND ");
+}
+
+async function buildWhereProg(){
+  const parts = ["1=1"];
+
+  const lojas = parseList("loja");
+  if (lojas.length){
+    const lojaField = await detectExistingField(
+      LAYER_PROG,
+      ["loja","id_loja_venda","cod_loja","id_loja","loja_venda","cod_loja_venda","store","store_id"],
+      lojas[0]
+    );
+    if (lojaField) parts.push(buildInClause(lojaField, lojas));
+  }
+
+  const mes = parseList("mes");
+  if (mes.length){
+    const mesField = await detectExistingField(
+      LAYER_PROG,
+      ["mes","id_mes","nr_mes","numero_mes","mes_num","mes_numero","month","month_id"],
+      mes[0]
+    );
+    if (mesField) parts.push(buildInClause(mesField, mes));
+  }
+
+  const ano = parseList("ano");
+  if (ano.length){
+    const anoField = await detectExistingField(
+      LAYER_PROG,
+      ["ano","id_ano","nr_ano","year","year_id"],
+      ano[0]
+    );
+    if (anoField) parts.push(buildInClause(anoField, ano));
+  }
+
+  const z = PROG_FIELDS.zinflu;
+  parts.push(`${z} IS NOT NULL AND ${z} <> '' AND ${z} <> '0'`);
+
+  return parts.join(" AND ");
+}
+
+/* ================= RENDER RESPONSIVO ================= */
+
+let LAST_ROWS = [];
 
 function renderBars(rows){
-  const chart = document.getElementById("chart");
+  LAST_ROWS = rows;
+
   const barsEl = document.getElementById("bars");
-  const emptyEl = document.getElementById("empty");
+  const plotEl = document.getElementById("plot");
+  const chart = document.getElementById("chart");
 
   barsEl.innerHTML = "";
+  chart.style.display = "flex";
 
   if (!rows.length){
-    chart.style.display = "flex";
-    emptyEl.style.display = "flex";
+    const prog0 = document.getElementById("prog");
+    prog0.style.gridTemplateColumns = "48px";
+    prog0.innerHTML = `<div class="prog-title">PROG</div>`;
     return;
   }
 
-  emptyEl.style.display = "none";
-  chart.style.display = "flex";
+  // ===== eixo Y arredondado (escala 0) =====
+  const rawMax = Math.max(...rows.map(r=>r.value));
+  const target = (rawMax * 1.05) / 5;      // +5% respiro, dividido pelos 5 intervalos
+  const step = niceStep(target);           // passo “bonito”
+  const axisMax = step * 5;                // garante 0..axisMax em 6 ticks inteiros
+  buildYAxis(axisMax, step);
 
-  const maxVal = Math.max(...rows.map(r => r.value));
-  buildYAxis(maxVal);
+  // altura responsiva
+  const plotH = plotEl.clientHeight || 240;
+  const headerSpace = 80;
+  const labelSpace  = 30;
+  const usable = Math.max(60, plotH - headerSpace - labelSpace);
+  const maxBarPx = Math.min(260, usable);
 
-  rows.forEach(r => {
+  rows.forEach(r=>{
     const col = document.createElement("div");
     col.className = "barCol";
 
     const v = document.createElement("div");
     v.className = "barValue";
-    v.textContent = fmtBR(r.value) + "%";
+    v.textContent = fmt1(r.value) + "%";
 
     const bar = document.createElement("div");
     bar.className = "bar";
-    bar.style.height = (12 + (r.value / maxVal) * 220) + "px";
+    bar.style.height = (12 + (r.value / axisMax) * maxBarPx) + "px"; // <<< usa axisMax
 
     const lab = document.createElement("div");
     lab.className = "barLabel";
@@ -297,46 +408,90 @@ function renderBars(rows){
     col.appendChild(v);
     col.appendChild(bar);
     col.appendChild(lab);
-
     barsEl.appendChild(col);
   });
 }
 
+window.addEventListener("resize", () => {
+  if (LAST_ROWS.length) renderBars(LAST_ROWS);
+});
+
 /* ================= LOAD ================= */
 
 async function load(){
-  showLoader(true);
+  document.getElementById("loader").style.display="flex";
 
   try{
-    const q = await esriQuery({
-      f: "json",
-      where: buildWhere(),
-      groupByFieldsForStatistics: FIELDS.isocrona,
+    const pdm = await esriQuery(LAYER_PDM,{
+      f:"json",
+      where: buildWherePdm(),
+      groupByFieldsForStatistics: PDM_FIELDS.isocrona,
       outStatistics: JSON.stringify([{
-        statisticType: "sum",
-        onStatisticField: FIELDS.percConquista,
-        outStatisticFieldName: "SUM_PERC_CONQUISTA"
+        statisticType:"sum",
+        onStatisticField: PDM_FIELDS.percConquista,
+        outStatisticFieldName:"V"
       }]),
-      outFields: FIELDS.isocrona,
-      returnGeometry: "false"
+      outFields: PDM_FIELDS.isocrona,
+      returnGeometry:false
     });
 
-    const rows = (q.features || [])
-      .map(f => {
-        const iso = f.attributes[FIELDS.isocrona];
-        const soma = Number(f.attributes.SUM_PERC_CONQUISTA || 0) / 100;
-        return { label:String(iso).trim(), value:soma };
+    const rows = (pdm.features || [])
+      .map(f=>{
+        const iso = f.attributes?.[PDM_FIELDS.isocrona];
+        const raw = f.attributes?.V;
+        if (isBlank(iso) || raw == null) return null;
+        const value = Number(raw)/100;
+        if (!isFinite(value)) return null;
+        return { label:String(iso).trim(), value };
       })
-      .filter(r => r.label !== "" && r.label !== "null" && r.label !== "undefined")
-      .sort((a,b) => isocronaKey(a.label) - isocronaKey(b.label));
+      .filter(Boolean)
+      .sort((a,b)=>isocronaKey(a.label)-isocronaKey(b.label));
 
     renderBars(rows);
 
+    const progWhere = await buildWhereProg();
+
+    const prog = await esriQuery(LAYER_PROG,{
+      f:"json",
+      where: progWhere,
+      groupByFieldsForStatistics: PROG_FIELDS.isocrona,
+      outStatistics: JSON.stringify([
+        {statisticType:"sum", onStatisticField: PROG_FIELDS.vendasAtual,     outStatisticFieldName:"VA"},
+        {statisticType:"sum", onStatisticField: PROG_FIELDS.vendasAnterior, outStatisticFieldName:"VB"}
+      ]),
+      outFields: PROG_FIELDS.isocrona,
+      returnGeometry:false
+    });
+
+    const mapProg = new Map(
+      (prog.features || [])
+        .map(f=>{
+          const a = f.attributes || {};
+          const iso = a[PROG_FIELDS.isocrona];
+          const va = a.VA, vb = a.VB;
+          if (isBlank(iso) || va == null || vb == null) return null;
+          const VA = Number(va), VB = Number(vb);
+          if (!isFinite(VA) || !isFinite(VB) || VB <= 0) return [String(iso).trim(), null];
+          return [String(iso).trim(), ((VA/VB)-1)*100];
+        })
+        .filter(Boolean)
+    );
+
+    const progEl = document.getElementById("prog");
+    progEl.style.gridTemplateColumns = `48px repeat(${rows.length || 1}, 1fr)`;
+
+    const cells = rows.map(r=>{
+      const v = mapProg.get(r.label);
+      return `<div>${(v == null) ? "" : (fmt1(v) + "%")}</div>`;
+    });
+
+    progEl.innerHTML = `<div class="prog-title">PROG</div>${cells.join("")}`;
+
   }catch(e){
-    console.error("Erro gráfico:", e);
-    renderBars([]);
+    console.error("Erro:", e);
   }finally{
-    showLoader(false);
+    document.getElementById("loader").style.display="none";
+    document.getElementById("chart").style.display="flex";
   }
 }
 

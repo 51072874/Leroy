@@ -48,7 +48,7 @@ html,body{
 /* ? 3 GRÁFICOS ABAIXO DE TUDO */
 .row-bottom{
   display:grid;
-  grid-template-columns:repeat(3,1fr);
+  grid-template-columns:1fr 2fr;
   gap:12px;
   align-items:stretch;
 }
@@ -408,6 +408,18 @@ select:focus, .dropdown-btn:focus{ outline:none; border-color:#1976d2; }
   .chartFrame{ height:280px; }
 }
 
+.titleBar{
+    width:100%;
+    background:#6FAFB3; /* cor baseada na imagem anexa */
+    color:#ffffff;
+    text-align:center;
+    font-weight:600;
+    font-size:14px;
+    padding:6px 0;
+    letter-spacing:.3px;
+    flex:0 0 auto;
+  }
+
 </style>
 </head>
 
@@ -642,15 +654,26 @@ select:focus, .dropdown-btn:focus{ outline:none; border-color:#1976d2; }
 
   <!-- 3 GRÁFICOS (ABAIXO DE TUDO) -->
   <div class="row-bottom" aria-label="Gráficos inferiores">
-    <div class="card chartCard"><div class="chartBody">
-      <iframe class="chartFrame" id="chart1" title="Gráfico 1" src="about:blank" loading="lazy"></iframe>
-    </div></div>
-    <div class="card chartCard"><div class="chartBody">
-      <iframe class="chartFrame" id="chart2" title="Gráfico 2" src="about:blank" loading="lazy"></iframe>
-    </div></div>
-    <div class="card chartCard"><div class="chartBody">
-      <iframe class="chartFrame" id="chart3" title="Gráfico 3" src="about:blank" loading="lazy"></iframe>
-    </div></div>
+    <div class="card chartCard">
+      <div class="chartBody">
+        <iframe class="chartFrame" id="chart1" title="Gráfico 1" src="./Filtros_files/canais1p_pizza.html" loading="lazy"></iframe>
+      </div>
+    </div>
+    <div class="card" style="padding-left: 10px; padding-right: 10px;padding-top: 10px;">
+      <div class="titleBar">Isócronas</div>
+      <div style="grid-template-columns: 1fr 1fr;display: grid;">
+        <div class="chartCard">
+          <div class="chartBody" style="display: grid;">
+            <iframe class="chartFrame" id="chart2" title="Gráfico 2" src="./Filtros_files/pdmvenda.html" loading="lazy"></iframe>
+          </div>
+        </div>
+        <div class="chartCard">
+          <div class="chartBody">
+            <iframe class="chartFrame" id="chart3" title="Gráfico 3" src="./Filtros_files/conquistaano.html" loading="lazy"></iframe>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
 </div>

@@ -6,6 +6,7 @@
   <title>Mapa Leroy Merlin</title>
   <link rel="stylesheet" href="https://js.arcgis.com/4.30/esri/themes/light/main.css" />
   <script src="https://js.arcgis.com/4.30/"></script>
+
   <style>
     html, body, #viewDiv{
       padding:0;
@@ -13,8 +14,50 @@
       height:100%;
       width:100%;
     }
+
+    /* 🔽 legenda fixa no canto inferior direito (2px) */
+    #viewDiv{ position:relative; }
+
+    .legend-box{
+      position:absolute;
+      right:2px;
+      bottom:2px;
+      z-index:50;
+      background:#fff;
+      border:1px solid #e5e7eb;
+      border-radius:8px;
+      padding:8px 10px;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      color:#111827;
+      box-shadow:0 4px 12px rgba(0,0,0,.08);
+      user-select:none;
+      pointer-events:none; /* não atrapalha pan/zoom */
+      font-size:12px;
+      line-height:1.15;
+      min-width:120px;
+    }
+    .legend-title{
+      font-weight:700;
+      margin:0 0 6px 0;
+      font-size:12px;
+    }
+    .legend-row{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin:4px 0;
+      white-space:nowrap;
+    }
+    .swatch{
+      width:16px;
+      height:12px;
+      border-radius:2px;
+      border:1px solid rgba(0,0,0,.08);
+      flex:0 0 auto;
+    }
   </style>
 </head>
+
 <body>
 <div id="viewDiv"></div>
 
@@ -53,7 +96,6 @@ mes     = sanitize(mes);
 
 /*******************************************************
  * Helpers multi (CSV) -> WHERE SEMPRE STRING (com aspas)
- * (isso corrige o problema do mes/ano não filtrarem)
  *******************************************************/
 function splitCSV(v){
   if (!v) return [];
@@ -100,8 +142,50 @@ require([
     zoom: initialZoom
   });
 
-  // ✅ salva center/zoom continuamente
+  // ✅ legenda (overlay HTML) — canto inferior direito com 2px
+  function ensureLegend(){
+    if (document.getElementById("legendProgVendas")) return;
+
+    const div = document.createElement("div");
+    div.id = "legendProgVendas";
+    div.className = "legend-box";
+    div.innerHTML = `
+      <div class="legend-title">Prog % Vendas</div>
+
+      <div class="legend-row">
+        <span class="swatch" style="background:rgba(0,128,128,.55)"></span>
+        <span>&gt; 20,0%</span>
+      </div>
+      <div class="legend-row">
+        <span class="swatch" style="background:rgba(0,192,192,.55)"></span>
+        <span>10,0% a 20,0%</span>
+      </div>
+      <div class="legend-row">
+        <span class="swatch" style="background:rgba(127,255,255,.55)"></span>
+        <span>0 a 10,0%</span>
+      </div>
+      <div class="legend-row">
+        <span class="swatch" style="background:rgba(244,146,75,.55)"></span>
+        <span>-10,0% a 0,0%</span>
+      </div>
+      <div class="legend-row">
+        <span class="swatch" style="background:rgba(255,63,63,.55)"></span>
+        <span>-20,0% a -10,0%</span>
+      </div>
+      <div class="legend-row">
+        <span class="swatch" style="background:rgba(192,0,0,.55)"></span>
+        <span>&lt; -20,0%</span>
+      </div>
+    `;
+
+    // coloca dentro do viewDiv para respeitar o overlay do mapa
+    document.getElementById("viewDiv").appendChild(div);
+  }
+
   view.when(() => {
+    ensureLegend();
+
+    // ✅ salva center/zoom continuamente
     view.watch(["center", "zoom"], () => {
       if (!codLoja) return;
       const c = view.center;
@@ -215,8 +299,6 @@ require([
 
     const wSecao = whereMultiStr("secao", secao);
     const wCanal = whereMultiStr("id_canal_venda", idCanal);
-
-    // ✅ Aqui está o fix principal:
     const wAno   = whereMultiStr("ano", ano);
     const wMes   = whereMultiStr("mes", mes);
 
@@ -243,8 +325,7 @@ require([
     const vendasData = await vendasLayer.queryFeatures(qv);
 
     /***************************************************
-     * Progressão para multi mes/ano:
-     * soma(atual) e soma(anterior) por bairro, depois:
+     * Progressão (multi mes/ano):
      * pct = ((soma_atual / soma_anterior) - 1) * 100
      ***************************************************/
     const acc = {}; // { bairro: {a:sumAtual, b:sumAnterior} }

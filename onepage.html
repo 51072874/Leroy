@@ -10,7 +10,862 @@
   --panel:#ffffff;
   --line:#e6e6e6;
   --text:#1f2937;
+  --radius:14px;<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="ISO-8859-1">
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+
+<style>
+:root{
+  --bg:#f4f6f8;
+  --panel:#ffffff;
+  --line:#e6e6e6;
+  --text:#1f2937;
   --radius:14px;
+  --shadow:0 6px 18px rgba(0,0,0,.06);
+
+  --g2:#e6e6e6;
+  --g3:#d9d9d9;
+}
+
+html,body{
+  margin:0;
+  background:var(--bg);
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  color:var(--text);
+}
+*{box-sizing:border-box}
+
+.page{ display:flex; flex-direction:column; gap:12px; padding:12px; }
+
+.card{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  overflow:hidden;
+  min-width:0;
+}
+
+/* LAYOUT */
+.row-top{
+  display:grid;
+  grid-template-columns:320px 1fr;
+  gap:12px;
+  align-items:stretch;
+}
+
+/* ✅ 3 GRÁFICOS ABAIXO DE TUDO */
+.row-bottom{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:12px;
+  align-items:stretch;
+}
+.chartCard{ display:flex; flex-direction:column; min-height:0; }
+.chartBody{ padding:0; flex:1; min-height:0; }
+.chartFrame{ width:100%; height:320px; border:0; display:block; }
+
+/* ESQUERDA */
+.leftStack{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  min-width:0;
+  height:100%;
+}
+.leftStack .tableCard{
+  flex:1;
+  min-height:0;
+}
+
+/* DIREITA */
+.topGrid{
+  display:grid;
+  grid-template-columns: 1.65fr 1fr;
+  grid-template-rows: auto auto 1fr;   /* KPI | Prog% | Mapa */
+  gap:12px;
+  align-items:start;
+  min-width:0;
+}
+
+/* KPIs */
+.kpisRow{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:12px;
+  align-items:start;
+  align-self:start;
+}
+.kpiCard{
+  padding:8px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  align-items:center;
+  justify-content:flex-start;
+  height:auto;
+}
+.kpiTitleIn{
+  width:100%;
+  text-align:center;
+  font-weight:900;
+  font-size:12px;
+  color:#333;
+  line-height:1.1;
+  padding-top:0;
+}
+.kpiCard > iframe{
+  width:100%;
+  height:48px;
+  border:0;
+  display:block;
+}
+
+/* Prog% externo */
+.progExternalRow{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:12px;
+  align-items:stretch;
+  align-self:start;
+}
+.progCard{
+  padding:8px 10px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  min-height:38px;
+}
+.progLabel{
+  font-size:11px;
+  font-weight:900;
+  color:#555;
+  white-space:nowrap;
+}
+.progCard iframe{
+  width:110px;
+  height:22px;
+  border:0;
+  display:block;
+}
+
+/* BLOCK */
+.block{ display:flex; flex-direction:column; min-height:0; }
+.blockHeader{
+  padding:10px 12px;
+  font-weight:900;
+  font-size:13px;
+  border-bottom:1px solid var(--line);
+  background:#fff;
+}
+.blockBody{ padding:0; flex:1; min-height:0; }
+
+/* Iframes */
+.embedFrame{ width:100%; border:0; display:block; }
+
+/* MAPA */
+.mapCard{ align-self:stretch; min-height:0; }
+#mapFrame{ height:100%; min-height:404px; }
+
+/* OUTROS */
+#barFrame{ height:264px; }
+
+/* RIGHT STACK */
+.rightStack{
+  display:grid;
+  grid-template-rows:auto 1fr;
+  gap:12px;
+  grid-column:2;
+  grid-row:1 / span 3;
+  align-self:stretch;
+  min-height:0;
+}
+.rightStack .zoneWrap{ height:100%; }
+
+/* ZONA */
+.zoneWrap{
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+  background:#fff;
+}
+.zoneHead{
+  padding:10px 12px;
+  border-bottom:1px solid var(--line);
+  background:#fff;
+}
+.zoneLabel{
+  font-weight:900;
+  font-size:13px;
+  color:#333;
+}
+.zoneBody{
+  padding:10px 12px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  min-height:0;
+  flex:1;
+  position:relative;
+  padding-top:52px;
+}
+.zoneConquistaFloating{
+  position:absolute;
+  top:10px;
+  right:12px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-weight:900;
+  font-size:12px;
+  color:#555;
+}
+
+/* ✅ Conquista KPI embutido */
+.zoneConquistaBox{
+  width:110px;
+  height:32px;
+  text-align:center;
+  padding:0;
+  border-radius:6px;
+  background:var(--g2);
+  border:1px solid var(--g3);
+  font-weight:900;
+  color:#333;
+  overflow:hidden;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.zoneConquistaBox iframe{
+  width:100%;
+  height:100%;
+  border:0;
+  display:block;
+  background:transparent;
+}
+
+.zoneGapBelowConquista{ height:8px; }
+.zoneSectionTitleLeft{
+  text-align:left;
+  font-size:13px;
+  font-weight:900;
+  color:#444;
+  margin:2px 0 10px 0;
+}
+.zoneOutBlock{ margin-top:10%; }
+
+.kpiLabels108{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  font-size:10.8px;
+  font-weight:900;
+  color:#555;
+  text-align:center;
+  margin:6px 6px 2px 6px;
+}
+.kpiNumbersGrey{
+  background:var(--g2);
+  border:1px solid var(--g3);
+  border-radius:12px;
+  padding:6px 8px;
+}
+.kpiNumbersGrey iframe{
+  width:100%;
+  height:26px;
+  border:0;
+  display:block;
+  background:transparent;
+}
+
+/* FILTRO */
+.filtersCard{ padding:10px 12px; overflow:visible; }
+.filtersCard h3{ display:none !important; }
+.filtersCard .fieldLabel{ font-size:11px; }
+.filtersCard select,
+.filtersCard .dropdown-btn{ font-size:11px; }
+.filtersCard .placeholder{ font-size:11px; }
+.filtersCard .item{ font-size:11px; }
+.filtersCard .tag{ font-size:10px; }
+.filtersCard .controls button{ font-size:10px; }
+
+.fieldRow{
+  display:grid;
+  grid-template-columns:64px 1fr;
+  gap:10px;
+  align-items:center;
+  margin-top:8px;
+}
+.fieldRow:first-child{ margin-top:0; }
+.fieldLabel{ font-weight:900; font-size:13px; color:#555; line-height:1.1; }
+
+select, .dropdown-btn{
+  width:100%;
+  padding:8px 10px;
+  border-radius:8px;
+  border:1px solid #e0e0e0;
+  background:#fff;
+  font-size:13px;
+  cursor:pointer;
+  transition:border-color .2s;
+}
+select:focus, .dropdown-btn:focus{ outline:none; border-color:#1976d2; }
+
+.dropdown{ position:relative; }
+.dropdown-btn{ display:flex; align-items:center; justify-content:space-between; min-height:38px; }
+.dropdown-btn-content{ flex:1; display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+
+.tag{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  background:#e3f2fd;
+  color:#1976d2;
+  padding:3px 7px;
+  border-radius:6px;
+  font-size:12px;
+  font-weight:700;
+}
+.tag-remove{ cursor:pointer; font-weight:bold; color:#1976d2; opacity:.7; }
+.tag-remove:hover{ opacity:1; }
+.placeholder{ color:#999; font-size:13px; }
+
+.dropdown-panel{
+  display:none;
+  position:absolute;
+  top:calc(100% + 4px);
+  left:0;
+  width:100%;
+  background:#fff;
+  border-radius:10px;
+  border:1px solid #e0e0e0;
+  padding:8px;
+  max-height:260px;
+  overflow-y:auto;
+  box-shadow:0 6px 18px rgba(0,0,0,.15);
+  z-index:9999;
+}
+.dropdown-panel.open{ display:block; }
+
+.controls{ display:flex; gap:6px; margin-bottom:8px; }
+.controls button{
+  flex:1;
+  padding:7px 8px;
+  border-radius:6px;
+  border:1px solid #e0e0e0;
+  background:#fafafa;
+  cursor:pointer;
+  font-size:12px;
+}
+.controls button:hover{ background:#e3f2fd; border-color:#1976d2; color:#1976d2; }
+
+.item{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:7px 8px;
+  cursor:pointer;
+  border-radius:6px;
+  font-size:13px;
+}
+.item:hover{ background:#f1f7ff; }
+.item input[type="checkbox"]{ cursor:pointer; }
+
+.footer{ display:flex; gap:10px; margin-top:10px; }
+.btn-primary{
+  flex:1;
+  padding:6px 10px;
+  min-height:34px;
+  border-radius:8px;
+  background:#111827;
+  color:#fff;
+  border:none;
+  cursor:pointer;
+  font-weight:900;
+  font-size:12px;
+  line-height:1;
+}
+.btn-clear{
+  flex:1;
+  padding:6px 10px;
+  min-height:34px;
+  border-radius:8px;
+  background:#fff;
+  border:1px solid #e0e0e0;
+  cursor:pointer;
+  font-size:12px;
+  line-height:1;
+}
+
+/* ✅ TABELA */
+#tableProgFrame{ width:100%; height:100%; border:0; display:block; }
+
+/* RESPONSIVE */
+@media(max-width:1100px){
+  .row-top{ grid-template-columns:1fr; }
+  .topGrid{ grid-template-columns:1fr; grid-template-rows:auto auto auto auto; }
+  .rightStack{ grid-column:auto; grid-row:auto; }
+  #mapFrame{ min-height:340px; }
+  #barFrame{ height:252px; }
+  .kpisRow{ grid-template-columns:1fr; }
+  .progExternalRow{ grid-template-columns:1fr; }
+  .fieldRow{ grid-template-columns:70px 1fr; }
+  .zoneOutBlock{ margin-top:8%; }
+
+  .row-bottom{ grid-template-columns:1fr; }
+  .chartFrame{ height:280px; }
+}
+</style>
+</head>
+
+<body>
+
+<div class="page">
+  <div class="row-top">
+
+    <!-- ESQUERDA -->
+    <div class="leftStack">
+
+      <!-- FILTROS -->
+      <div class="card filtersCard" role="region" aria-label="Painel de filtros">
+
+        <div class="fieldRow">
+          <div class="fieldLabel">Loja</div>
+          <div>
+            <select id="selLoja" aria-label="Seleção de loja">
+              <option value="">-- Todas --</option>
+              <option value="1">1 - Interlagos</option>
+              <option value="2">2 - Ribeirão Preto</option>
+              <option value="3">3 - Dom Pedro</option>
+              <option value="4">4 - Contagem</option>
+              <option value="5">5 - Raposo Tavares</option>
+              <option value="7">7 - Rio Norte</option>
+              <option value="9">9 - Curitiba Sul</option>
+              <option value="10">10 - São Caetano do Sul</option>
+              <option value="11">11 - Rio Barra</option>
+              <option value="12">12 - Morumbi</option>
+              <option value="13">13 - Brasília Sul</option>
+              <option value="15">15 - São José dos Campos</option>
+              <option value="16">16 - Ricardo Jafet</option>
+              <option value="17">17 - Bangu</option>
+              <option value="18">18 - Goiânia</option>
+              <option value="19">19 - Pão Norte</option>
+              <option value="20">20 - BH Sul</option>
+              <option value="21">21 - Niterói</option>
+              <option value="22">22 - Anhanguera</option>
+              <option value="23">23 - Taguatinga</option>
+              <option value="24">24 - Lar Center</option>
+              <option value="26">26 - Jacarepaguá</option>
+              <option value="27">27 - Sorocaba</option>
+              <option value="28">28 - Brasília Norte</option>
+              <option value="29">29 - Uberlândia</option>
+              <option value="32">32 - São Leopoldo</option>
+              <option value="33">33 - Londrina</option>
+              <option value="34">34 - São José do Rio Preto</option>
+              <option value="35">35 - Curitiba Atuba</option>
+              <option value="36">36 - BH Norte</option>
+              <option value="37">37 - Fortaleza 1</option>
+              <option value="39">39 - São José (SC)</option>
+              <option value="41">41 - Anália Franco</option>
+              <option value="42">42 - Jaguaré</option>
+              <option value="43">43 - Loja Virtual</option>
+              <option value="44">44 - Campo Grande</option>
+              <option value="45">45 - São Bernardo do Campo</option>
+              <option value="46">46 - Tamboré</option>
+              <option value="49">49 - Rio Grande do Norte</option>
+              <option value="50">50 - Maceió</option>
+              <option value="55">55 - Taubaté</option>
+              <option value="56">56 - Jundiaí</option>
+              <option value="57">57 - Vitória</option>
+              <option value="58">58 - Marginal Tietê</option>
+              <option value="59">59 - Salvador</option>
+              <option value="62">62 - Santos</option>
+              <option value="63">63 - Pontal Estaleiro</option>
+              <option value="65">65 - Express Campo Belo</option>
+              <option value="67">67 - Guarulhos</option>
+              <option value="68">68 - Express Pompeia</option>
+              <option value="69">69 - Express Vila Nova Conceição</option>
+              <option value="70">70 - Express BH São Pedro</option>
+              <option value="71">71 - Material Florianópolis</option>
+              <option value="72">72 - Express Florianópolis</option>
+              <option value="74">74 - Express Leblon</option>
+              <option value="75">75 - Express Alto da Boa Vista</option>
+              <option value="76">76 - Joinville</option>
+              <option value="77">77 - Jd Botânico</option>
+              <option value="78">78 - Bauru</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="fieldRow">
+          <div class="fieldLabel">Seção</div>
+          <div class="dropdown">
+            <div class="dropdown-btn" onclick="openPanel(event,'panelSecao')" tabindex="0">
+              <div class="dropdown-btn-content" id="tagsSecao"><span class="placeholder">Selecionar...</span></div>
+            </div>
+            <div class="dropdown-panel" id="panelSecao">
+              <div class="controls">
+                <button type="button" onclick="selectAll('secao')">Selecionar tudo</button>
+                <button type="button" onclick="clearAll('secao')">Limpar</button>
+              </div>
+              <div id="listSecao"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="fieldRow">
+          <div class="fieldLabel">Canal</div>
+          <div class="dropdown">
+            <div class="dropdown-btn" onclick="openPanel(event,'panelCanal')" tabindex="0">
+              <div class="dropdown-btn-content" id="tagsCanal"><span class="placeholder">Selecionar...</span></div>
+            </div>
+            <div class="dropdown-panel" id="panelCanal">
+              <div class="controls">
+                <button type="button" onclick="selectAll('canal')">Selecionar tudo</button>
+                <button type="button" onclick="clearAll('canal')">Limpar</button>
+              </div>
+              <div id="listCanal"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="fieldRow">
+          <div class="fieldLabel">Ano</div>
+          <div>
+            <select id="selAno" aria-label="Seleção de ano">
+              <option value="">-- Todos --</option>
+              <option value="2024">2024</option>
+              <option value="2025">2025</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="fieldRow">
+          <div class="fieldLabel">Mês</div>
+          <div class="dropdown">
+            <div class="dropdown-btn" onclick="openPanel(event,'panelMes')" tabindex="0">
+              <div class="dropdown-btn-content" id="tagsMes"><span class="placeholder">Selecionar...</span></div>
+            </div>
+            <div class="dropdown-panel" id="panelMes">
+              <div class="controls">
+                <button type="button" onclick="selectAll('mes')">Selecionar tudo</button>
+                <button type="button" onclick="clearAll('mes')">Limpar</button>
+              </div>
+              <div id="listMes"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <button class="btn-primary" id="btnApply" type="button">Aplicar</button>
+          <button class="btn-clear" id="btnClear" type="button">Limpar</button>
+        </div>
+      </div>
+
+      <!-- TABELA -->
+      <div class="card tableCard" aria-label="Tabela Progresso">
+        <iframe id="tableProgFrame" title="Tabela Progresso" src="about:blank" loading="lazy"></iframe>
+      </div>
+
+    </div>
+
+    <!-- DIREITA -->
+    <div class="topGrid">
+
+      <!-- KPIs -->
+      <div class="kpisRow" style="grid-column:1; grid-row:1;">
+        <div class="card kpiCard">
+          <div class="kpiTitleIn">Vendas Brutas</div>
+          <iframe id="kpi1" title="KPI 1" src="about:blank"></iframe>
+        </div>
+        <div class="card kpiCard">
+          <div class="kpiTitleIn">Transações</div>
+          <iframe id="kpi2" title="KPI 2" src="about:blank"></iframe>
+        </div>
+        <div class="card kpiCard">
+          <div class="kpiTitleIn">Carrinho</div>
+          <iframe id="kpi3" title="KPI 3" src="about:blank"></iframe>
+        </div>
+      </div>
+
+      <!-- Prog% externo -->
+      <div class="progExternalRow" style="grid-column:1; grid-row:2;">
+        <div class="card progCard"><span class="progLabel">Prog %</span><iframe id="kpiProg1" title="Prog KPI 1" src="about:blank"></iframe></div>
+        <div class="card progCard"><span class="progLabel">Prog %</span><iframe id="kpiProg2" title="Prog KPI 2" src="about:blank"></iframe></div>
+        <div class="card progCard"><span class="progLabel">Prog %</span><iframe id="kpiProg3" title="Prog KPI 3" src="about:blank"></iframe></div>
+      </div>
+
+      <!-- MAPA -->
+      <div class="card block mapCard" style="grid-column:1; grid-row:3;">
+        <div class="blockBody">
+          <iframe class="embedFrame" id="mapFrame" title="Mapa" src="about:blank"></iframe>
+        </div>
+      </div>
+
+      <!-- BARRAS + ZONA -->
+      <div class="rightStack">
+        <div class="card block">
+          <div class="blockBody">
+            <iframe class="embedFrame" id="barFrame" title="Barras" src="about:blank"></iframe>
+          </div>
+        </div>
+
+        <div class="card zoneWrap">
+          <div class="zoneHead">
+            <div class="zoneLabel">Zona de Influência</div>
+          </div>
+          <div class="zoneBody">
+            <div class="zoneConquistaFloating">
+              <span>Conquista %</span>
+              <span class="zoneConquistaBox">
+                <iframe id="conquistaFrame" title="Conquista KPI" src="about:blank" loading="lazy"></iframe>
+              </span>
+            </div>
+
+            <div class="kpiLabels108" aria-hidden="true">
+              <div>Vendas Brutas</div><div>Vendas Brutas %</div><div>Progressão %</div>
+            </div>
+            <div class="kpiNumbersGrey">
+              <iframe id="inZoneFrame" title="Dentro de Zona" src="about:blank"></iframe>
+            </div>
+
+            <div class="zoneOutBlock">
+              <div class="zoneSectionTitleLeft">Fora de Zona</div>
+              <div class="kpiLabels108" aria-hidden="true">
+                <div>Vendas Brutas</div><div>Vendas Brutas %</div><div>Progressão %</div>
+              </div>
+              <div class="kpiNumbersGrey">
+                <iframe id="outZoneFrame" title="Fora de Zona" src="about:blank"></iframe>
+              </div>
+            </div>
+
+            <div style="flex:1; min-height:20px;"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 3 GRÁFICOS (ABAIXO DE TUDO) -->
+  <div class="row-bottom" aria-label="Gráficos inferiores">
+    <div class="card chartCard"><div class="chartBody">
+      <iframe class="chartFrame" id="chart1" title="Gráfico 1" src="about:blank" loading="lazy"></iframe>
+    </div></div>
+    <div class="card chartCard"><div class="chartBody">
+      <iframe class="chartFrame" id="chart2" title="Gráfico 2" src="about:blank" loading="lazy"></iframe>
+    </div></div>
+    <div class="card chartCard"><div class="chartBody">
+      <iframe class="chartFrame" id="chart3" title="Gráfico 3" src="about:blank" loading="lazy"></iframe>
+    </div></div>
+  </div>
+
+</div>
+
+<script>
+const URL_TABELA_PROG = "https://51072874.github.io/Leroy/tabelaprog.html";
+const URL_DENTRO      = "https://51072874.github.io/Leroy/dentrozonahtml.html";
+const URL_FORA        = "https://51072874.github.io/Leroy/forazonahtml.html";
+
+const KPI1_BASE  = "https://51072874.github.io/Leroy/vendasbrutashtml.html";
+const KPI2_BASE  = "https://51072874.github.io/Leroy/transacoeshtml.html";
+const KPI3_BASE  = "https://51072874.github.io/Leroy/carrinhohtml.html";
+
+const KPI_PROG1_BASE = "https://51072874.github.io/Leroy/vendasbrutas_proghtml.html";
+const KPI_PROG2_BASE = "https://51072874.github.io/Leroy/transacoes_proghtml.html";
+const KPI_PROG3_BASE = "https://51072874.github.io/Leroy/carrinho_proghtml.html";
+
+/* ✅ KPI Conquista */
+const CONQUISTA_BASE = "https://51072874.github.io/Leroy/perc_conquistahtml.html";  // <-- URL do indicador Conquista
+
+/* ✅ 3 GRÁFICOS INFERIORES */
+const CHART1_BASE = "https://51072874.github.io/Leroy/canais1phtml.html";
+const CHART2_BASE = "https://51072874.github.io/Leroy/pdmvendahtml.html";
+const CHART3_BASE = "https://51072874.github.io/Leroy/conquistaanohtml.html";
+
+const MAP_BASE   = "https://51072874.github.io/Leroy/mapa.html";
+const BAR_BASE   = "https://51072874.github.io/Leroy/classehtml.html";
+
+let state = { loja: "", secao: [], canal: [], ano: "", mes: [] };
+
+/* ✅ MESES: mostra nome, mas mantém value numérico (string) */
+const MES_LABEL = {
+  "1":"Janeiro","2":"Fevereiro","3":"Março","4":"Abril","5":"Maio","6":"Junho",
+  "7":"Julho","8":"Agosto","9":"Setembro","10":"Outubro","11":"Novembro","12":"Dezembro"
+};
+
+const DOM = {
+  secao: ["11 - Pintura","12 - Elétrica"],
+  canal: ["e-commerce","Loja Física","Televendas"],
+  mes: ["1","2","3","4","5","6","7","8","9","10","11","12"]
+};
+
+function capitalize(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+
+/* ✅ render com label custom para o campo "mes" */
+function renderDomain(field, values){
+  const list = document.getElementById("list" + capitalize(field));
+  if (!list) return;
+  list.innerHTML = "";
+
+  values.forEach(v=>{
+    const val = String(v);
+    const checked = (state[field] || []).includes(val) ? "checked" : "";
+
+    const label = (field === "mes")
+      ? (MES_LABEL[val] || val)   // mostra nome
+      : val;                       // demais campos, mostra o próprio
+
+    list.innerHTML += `
+      <label class="item">
+        <input type="checkbox" value="${val}" ${checked}
+          onchange="toggleValue('${field}', this.value, this.checked)">
+        ${label}
+      </label>
+    `;
+  });
+
+  renderTags(field);
+}
+
+/* ✅ tags do mês também com nome, mas mantém state.mes com números */
+function renderTags(field){
+  const container = document.getElementById("tags" + capitalize(field));
+  if (!container) return;
+  const selected = state[field] || [];
+
+  if (!selected.length){
+    container.innerHTML = '<span class="placeholder">Selecionar...</span>';
+  } else {
+    container.innerHTML = selected.map(v => {
+      const val = String(v);
+      const shown = (field === "mes") ? (MES_LABEL[val] || val) : val;
+      return `
+        <span class="tag">
+          ${shown}
+          <span class="tag-remove" onclick="removeTag('${field}','${val}')">×</span>
+        </span>
+      `;
+    }).join("");
+  }
+}
+
+function removeTag(field, value){
+  state[field] = (state[field] || []).filter(v => v !== value);
+  const cb = document.querySelector(`#list${capitalize(field)} input[value="${CSS.escape(value)}"]`);
+  if (cb) cb.checked = false;
+  renderTags(field);
+}
+
+function toggleValue(field, value, checked){
+  value = String(value);
+  if (checked){
+    if (!state[field].includes(value)) state[field].push(value);
+  } else {
+    state[field] = state[field].filter(v => v !== value);
+  }
+  renderTags(field);
+}
+
+function selectAll(field){
+  const list = document.querySelectorAll(`#list${capitalize(field)} input`);
+  state[field] = [...list].map(i => i.value);
+  list.forEach(i => i.checked = true);
+  renderTags(field);
+}
+
+function clearAll(field){
+  state[field] = [];
+  const list = document.querySelectorAll(`#list${capitalize(field)} input`);
+  list.forEach(i => i.checked = false);
+  renderTags(field);
+}
+
+function openPanel(event, id){
+  event.stopPropagation();
+  document.querySelectorAll(".dropdown-panel").forEach(p => p.classList.remove("open"));
+  const el = document.getElementById(id);
+  if (el) el.classList.add("open");
+}
+document.addEventListener("click", ()=>{
+  document.querySelectorAll(".dropdown-panel").forEach(p => p.classList.remove("open"));
+});
+document.querySelectorAll(".dropdown-panel").forEach(panel=>{
+  panel.addEventListener("click", (e)=>e.stopPropagation());
+});
+
+function buildParams(){
+  const params = new URLSearchParams();
+  if (state.loja) params.set("loja", String(state.loja));
+  if (state.secao.length) params.set("secao", state.secao.join(","));
+  if (state.canal.length) params.set("id_canal_venda", state.canal.join(","));
+  if (state.ano) params.set("ano", String(state.ano));
+
+  /* ✅ continua passando "mes" como números em texto */
+  if (state.mes.length) params.set("mes", state.mes.join(","));
+
+  params.set("_ts", String(Date.now()));
+  return params;
+}
+
+function setIframeSrcById(iframeId, baseUrl, params){
+  if (!baseUrl) return;
+  const u = new URL(baseUrl, window.location.href);
+  params.forEach((v,k)=>u.searchParams.set(k,v));
+  const el = document.getElementById(iframeId);
+  if (el) el.src = u.toString();
+}
+
+function applyFilters(){
+  const params = buildParams();
+
+  setIframeSrcById("tableProgFrame", URL_TABELA_PROG, params);
+  setIframeSrcById("inZoneFrame", URL_DENTRO, params);
+  setIframeSrcById("outZoneFrame", URL_FORA, params);
+
+  setIframeSrcById("mapFrame", MAP_BASE, params);
+  setIframeSrcById("barFrame", BAR_BASE, params);
+
+  setIframeSrcById("kpi1", KPI1_BASE, params);
+  setIframeSrcById("kpi2", KPI2_BASE, params);
+  setIframeSrcById("kpi3", KPI3_BASE, params);
+
+  setIframeSrcById("kpiProg1", KPI_PROG1_BASE, params);
+  setIframeSrcById("kpiProg2", KPI_PROG2_BASE, params);
+  setIframeSrcById("kpiProg3", KPI_PROG3_BASE, params);
+
+  setIframeSrcById("conquistaFrame", CONQUISTA_BASE, params);
+
+  setIframeSrcById("chart1", CHART1_BASE, params);
+  setIframeSrcById("chart2", CHART2_BASE, params);
+  setIframeSrcById("chart3", CHART3_BASE, params);
+}
+
+function clearFilters(){
+  state = { loja:"", secao:[], canal:[], ano:"", mes:[] };
+  document.getElementById("selLoja").value = "";
+  document.getElementById("selAno").value = "";
+  renderTags("secao"); renderTags("canal"); renderTags("mes");
+  applyFilters();
+}
+
+document.getElementById("selLoja").addEventListener("change", (e)=>{ state.loja = e.target.value || ""; });
+document.getElementById("selAno").addEventListener("change", (e)=>{ state.ano  = e.target.value || ""; });
+document.getElementById("btnApply").addEventListener("click", (e)=>{ e.preventDefault(); applyFilters(); });
+document.getElementById("btnClear").addEventListener("click", (e)=>{ e.preventDefault(); clearFilters(); });
+
+renderDomain("secao", DOM.secao);
+renderDomain("canal", DOM.canal);
+renderDomain("mes", DOM.mes);
+applyFilters();
+</script>
+
+</body>
+</html>
+
   --shadow:0 6px 18px rgba(0,0,0,.06);
 
   --g2:#e6e6e6;

@@ -2,138 +2,123 @@
 <html lang="pt-br">
 <head>
 <meta charset="utf-8"/>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
 
 <style>
-/* ===== ESTILO ORIGINAL – SEM ALTERAÇÃO ===== */
-:root{
-  --bg:#ffffff;
-  --text:#111827;
-  --muted:#6b7280;
-  --pad:10px;
-}
 html, body{
   margin:0;
   padding:0;
+  width:100%;
   height:100%;
-  width:100%;
-  background:var(--bg);
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-  color:var(--text);
+  background:transparent;
   overflow:hidden;
+  font-family: Arial, Helvetica, sans-serif;
+  color:#444444;
 }
-*{ box-sizing:border-box; }
-.titleBar{
-  width:100%;
-  background:#6FAFB3;
-  color:#ffffff;
-  text-align:center;
-  font-weight:600;
-  font-size:14px;
-  padding:6px 0;
-}
+
 #container{
   position:relative;
+  width:100%;
   height:100%;
-  width:100%;
-  padding:var(--pad);
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:8px;
-}
-.wrap{
-  width:100%;
-  flex:1;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  gap:12px;
-}
-.topRow{
-  width:100%;
   display:flex;
   align-items:center;
   justify-content:center;
-  gap:16px;
 }
-.chartBox{
-  width:240px;
-  aspect-ratio:1/1;
-}
-svg{ width:100%; height:100%; overflow:visible; }
-.legend{
+
+#loader{
+  position:absolute;
+  inset:0;
   display:flex;
-  gap:14px;
-  font-size:11px;
-}
-.legItem{
-  display:flex;
-  gap:6px;
   align-items:center;
+  justify-content:center;
+  z-index:10;
+  pointer-events:none;
 }
-.swatch{
-  width:12px;
-  height:12px;
-  border-radius:3px;
+
+.spinner{
+  width:22px;
+  height:22px;
+  border:3px solid #dddddd;
+  border-top-color:#2b7cff;
+  border-radius:50%;
+  animation:spin 1s linear infinite;
 }
-.tableBox{
-  border:1px solid #d1d5db;
+@keyframes spin{ to{ transform:rotate(360deg);} }
+
+.loading #content{ visibility:hidden; }
+
+#content{
+  width:100%;
+  height:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:6px;
+}
+
+.kpiWrap{
+  width:100%;
+  max-width:520px;
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
   border-radius:6px;
   overflow:hidden;
 }
-table{
-  border-collapse:collapse;
+
+.kpi{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:10px 6px;
+  background:#e3e3e3;
+}
+
+.kpi + .kpi{
+  border-left:1px solid #ffffff;
+}
+
+.kpiValue{
+  display:flex;
+  align-items:baseline;
+  gap:4px;
   font-size:11px;
-}
-th,td{
-  padding:6px 8px;
-  border-bottom:1px solid #e5e7eb;
-}
-th{ background:#f9fafb; text-align:left; }
-td:last-child, th:last-child{ text-align:right; }
-.pctLabel{
-  font-size:10px;
   font-weight:600;
-  fill:#111827;
+  white-space:nowrap;
 }
 </style>
 </head>
 
-<body>
+<body class="loading">
 <div id="container">
-  <div class="titleBar">Canais 1P</div>
+  <div id="loader"><div class="spinner"></div></div>
 
-  <div class="wrap">
-    <div class="topRow">
-      <div class="chartBox">
-        <svg id="donut" viewBox="0 0 100 100"></svg>
+  <div id="content">
+    <div class="kpiWrap">
+      <div class="kpi">
+        <div class="kpiValue">
+          <span>R$</span><span id="vAtual">—</span>
+        </div>
       </div>
 
-      <div class="tableBox">
-        <table>
-          <thead>
-            <tr>
-              <th>Canal</th>
-              <th>Prog %</th>
-            </tr>
-          </thead>
-          <tbody id="progBody"></tbody>
-        </table>
+      <div class="kpi">
+        <div class="kpiValue">
+          <span id="vPct">—</span><span>%</span>
+        </div>
+      </div>
+
+      <div class="kpi">
+        <div class="kpiValue">
+          <span id="vProg">—</span><span>%</span>
+        </div>
       </div>
     </div>
-
-    <div class="legend" id="legend"></div>
   </div>
 </div>
 
 <script>
-/* ===== CONFIG ORIGINAL – SEM ALTERAÇÃO ===== */
-
+/* ================= CONFIG ================= */
 const LAYER_URL =
-  "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
+ "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
 const FIELDS = {
   loja:"id_loja_venda",
@@ -148,86 +133,120 @@ const FIELDS = {
 
 const qs = new URLSearchParams(window.location.search);
 
-const CANAL_LABEL = {
-  "0":"e-commerce",
-  "1":"Loja Física",
-  "2":"Televendas"
-};
-
-const COLORS = ["#1F5A78","#0B2E3F","#F28C38"];
-
-/* ===== FUNÇÕES ORIGINAIS ===== */
+/* ================= UTIL ================= */
+function showLoader(on){
+  document.getElementById("loader").style.display = on ? "flex":"none";
+  document.body.classList.toggle("loading", on);
+}
 
 function esc(s){ return String(s).replace(/'/g,"''"); }
+
 function list(n){
   if(!qs.has(n)) return [];
   return qs.get(n).split(",").map(v=>v.trim()).filter(Boolean);
 }
-function buildWhere(){
-  const p=["1=1",`${FIELDS.codZ} <> '0'`];
-  const lojas=list("loja"), meses=list("mes"), anos=list("ano"), canais=list("id_canal_venda"), secoes=list("secao");
-  if(lojas.length)  p.push(`${FIELDS.loja} IN (${lojas.map(v=>`'${esc(v)}'`).join(",")})`);
-  if(meses.length)  p.push(`${FIELDS.mes} IN (${meses.map(v=>`'${esc(v)}'`).join(",")})`);
-  if(anos.length)   p.push(`${FIELDS.ano} IN (${anos.map(v=>`'${esc(v)}'`).join(",")})`);
-  if(canais.length) p.push(`${FIELDS.canal} IN (${canais.map(v=>`'${esc(v)}'`).join(",")})`);
-  if(secoes.length) p.push(`${FIELDS.secao} IN (${secoes.map(v=>`'${esc(v)}'`).join(",")})`);
+
+/* ===== WHERE ATUAL / ANTERIOR (SEUS FILTROS ORIGINAIS) ===== */
+function buildWhere(removeMes=false){
+  const p=["1=1"];
+  p.push(`${FIELDS.codZ} IS NOT NULL`);
+  p.push(`${FIELDS.codZ} <> '0'`);
+  p.push(`${FIELDS.codZ} <> '-1'`);
+
+  const lojas=list("loja"),
+        meses=list("mes"),
+        anos=list("ano"),
+        canais=list("id_canal_venda"),
+        secoes=list("secao");
+
+  const hasZero=a=>a.includes("0");
+
+  if(lojas.length&&!hasZero(lojas))
+    p.push(`${FIELDS.loja} IN (${lojas.map(v=>`'${esc(v)}'`).join(",")})`);
+
+  if(!removeMes&&meses.length&&!hasZero(meses))
+    p.push(`${FIELDS.mes} IN (${meses.map(v=>`'${esc(v)}'`).join(",")})`);
+
+  if(anos.length&&!hasZero(anos))
+    p.push(`${FIELDS.ano} IN (${anos.map(v=>`'${esc(v)}'`).join(",")})`);
+
+  if(canais.length&&!hasZero(canais))
+    p.push(`${FIELDS.canal} IN (${canais.map(v=>`'${esc(v)}'`).join(",")})`);
+
+  if(secoes.length&&!hasZero(secoes))
+    p.push(`${FIELDS.secao} IN (${secoes.map(v=>`'${esc(v)}'`).join(",")})`);
+
   return p.join(" AND ");
 }
+
+/* ===== WHERE TOTAL (APENAS BASE GLOBAL) ===== */
+function buildWhereTotal(){
+  return [
+    "1=1",
+    `${FIELDS.codZ} IS NOT NULL`,
+    `${FIELDS.codZ} <> '0'`,
+    `${FIELDS.codZ} <> '-1'`
+  ].join(" AND ");
+}
+
 async function esriQuery(params){
   const u=new URL(LAYER_URL+"/query");
   Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v));
-  const r=await fetch(u); const j=await r.json();
-  if(j.error) throw j.error;
+  const r=await fetch(u);
+  const j=await r.json();
+  if(!r.ok||j.error) throw j.error;
   return j;
 }
+
+function fmtBR(n){
+  return Number(n||0).toLocaleString("pt-BR",{
+    minimumFractionDigits:2,
+    maximumFractionDigits:2
+  });
+}
 function fmtPct(n){
-  return n.toFixed(1).replace(".",",")+"%";
+  return Number(n||0).toFixed(2).replace(".",",");
 }
 
-/* ===== LOAD ===== */
+/* ================= LOAD ================= */
+async function load(){
+  showLoader(true);
 
-(async function load(){
-  const where=buildWhere();
+  const wSel   = buildWhere(false);   // atual / anterior
+  const wTotal = buildWhereTotal();   // TOTAL REAL
 
-  const totalQ=await esriQuery({
+  const sel = await esriQuery({
     f:"json",
-    where,
+    where:wSel,
     outStatistics:JSON.stringify([
-      {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"T"}
+      {statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"A"},
+      {statisticType:"sum", onStatisticField:FIELDS.valorAnterior, outStatisticFieldName:"B"}
     ]),
     returnGeometry:"false"
   });
-  const total=+totalQ.features[0].attributes.T;
 
-  const canalQ=await esriQuery({
+  const all = await esriQuery({
     f:"json",
-    where,
-    groupByFieldsForStatistics:FIELDS.canal,
+    where:wTotal,
     outStatistics:JSON.stringify([
-      {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"A"},
-      {statisticType:"sum",onStatisticField:FIELDS.valorAnterior,outStatisticFieldName:"B"}
+      {statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"T"}
     ]),
-    outFields:FIELDS.canal,
     returnGeometry:"false"
   });
 
-  const rows=canalQ.features.map(f=>({
-    canal:f.attributes[FIELDS.canal],
-    atual:+f.attributes.A,
-    ant:+f.attributes.B
-  }));
+  const A = +sel.features?.[0]?.attributes?.A || 0;
+  const B = +sel.features?.[0]?.attributes?.B || 0;
+  const T = +all.features?.[0]?.attributes?.T || 0;
 
-  /* ===== TABELA – ÚNICA ALTERAÇÃO AQUI ===== */
-  const tb=document.getElementById("progBody");
-  rows.forEach(r=>{
-    const prog = r.ant ? ((r.atual - r.ant) / r.ant) * 100 : 0; // <<< CORREÇÃO
-    tb.innerHTML+=`
-      <tr>
-        <td>${CANAL_LABEL[r.canal]}</td>
-        <td>${fmtPct(prog)}</td>
-      </tr>`;
-  });
-})();
+  document.getElementById("vAtual").textContent = fmtBR(A);
+  document.getElementById("vPct").textContent   = fmtPct(T ? (A / T) * 100 : 0);
+  document.getElementById("vProg").textContent  = fmtPct(B ? ((A - B) / B) * 100 : 0);
+
+  showLoader(false);
+}
+
+load();
 </script>
 </body>
 </html>
+

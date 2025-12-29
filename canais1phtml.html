@@ -2,251 +2,545 @@
 <html lang="pt-br">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
 
 <style>
-html, body{
-  margin:0;
-  padding:0;
-  width:100%;
-  height:100%;
-  background:transparent;
-  overflow:hidden;
-  font-family: Arial, Helvetica, sans-serif;
-  color:#444444;
-}
+  :root{
+    --bg:#ffffff;
+    --text:#111827;
+    --muted:#6b7280;
+    --pad:10px;
+  }
 
-#container{
-  position:relative;
-  width:100%;
-  height:100%;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
+  html, body{
+    margin:0;
+    padding:0;
+    height:100%;
+    width:100%;
+    background:var(--bg);
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+    color:var(--text);
+    overflow:hidden; /* <<< ajuda em iframe */
+  }
+  *{ box-sizing:border-box; }
 
-#loader{
-  position:absolute;
-  inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  z-index:10;
-  pointer-events:none;
-}
+  .titleBar{
+    width:100%;
+    background:#6FAFB3; /* cor baseada na imagem anexa */
+    color:#ffffff;
+    text-align:center;
+    font-weight:600;
+    font-size:14px;
+    padding:6px 0;
+    letter-spacing:.3px;
+    flex:0 0 auto;
+  }
 
-.spinner{
-  width:22px;
-  height:22px;
-  border:3px solid #dddddd;
-  border-top-color:#2b7cff;
-  border-radius:50%;
-  animation:spin 1s linear infinite;
-}
-@keyframes spin{ to{ transform:rotate(360deg);} }
+  #container{
+    position:relative;
+    height:100%;
+    width:100%;
+    padding:var(--pad);
+    display:flex;
 
-.loading #content{ visibility:hidden; }
+    /* título no topo */
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-start;
+    gap:8px;
 
-#content{
-  width:100%;
-  height:100%;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:6px;
-}
+    overflow:hidden;
+  }
 
-.kpiWrap{
-  width:100%;
-  max-width:520px;
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  border-radius:6px;
-  overflow:hidden;
-}
+  /* Loader – apenas o círculo */
+  #loader{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:10;
+    pointer-events:none;
+  }
+  .spinner{
+    width:clamp(28px, 6vw, 42px);
+    height:clamp(28px, 6vw, 42px);
+    border:clamp(3px, .6vw, 4px) solid #ddd;
+    border-top-color:#2b7cff;
+    border-radius:50%;
+    animation:spin 1s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
 
-.kpi{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:10px 6px;
-  background:#e3e3e3;
-}
+  /* Layout base (mantido) */
+  .wrap{
+    width:100%;
+    flex:1 1 auto;
+    min-height:0;
 
-.kpi + .kpi{
-  border-left:1px solid #ffffff;
-}
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
 
-.kpiValue{
-  display:flex;
-  align-items:baseline;
-  gap:4px;
-  font-size:11px;
-  font-weight:600;
-  white-space:nowrap;
-}
+    min-width:0;
+  }
+
+  /* linha superior com donut + tabela */
+  .topRow{
+    width:100%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:16px;
+
+    flex-wrap:nowrap;
+    min-width:0;
+    transform: translateX(-10%);
+  }
+
+  .chartBox{
+    width:clamp(160px, 42vw, 300px);
+    aspect-ratio:1/1;
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex:0 0 auto;
+
+    transform: translateX(12%) scale(0.85);   /* <<< reduz o donut em 15% */
+  }
+
+  svg{ width:100%; height:100%; display:block; overflow:visible; }
+
+  .centerText{ display:none !important; }
+
+  /* Legenda em linha, centralizada ao donut */
+  .legend{
+    display:flex;
+    flex-direction:row;
+    justify-content:center;
+    align-items:center;
+    gap:16px;
+    width:100%;
+    flex-wrap:wrap;
+    transform: translateX(-20%) translateY(calc(10% - 3px));
+  }
+
+  .legItem{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:11px;
+    color:#374151;
+    white-space:nowrap;
+  }
+
+  .swatch{
+    width:12px;
+    height:12px;
+    border-radius:3px;
+    flex:0 0 auto;
+  }
+
+  .pctLabel{
+    font-size:5.9px;
+    fill:#111827;
+    font-weight:600;
+    font-variant-numeric: tabular-nums;
+    paint-order: stroke fill;
+    stroke:#ffffff;
+    stroke-width:2px;
+  }
+
+  /* Tabela ao lado */
+  .tableBox{
+    width:clamp(160px, 32vw, 240px);
+    min-width:160px;
+    max-width:240px;
+
+    border:1px solid #d1d5db;
+    border-radius:6px;
+    overflow:hidden;
+    background:#fff;
+    flex:0 0 auto;
+
+    min-height:0;
+    margin-left:auto;
+  }
+
+  .progTable{
+    width:100%;
+    border-collapse:collapse;
+    font-size:10px;
+  }
+  .progTable th,
+  .progTable td{
+    padding:6px 8px;
+    border-bottom:1px solid #e5e7eb;
+  }
+  .progTable th{
+    text-align:left;
+    background:#f9fafb;
+    color:#374151;
+    font-weight:600;
+  }
+  .progTable td:last-child,
+  .progTable th:last-child{
+    text-align:right;
+    white-space:nowrap;
+  }
+  .progTable tr:last-child td{ border-bottom:none; }
+
+  @media (max-width:520px){
+    /* .topRow{ flex-direction:column; } */
+    .tableBox{
+      width: clamp(130px, 24vw, 180px);
+      min-width: 130px;
+      max-width: 180px;
+    }
+  }
+
+  @media (max-height:220px){
+    :root{ --pad:6px; }
+    .wrap{ gap:8px; }
+    .legend{ gap:10px; }
+  }
+
+  @media (max-width:420px){
+    .legItem{ font-size:12px; }
+  }
 </style>
 </head>
 
-<body class="loading">
-<div id="container">
-  <div id="loader"><div class="spinner"></div></div>
+<body>
+  <div id="container">
 
-  <div id="content">
-    <div class="kpiWrap">
-      <div class="kpi">
-        <div class="kpiValue">
-          <span>R$</span><span id="vAtual">—</span>
+    <div class="titleBar">Canais 1P</div>
+
+    <div id="loader"><div class="spinner"></div></div>
+
+    <div class="wrap" id="wrap" style="opacity:0; pointer-events:none;">
+
+      <div class="topRow">
+        <div class="chartBox">
+          <svg id="donut" viewBox="0 0 100 100" aria-label="Distribuição por canal"></svg>
+          <div class="centerText" id="centerText"></div>
+        </div>
+
+        <div class="tableBox" aria-label="Tabela de progressão por canal">
+          <table class="progTable">
+            <thead>
+              <tr>
+                <th>Canal</th>
+                <th>Prog %</th>
+              </tr>
+            </thead>
+            <tbody id="progBody"></tbody>
+          </table>
         </div>
       </div>
 
-      <div class="kpi">
-        <div class="kpiValue">
-          <span id="vPct">—</span><span>%</span>
-        </div>
-      </div>
-
-      <div class="kpi">
-        <div class="kpiValue">
-          <span id="vProg">—</span><span>%</span>
-        </div>
-      </div>
+      <div class="legend" id="legend"></div>
     </div>
   </div>
-</div>
 
 <script>
 /* ================= CONFIG ================= */
+
 const LAYER_URL =
- "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
+  "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
 const FIELDS = {
-  loja:"id_loja_venda",
-  mes:"mes",
-  ano:"ano",
-  canal:"id_canal_venda",
-  secao:"secao",
-  codZ:"cod_loja_zinflu2",
-  valorAtual:"valor_vendas_atual",
-  valorAnterior:"valor_vendas_anterior"
+  loja: "id_loja_venda",
+  mes: "mes",
+  ano: "ano",
+  canal: "id_canal_venda",
+  secao: "secao",
+  codZ: "cod_loja_zinflu2",
+  valorAtual: "valor_vendas_atual",
+  valorAnterior: "valor_vendas_anterior"
 };
 
 const qs = new URLSearchParams(window.location.search);
 
+const CANAL_LABEL = {
+  "0": "Canal e-commerce",
+  "1": "Canal Loja Física",
+  "2": "Canal Televendas"
+};
+
+/* >>> AJUSTE: cores FIXAS por id_canal_venda (mantém com e sem filtro) <<< */
+const CANAL_COLOR = {
+  "0": "#0B2E3F", // e-commerce
+  "1": "#0B2E3F", // Loja Física
+  "2": "#0B2E3F"  // Televendas
+};
+/* fallback */
+const COLORS = ["#1F5A78", "#0B2E3F", "#F28C38"];
+
 /* ================= UTIL ================= */
+
 function showLoader(on){
-  document.getElementById("loader").style.display = on ? "flex":"none";
-  document.body.classList.toggle("loading", on);
+  document.getElementById("loader").style.display = on ? "flex" : "none";
 }
-
-function esc(s){ return String(s).replace(/'/g,"''"); }
-
-function list(n){
-  if(!qs.has(n)) return [];
-  return qs.get(n).split(",").map(v=>v.trim()).filter(Boolean);
+function showUI(on){
+  const wrap = document.getElementById("wrap");
+  wrap.style.opacity = on ? "1" : "0";
+  wrap.style.pointerEvents = on ? "auto" : "none";
 }
-
-/* ===== WHERE ATUAL / ANTERIOR (SEUS FILTROS ORIGINAIS) ===== */
-function buildWhere(removeMes=false){
-  const p=["1=1"];
-  p.push(`${FIELDS.codZ} IS NOT NULL`);
-  p.push(`${FIELDS.codZ} <> '0'`);
-  p.push(`${FIELDS.codZ} <> '-1'`);
-
-  const lojas=list("loja"),
-        meses=list("mes"),
-        anos=list("ano"),
-        canais=list("id_canal_venda"),
-        secoes=list("secao");
-
-  const hasZero=a=>a.includes("0");
-
-  if(lojas.length&&!hasZero(lojas))
-    p.push(`${FIELDS.loja} IN (${lojas.map(v=>`'${esc(v)}'`).join(",")})`);
-
-  if(!removeMes&&meses.length&&!hasZero(meses))
-    p.push(`${FIELDS.mes} IN (${meses.map(v=>`'${esc(v)}'`).join(",")})`);
-
-  if(anos.length&&!hasZero(anos))
-    p.push(`${FIELDS.ano} IN (${anos.map(v=>`'${esc(v)}'`).join(",")})`);
-
-  if(canais.length&&!hasZero(canais))
-    p.push(`${FIELDS.canal} IN (${canais.map(v=>`'${esc(v)}'`).join(",")})`);
-
-  if(secoes.length&&!hasZero(secoes))
-    p.push(`${FIELDS.secao} IN (${secoes.map(v=>`'${esc(v)}'`).join(",")})`);
-
-  return p.join(" AND ");
+function escapeSqlString(s){
+  return String(s).replace(/'/g, "''");
 }
-
-/* ===== WHERE TOTAL (APENAS BASE GLOBAL) ===== */
-function buildWhereTotal(){
-  return [
-    "1=1",
-    `${FIELDS.codZ} IS NOT NULL`,
-    `${FIELDS.codZ} <> '0'`,
-    `${FIELDS.codZ} <> '-1'`
-  ].join(" AND ");
+function parseList(name){
+  if (!qs.has(name)) return [];
+  return String(qs.get(name) || "")
+    .split(",")
+    .map(v => v.trim())
+    .filter(v => v !== "");
 }
+function buildWhere(){
+  const parts = ["1=1"];
+  parts.push(`${FIELDS.codZ} IS NOT NULL`);
+  parts.push(`${FIELDS.codZ} <> '0'`);
 
+  const lojas  = parseList("loja");
+  const meses  = parseList("mes");
+  const anos   = parseList("ano");
+  const canais = parseList("id_canal_venda");
+  const secoes = parseList("secao");
+
+  if (lojas.length)
+    parts.push(`${FIELDS.loja} IN (${lojas.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
+  if (meses.length)
+    parts.push(`${FIELDS.mes} IN (${meses.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
+  if (anos.length)
+    parts.push(`${FIELDS.ano} IN (${anos.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
+  if (canais.length)
+    parts.push(`${FIELDS.canal} IN (${canais.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
+  if (secoes.length)
+    parts.push(`${FIELDS.secao} IN (${secoes.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
+
+  return parts.join(" AND ");
+}
 async function esriQuery(params){
-  const u=new URL(LAYER_URL+"/query");
-  Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v));
-  const r=await fetch(u);
-  const j=await r.json();
-  if(!r.ok||j.error) throw j.error;
+  const url = new URL(LAYER_URL.replace(/\/+$/,"") + "/query");
+  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k,v));
+  const r = await fetch(url.toString());
+  const j = await r.json();
+  if (!r.ok || j.error) throw (j.error || { message:`HTTP ${r.status}` });
   return j;
 }
+function fmtPct1(n){
+  if (!isFinite(n)) n = 0;
+  return n.toFixed(1).replace(".", ",") + "%";
+}
+function cleanLabel(label){
+  return String(label)
+    .replace(/^Canal\s+de\s+/i, "")
+    .replace(/^Canal\s+/i, "")
+    .trim();
+}
 
-function fmtBR(n){
-  return Number(n||0).toLocaleString("pt-BR",{
-    minimumFractionDigits:2,
-    maximumFractionDigits:2
+/* ======= Donut SVG helpers (mantido) ======= */
+
+function polarToCartesian(cx, cy, r, angleDeg){
+  const a = (angleDeg - 90) * Math.PI / 180.0;
+  return { x: cx + (r * Math.cos(a)), y: cy + (r * Math.sin(a)) };
+}
+function arcPath(cx, cy, rOuter, rInner, startAngle, endAngle){
+  const startOuter = polarToCartesian(cx, cy, rOuter, endAngle);
+  const endOuter   = polarToCartesian(cx, cy, rOuter, startAngle);
+  const startInner = polarToCartesian(cx, cy, rInner, startAngle);
+  const endInner   = polarToCartesian(cx, cy, rInner, endAngle);
+
+  const largeArc = (endAngle - startAngle) <= 180 ? "0" : "1";
+
+  return [
+    "M", startOuter.x, startOuter.y,
+    "A", rOuter, rOuter, 0, largeArc, 0, endOuter.x, endOuter.y,
+    "L", startInner.x, startInner.y,
+    "A", rInner, rInner, 0, largeArc, 1, endInner.x, endInner.y,
+    "Z"
+  ].join(" ");
+}
+function renderDonut(slices){
+  const svg = document.getElementById("donut");
+  svg.innerHTML = "";
+
+  const cx=50, cy=50, rOuter=46, rInner=28;
+
+  const bg = document.createElementNS("http://www.w3.org/2000/svg","circle");
+  bg.setAttribute("cx", cx); bg.setAttribute("cy", cy);
+  bg.setAttribute("r", (rOuter+rInner)/2);
+  bg.setAttribute("fill","none");
+  bg.setAttribute("stroke","#e5e7eb");
+  bg.setAttribute("stroke-width", (rOuter-rInner));
+  svg.appendChild(bg);
+
+  const ordered = [...slices].sort((a,b)=>b.pct-a.pct);
+
+  let angle = 0;
+  ordered.forEach(s => {
+    const delta = (s.pct/100) * 360;
+    const start = angle;
+    const end   = angle + delta;
+
+    if (delta > 0.15){
+      const p = document.createElementNS("http://www.w3.org/2000/svg","path");
+      p.setAttribute("d", arcPath(cx, cy, rOuter, rInner, start, end));
+      p.setAttribute("fill", s.color);
+
+      const title = document.createElementNS("http://www.w3.org/2000/svg","title");
+      title.textContent = `${s.label}: ${fmtPct1(s.pct)}`;
+      p.appendChild(title);
+      svg.appendChild(p);
+
+      const mid = start + (delta/2);
+      const pos = polarToCartesian(cx, cy, rOuter + 10, mid);
+
+      const txt = document.createElementNS("http://www.w3.org/2000/svg","text");
+      if (s.label === "Loja Física") {
+        txt.setAttribute("x", pos.x + 6);
+        txt.setAttribute("text-anchor", "start");
+      } else {
+        txt.setAttribute("x", pos.x);
+        txt.setAttribute("text-anchor", "middle");
+      }
+      txt.setAttribute("y", pos.y);
+      txt.setAttribute("dominant-baseline", "middle");
+      txt.setAttribute("class", "pctLabel");
+      txt.textContent = fmtPct1(s.pct);
+      svg.appendChild(txt);
+    }
+
+    angle = end;
   });
 }
-function fmtPct(n){
-  return Number(n||0).toFixed(2).replace(".",",");
+function renderLegend(slices){
+  const el = document.getElementById("legend");
+  el.innerHTML = "";
+
+  const ordered = [...slices].sort((a,b)=>b.pct-a.pct);
+
+  ordered.forEach(s => {
+    const row = document.createElement("div");
+    row.className = "legItem";
+    row.innerHTML = `
+      <span class="swatch" style="background:${s.color}"></span>
+      <span>${s.label}</span>
+    `;
+    el.appendChild(row);
+  });
+}
+function renderProgTable(rows){
+  const tb = document.getElementById("progBody");
+  tb.innerHTML = "";
+  rows.forEach(r => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${r.label}</td><td>${r.prog}</td>`;
+    tb.appendChild(tr);
+  });
 }
 
 /* ================= LOAD ================= */
+
 async function load(){
   showLoader(true);
+  showUI(false);
 
-  const wSel   = buildWhere(false);   // atual / anterior
-  const wTotal = buildWhereTotal();   // TOTAL REAL
+  try{
+    const where = buildWhere();
 
-  const sel = await esriQuery({
-    f:"json",
-    where:wSel,
-    outStatistics:JSON.stringify([
-      {statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"A"},
-      {statisticType:"sum", onStatisticField:FIELDS.valorAnterior, outStatisticFieldName:"B"}
-    ]),
-    returnGeometry:"false"
-  });
+    const totalQ = await esriQuery({
+      f: "json",
+      where,
+      outStatistics: JSON.stringify([
+        { statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"TOTAL_LOJA" }
+      ]),
+      returnGeometry: "false"
+    });
 
-  const all = await esriQuery({
-    f:"json",
-    where:wTotal,
-    outStatistics:JSON.stringify([
-      {statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"T"}
-    ]),
-    returnGeometry:"false"
-  });
+    const totalLoja = Number(totalQ.features?.[0]?.attributes?.TOTAL_LOJA || 0);
+    if (totalLoja <= 0){
+      const fallback = [{ pct:0, color:COLORS[0], label:"Sem dados" }];
+      renderDonut(fallback);
+      renderLegend(fallback);
+      renderProgTable([{ label:"Sem dados", prog:"0,0%" }]);
+      showLoader(false);
+      showUI(true);
+      return;
+    }
 
-  const A = +sel.features?.[0]?.attributes?.A || 0;
-  const B = +sel.features?.[0]?.attributes?.B || 0;
-  const T = +all.features?.[0]?.attributes?.T || 0;
+    const byCanalQ = await esriQuery({
+      f: "json",
+      where,
+      groupByFieldsForStatistics: FIELDS.canal,
+      outStatistics: JSON.stringify([
+        { statisticType:"sum", onStatisticField:FIELDS.valorAtual,    outStatisticFieldName:"SOMA_ATUAL" },
+        { statisticType:"sum", onStatisticField:FIELDS.valorAnterior, outStatisticFieldName:"SOMA_ANT" }
+      ]),
+      outFields: FIELDS.canal,
+      returnGeometry: "false"
+    });
 
-  document.getElementById("vAtual").textContent = fmtBR(A);
-  document.getElementById("vPct").textContent   = fmtPct(T ? (A / T) * 100 : 0);
-  document.getElementById("vProg").textContent  = fmtPct(B ? ((A - B) / B) * 100 : 0);
+    const rows = (byCanalQ.features || []).map(f => ({
+      canal: String(f.attributes?.[FIELDS.canal] ?? ""),
+      somaAtual: Number(f.attributes?.SOMA_ATUAL || 0),
+      somaAnt:   Number(f.attributes?.SOMA_ANT || 0)
+    })).filter(r => r.canal !== "");
 
-  showLoader(false);
+    let slices = rows.map((r, i) => {
+      const pct = (r.somaAtual / totalLoja) * 100;
+
+      const rawLabel = CANAL_LABEL[r.canal] ?? `Canal ${r.canal}`;
+      const label = cleanLabel(rawLabel);
+
+      /* >>> AJUSTE: cor fixa por canal (não muda com filtro / ordem) <<< */
+      const color = CANAL_COLOR[r.canal] ?? COLORS[i % COLORS.length];
+
+      return { canal:r.canal, label, pct, color, somaAtual:r.somaAtual, somaAnt:r.somaAnt };
+    }).filter(s => s.pct > 0);
+
+    if (!slices.length){
+      const fallback = [{ pct:0, color:COLORS[0], label:"Sem dados" }];
+      renderDonut(fallback);
+      renderLegend(fallback);
+      renderProgTable([{ label:"Sem dados", prog:"0,0%" }]);
+      showLoader(false);
+      showUI(true);
+      return;
+    }
+
+    slices.sort((a,b)=>b.pct-a.pct);
+
+    renderDonut(slices);
+    renderLegend(slices);
+
+    const tableRows = slices.map(s => {
+      const prog = (s.somaAnt === 0) ? 0 : (s.somaAtual / s.somaAnt) * 100;
+      return { label: s.label, prog: fmtPct1(prog) };
+    });
+
+    renderProgTable(tableRows);
+
+    showLoader(false);
+    showUI(true);
+
+  }catch(err){
+    console.error("Erro:", err);
+    const fallback = [{ pct:0, color:COLORS[0], label:"Erro" }];
+    renderDonut(fallback);
+    renderLegend(fallback);
+    renderProgTable([{ label:"Erro", prog:"0,0%" }]);
+    showLoader(false);
+    showUI(true);
+  }
 }
 
 load();
 </script>
 </body>
 </html>
-

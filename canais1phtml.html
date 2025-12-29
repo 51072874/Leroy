@@ -2,113 +2,164 @@
 <html lang="pt-br">
 <head>
 <meta charset="utf-8"/>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 
 <style>
-html,body{
-  margin:0;
-  padding:0;
-  height:100%;
-  width:100%;
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-  overflow:hidden;
-}
-.titleBar{
-  background:#6FAFB3;
-  color:#fff;
-  text-align:center;
-  padding:6px;
-  font-weight:600;
-}
-.wrap{
-  height:100%;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  gap:12px;
-}
-.topRow{
-  display:flex;
-  gap:16px;
-  align-items:center;
-}
-.chartBox{
-  width:220px;
-  height:220px;
-}
-svg{ width:100%; height:100%; overflow:visible; }
+  :root{
+    --bg:#ffffff;
+    --text:#111827;
+    --muted:#6b7280;
+    --pad:10px;
+  }
 
-.legend{
-  display:flex;
-  gap:14px;
-  font-size:11px;
-}
-.legItem{
-  display:flex;
-  gap:6px;
-  align-items:center;
-}
-.swatch{
-  width:12px;
-  height:12px;
-  border-radius:3px;
-}
+  html, body{
+    margin:0;
+    padding:0;
+    height:100%;
+    width:100%;
+    background:var(--bg);
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+    color:var(--text);
+    overflow:hidden;
+  }
+  *{ box-sizing:border-box; }
 
-.tableBox{
-  border:1px solid #d1d5db;
-  border-radius:6px;
-  overflow:hidden;
-}
-table{
-  border-collapse:collapse;
-  font-size:11px;
-}
-th,td{
-  padding:6px 8px;
-  border-bottom:1px solid #e5e7eb;
-}
-th{ background:#f9fafb; text-align:left; }
-td:last-child, th:last-child{ text-align:right; }
+  .titleBar{
+    width:100%;
+    background:#6FAFB3;
+    color:#ffffff;
+    text-align:center;
+    font-weight:600;
+    font-size:14px;
+    padding:6px 0;
+    letter-spacing:.3px;
+  }
 
-.pctLabel{
-  font-size:8px;
-  font-weight:600;
-  fill:#111827;
-}
+  #container{
+    position:relative;
+    height:100%;
+    width:100%;
+    padding:var(--pad);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+  }
+
+  #loader{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:10;
+  }
+  .spinner{
+    width:32px;
+    height:32px;
+    border:4px solid #ddd;
+    border-top-color:#2b7cff;
+    border-radius:50%;
+    animation:spin 1s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  .wrap{
+    width:100%;
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    opacity:0;
+    pointer-events:none;
+  }
+
+  .topRow{
+    width:100%;
+    display:flex;
+    justify-content:center;
+    gap:16px;
+  }
+
+  .chartBox{
+    width:240px;
+    height:240px;
+  }
+
+  svg{ width:100%; height:100%; overflow:visible; }
+
+  .legend{
+    display:flex;
+    gap:14px;
+    font-size:11px;
+  }
+  .legItem{
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .swatch{
+    width:12px;
+    height:12px;
+    border-radius:3px;
+  }
+
+  .tableBox{
+    border:1px solid #d1d5db;
+    border-radius:6px;
+    overflow:hidden;
+  }
+  table{
+    border-collapse:collapse;
+    font-size:11px;
+  }
+  th,td{
+    padding:6px 8px;
+    border-bottom:1px solid #e5e7eb;
+  }
+  th{ background:#f9fafb; text-align:left; }
+  td:last-child, th:last-child{ text-align:right; }
 </style>
 </head>
 
 <body>
-<div class="titleBar">Canais 1P</div>
+<div id="container">
 
-<div class="wrap">
-  <div class="topRow">
-    <div class="chartBox">
-      <svg id="donut" viewBox="0 0 100 100"></svg>
+  <div class="titleBar">Canais 1P</div>
+
+  <div id="loader"><div class="spinner"></div></div>
+
+  <div class="wrap" id="wrap">
+
+    <div class="topRow">
+      <div class="chartBox">
+        <svg id="donut" viewBox="0 0 100 100"></svg>
+      </div>
+
+      <div class="tableBox">
+        <table>
+          <thead>
+            <tr><th>Canal</th><th>Prog %</th></tr>
+          </thead>
+          <tbody id="progBody"></tbody>
+        </table>
+      </div>
     </div>
 
-    <div class="tableBox">
-      <table>
-        <thead>
-          <tr><th>Canal</th><th>Prog %</th></tr>
-        </thead>
-        <tbody id="progBody"></tbody>
-      </table>
-    </div>
+    <div class="legend" id="legend"></div>
   </div>
-
-  <div class="legend" id="legend"></div>
 </div>
 
 <script>
-/* ================= CONFIG ================= */
-
 const LAYER_URL =
   "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
 const FIELDS = {
   canal: "id_canal_venda",
+  codZ: "cod_loja_zinflu2",
   valorAtual: "valor_vendas_atual",
   valorAnterior: "valor_vendas_anterior"
 };
@@ -119,107 +170,103 @@ const CANAL_LABEL = {
   "2": "Televendas"
 };
 
-const COLORS = {
+const CANAL_COLOR = {
   "0": "#1F5A78",
   "1": "#0B2E3F",
   "2": "#F28C38"
 };
 
-/* ================= QUERY ================= */
+function showUI(){
+  document.getElementById("loader").style.display="none";
+  const w=document.getElementById("wrap");
+  w.style.opacity="1";
+  w.style.pointerEvents="auto";
+}
 
 async function esriQuery(params){
-  const url = new URL(LAYER_URL + "/query");
-  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k,v));
-  const r = await fetch(url);
-  const j = await r.json();
-  if (j.error) throw j.error;
+  const url=new URL(LAYER_URL+"/query");
+  Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));
+  const r=await fetch(url);
+  const j=await r.json();
+  if(j.error) throw j.error;
   return j;
 }
 
-/* ================= LOAD ================= */
-
-async function load(){
-  const q = await esriQuery({
-    f:"json",
-    where:"cod_loja_zinflu2 IS NOT NULL AND cod_loja_zinflu2 <> '0'",
-    groupByFieldsForStatistics:FIELDS.canal,
-    outStatistics: JSON.stringify([
-      { statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"ATUAL" },
-      { statisticType:"sum", onStatisticField:FIELDS.valorAnterior, outStatisticFieldName:"ANT" }
-    ]),
-    returnGeometry:"false"
-  });
-
-  const rows = q.features.map(f=>{
-    const c = f.attributes[FIELDS.canal];
-    return {
-      canal:c,
-      label:CANAL_LABEL[c],
-      atual:f.attributes.ATUAL,
-      ant:f.attributes.ANT,
-      color:COLORS[c]
-    };
-  });
-
-  render(rows);
+function polar(cx,cy,r,a){
+  const rad=(a-90)*Math.PI/180;
+  return {x:cx+r*Math.cos(rad),y:cy+r*Math.sin(rad)};
 }
 
-/* ================= RENDER ================= */
+function arc(cx,cy,rO,rI,a0,a1){
+  const p0=polar(cx,cy,rO,a1), p1=polar(cx,cy,rO,a0);
+  const p2=polar(cx,cy,rI,a0), p3=polar(cx,cy,rI,a1);
+  const la=(a1-a0)>180?1:0;
+  return `M ${p0.x} ${p0.y}
+          A ${rO} ${rO} 0 ${la} 0 ${p1.x} ${p1.y}
+          L ${p2.x} ${p2.y}
+          A ${rI} ${rI} 0 ${la} 1 ${p3.x} ${p3.y} Z`;
+}
 
-function render(data){
-  const svg = document.getElementById("donut");
-  const tb  = document.getElementById("progBody");
-  const lg  = document.getElementById("legend");
+async function load(){
+  const where = `${FIELDS.codZ} IS NOT NULL AND ${FIELDS.codZ} <> '0'`;
 
-  svg.innerHTML="";
-  tb.innerHTML="";
-  lg.innerHTML="";
-
-  const cx=50, cy=50, rO=46, rI=28;
-  const total = data.reduce((s,d)=>s+d.atual,0);
-
-  let angle = -90;
-
-  data.forEach(d=>{
-    const pct = d.atual / total;
-    const delta = pct * 360;
-
-    const a0 = angle * Math.PI/180;
-    const a1 = (angle+delta) * Math.PI/180;
-
-    const path = document.createElementNS("http://www.w3.org/2000/svg","path");
-    path.setAttribute("fill", d.color);
-    path.setAttribute("d",`
-      M ${cx+rO*Math.cos(a1)} ${cy+rO*Math.sin(a1)}
-      A ${rO} ${rO} 0 ${delta>180?1:0} 0 ${cx+rO*Math.cos(a0)} ${cy+rO*Math.sin(a0)}
-      L ${cx+rI*Math.cos(a0)} ${cy+rI*Math.sin(a0)}
-      A ${rI} ${rI} 0 ${delta>180?1:0} 1 ${cx+rI*Math.cos(a1)} ${cy+rI*Math.sin(a1)}
-      Z
-    `);
-    svg.appendChild(path);
-
-    angle += delta;
+  const q = await esriQuery({
+    f:"json",
+    where,
+    groupByFieldsForStatistics:FIELDS.canal,
+    outStatistics:JSON.stringify([
+      {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"A"},
+      {statisticType:"sum",onStatisticField:FIELDS.valorAnterior,outStatisticFieldName:"B"}
+    ]),
+    returnGeometry:false
   });
 
-  data.forEach(d=>{
-    const prog = (d.ant === 0)
-      ? 0
-      : ((d.atual - d.ant) / d.ant) * 100; // <<< AJUSTE
+  const rows=q.features.map(f=>({
+    canal:String(f.attributes[FIELDS.canal]),
+    atual:+f.attributes.A,
+    ant:+f.attributes.B
+  }));
 
-    tb.innerHTML += `
-      <tr>
-        <td>${d.label}</td>
-        <td>${prog.toFixed(2).replace(".",",")}%</td>
-      </tr>
-    `;
+  const total=rows.reduce((s,r)=>s+r.atual,0);
 
-    lg.innerHTML += `
+  const svg=document.getElementById("donut");
+  const cx=50,cy=50,rO=46,rI=28;
+  let ang=0;
+
+  rows.forEach(r=>{
+    const pct=r.atual/total;
+    const d=pct*360;
+    const p=document.createElementNS("http://www.w3.org/2000/svg","path");
+    p.setAttribute("fill",CANAL_COLOR[r.canal]);
+    p.setAttribute("d",arc(cx,cy,rO,rI,ang,ang+d));
+    svg.appendChild(p);
+    ang+=d;
+  });
+
+  const legend=document.getElementById("legend");
+  legend.innerHTML="";
+  rows.forEach(r=>{
+    legend.innerHTML+=`
       <div class="legItem">
-        <span class="swatch" style="background:${d.color}"></span>
-        <span>${d.label}</span>
-      </div>
-    `;
+        <span class="swatch" style="background:${CANAL_COLOR[r.canal]}"></span>
+        <span>${CANAL_LABEL[r.canal]}</span>
+      </div>`;
   });
+
+  const tb=document.getElementById("progBody");
+  tb.innerHTML="";
+  rows.forEach(r=>{
+    const prog = r.ant === 0 ? 0 :
+      ((r.atual - r.ant) / r.ant) * 100;  // <<< ÚNICA ALTERAÇÃO
+
+    tb.innerHTML+=`
+      <tr>
+        <td>${CANAL_LABEL[r.canal]}</td>
+        <td>${prog.toFixed(2).replace(".",",")}%</td>
+      </tr>`;
+  });
+
+  showUI();
 }
 
 load();

@@ -114,6 +114,7 @@ function buildWhere(){
   const parts = ["1=1"];
   parts.push(`${FIELDS.codZ} IS NOT NULL`);
   parts.push(`${FIELDS.codZ} <> '0'`);
+  parts.push(`${FIELDS.codZ} <> '-1'`);
 
   const lojas  = parseList("loja");
   const meses  = parseList("mes");

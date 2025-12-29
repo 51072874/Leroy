@@ -76,6 +76,17 @@ th,td{
 }
 th{ background:#f9fafb; text-align:left; }
 td:last-child, th:last-child{ text-align:right; }
+
+.pctLabel{
+  font-size:6px;
+  fill:#111;
+  font-weight:600;
+  text-anchor:middle;
+  dominant-baseline:middle;
+  paint-order:stroke fill;
+  stroke:#fff;
+  stroke-width:2px;
+}
 </style>
 </head>
 
@@ -130,8 +141,11 @@ let angle = 0;
 data.forEach(d=>{
   const pct = d.atual / total;
   const delta = pct * 360;
-  const a0=(angle-90)*Math.PI/180;
-  const a1=(angle+delta-90)*Math.PI/180;
+  const start = angle;
+  const end = angle + delta;
+
+  const a0=(start-90)*Math.PI/180;
+  const a1=(end-90)*Math.PI/180;
 
   const path = document.createElementNS("http://www.w3.org/2000/svg","path");
   path.setAttribute("fill", d.color);
@@ -143,6 +157,19 @@ data.forEach(d=>{
     Z
   `);
   svg.appendChild(path);
+
+  // ===== TEXTO PERCENTUAL =====
+  const mid = start + delta/2;
+  const aMid = (mid-90)*Math.PI/180;
+  const rTxt = rO + 8;
+
+  const txt = document.createElementNS("http://www.w3.org/2000/svg","text");
+  txt.setAttribute("x", cx + rTxt*Math.cos(aMid));
+  txt.setAttribute("y", cy + rTxt*Math.sin(aMid));
+  txt.setAttribute("class", "pctLabel");
+  txt.textContent = (pct*100).toFixed(1).replace(".",",") + "%";
+  svg.appendChild(txt);
+
   angle += delta;
 });
 

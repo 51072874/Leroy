@@ -2,7 +2,6 @@
 <html lang="pt-br">
 <head>
 <meta charset="utf-8"/>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 
 <style>
@@ -11,7 +10,6 @@
   --text:#111827;
   --pad:10px;
 }
-
 html, body{
   margin:0;
   padding:0;
@@ -19,7 +17,6 @@ html, body{
   width:100%;
   background:var(--bg);
   font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-  color:var(--text);
   overflow:hidden;
 }
 *{ box-sizing:border-box; }
@@ -27,7 +24,7 @@ html, body{
 .titleBar{
   width:100%;
   background:#6FAFB3;
-  color:#ffffff;
+  color:#fff;
   text-align:center;
   font-weight:600;
   font-size:14px;
@@ -35,158 +32,98 @@ html, body{
 }
 
 #container{
-  position:relative;
   height:100%;
   width:100%;
   padding:var(--pad);
   display:flex;
   flex-direction:column;
-  align-items:center;
   gap:8px;
 }
 
-#loader{
-  position:absolute;
-  inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  z-index:10;
-  pointer-events:none;
-}
-.spinner{
-  width:32px;
-  height:32px;
-  border:4px solid #ddd;
-  border-top-color:#2b7cff;
-  border-radius:50%;
-  animation:spin 1s linear infinite;
-}
-@keyframes spin{ to{ transform:rotate(360deg); } }
-
 .wrap{
-  width:100%;
   flex:1;
   display:flex;
   flex-direction:column;
   align-items:center;
   justify-content:center;
   gap:12px;
-  opacity:0;
-  pointer-events:none;
 }
 
-/* ===== LINHA SUPERIOR (DONUT + TABELA) ===== */
 .topRow{
   width:100%;
   display:flex;
-  align-items:center;
   justify-content:center;
   gap:16px;
-  min-width:0;
 }
 
-/* ===== DONUT ===== */
 .chartBox{
-  width:clamp(160px, 42vw, 300px);
-  aspect-ratio:1/1;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  flex:0 0 auto;
-  transform: scale(0.85);   /* reduz sem deslocar */
+  width:260px;
+  aspect-ratio:1;
 }
 
-svg{
-  width:100%;
-  height:100%;
-  display:block;
-}
+svg{ width:100%; height:100%; }
 
-/* ===== TABELA ===== */
-.tableBox{
-  width:clamp(160px, 32vw, 240px);
-  min-width:160px;
-  max-width:240px;
-  border:1px solid #d1d5db;
-  border-radius:6px;
-  overflow:hidden;
-  background:#fff;
-  flex:0 0 auto;
-}
-
-.progTable{
-  width:100%;
-  border-collapse:collapse;
-  font-size:10px;
-}
-.progTable th,
-.progTable td{
-  padding:6px 8px;
-  border-bottom:1px solid #e5e7eb;
-}
-.progTable th{
-  text-align:left;
-  background:#f9fafb;
-}
-.progTable td:last-child,
-.progTable th:last-child{
-  text-align:right;
-}
-.progTable tr:last-child td{ border-bottom:none; }
-
-/* ===== LEGENDA ===== */
 .legend{
   display:flex;
-  flex-direction:row;
-  justify-content:center;
-  align-items:center;
   gap:16px;
-  width:100%;
   flex-wrap:wrap;
-  margin-top:6px;
+  justify-content:center;
 }
+
 .legItem{
   display:flex;
   align-items:center;
   gap:6px;
   font-size:11px;
-  white-space:nowrap;
 }
+
 .swatch{
   width:12px;
   height:12px;
   border-radius:3px;
 }
 
-/* ===== RESPONSIVO ===== */
-@media (max-width:520px){
-  .topRow{
-    flex-direction:column;
-    gap:10px;
-  }
-  .chartBox{
-    transform: scale(0.8);
-  }
+.tableBox{
+  width:220px;
+  border:1px solid #d1d5db;
+  border-radius:6px;
+  overflow:hidden;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:11px;
+}
+
+th, td{
+  padding:6px 8px;
+  border-bottom:1px solid #e5e7eb;
+}
+
+th{
+  background:#f9fafb;
+  text-align:left;
+}
+
+td:last-child, th:last-child{
+  text-align:right;
 }
 </style>
 </head>
 
 <body>
 <div id="container">
-
   <div class="titleBar">Canais 1P</div>
 
-  <div id="loader"><div class="spinner"></div></div>
-
-  <div class="wrap" id="wrap">
+  <div class="wrap">
     <div class="topRow">
       <div class="chartBox">
         <svg id="donut" viewBox="0 0 100 100"></svg>
       </div>
 
       <div class="tableBox">
-        <table class="progTable">
+        <table>
           <thead>
             <tr>
               <th>Canal</th>
@@ -203,31 +140,61 @@ svg{
 </div>
 
 <script>
-/* ===== JS (mantido – sem mudanças de lógica) ===== */
-function showLoader(on){
-  document.getElementById("loader").style.display = on ? "flex" : "none";
-}
-function showUI(on){
-  const w=document.getElementById("wrap");
-  w.style.opacity=on?"1":"0";
-  w.style.pointerEvents=on?"auto":"none";
-}
+const data = [
+  { canal:"E-commerce", atual:65146146.23, ant:72279516.41, color:"#1F5A78" },
+  { canal:"Loja Física", atual:858291478.47, ant:844164025.08, color:"#0B2E3F" },
+  { canal:"Televendas", atual:10464634.10, ant:11265095.23, color:"#F28C38" }
+];
 
-/* Exemplo estático só para layout */
-document.getElementById("progBody").innerHTML = `
-<tr><td>Loja Física</td><td>1,7%</td></tr>
-<tr><td>e-commerce</td><td>-9,9%</td></tr>
-<tr><td>Televendas</td><td>-7,1%</td></tr>
-`;
+// ===== DONUT =====
+const total = data.reduce((s,d)=>s+d.atual,0);
+let angle = 0;
+const svg = document.getElementById("donut");
 
-document.getElementById("legend").innerHTML = `
-<div class="legItem"><span class="swatch" style="background:#1F5A78"></span>Loja Física</div>
-<div class="legItem"><span class="swatch" style="background:#0B2E3F"></span>e-commerce</div>
-<div class="legItem"><span class="swatch" style="background:#F28C38"></span>Televendas</div>
-`;
+data.forEach(d=>{
+  const pct = (d.atual / total) * 100;
+  const delta = pct * 3.6;
+  const rO=46, rI=28, cx=50, cy=50;
 
-showLoader(false);
-showUI(true);
+  const a0=(angle-90)*Math.PI/180;
+  const a1=(angle+delta-90)*Math.PI/180;
+
+  const p = document.createElementNS("http://www.w3.org/2000/svg","path");
+  p.setAttribute("fill", d.color);
+  p.setAttribute("d",`
+    M ${cx+rO*Math.cos(a1)} ${cy+rO*Math.sin(a1)}
+    A ${rO} ${rO} 0 ${delta>180?1:0} 0 ${cx+rO*Math.cos(a0)} ${cy+rO*Math.sin(a0)}
+    L ${cx+rI*Math.cos(a0)} ${cy+rI*Math.sin(a0)}
+    A ${rI} ${rI} 0 ${delta>180?1:0} 1 ${cx+rI*Math.cos(a1)} ${cy+rI*Math.sin(a1)}
+    Z
+  `);
+  svg.appendChild(p);
+  angle += delta;
+});
+
+// ===== LEGENDA =====
+const leg = document.getElementById("legend");
+data.forEach(d=>{
+  leg.innerHTML += `
+    <div class="legItem">
+      <span class="swatch" style="background:${d.color}"></span>
+      <span>${d.canal}</span>
+    </div>
+  `;
+});
+
+// ===== TABELA (PROGRESSÃO CORRETA) =====
+const tb = document.getElementById("progBody");
+
+data.forEach(d=>{
+  const prog = ((d.atual - d.ant) / d.ant) * 100;
+  tb.innerHTML += `
+    <tr>
+      <td>${d.canal}</td>
+      <td>${prog.toFixed(2).replace(".",",")}%</td>
+    </tr>
+  `;
+});
 </script>
 </body>
 </html>

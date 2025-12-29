@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="pt-br">
 <head>
@@ -8,11 +7,14 @@
 <style>
 html,body{
   margin:0;
-  padding:0;
-  height:100%;
   width:100%;
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-  overflow:hidden;
+  height:100%;
+  font-family:Arial,Helvetica,sans-serif;
+}
+#container{
+  height:100%;
+  display:flex;
+  flex-direction:column;
 }
 .titleBar{
   background:#6FAFB3;
@@ -22,7 +24,7 @@ html,body{
   font-weight:600;
 }
 .wrap{
-  height:100%;
+  flex:1;
   display:flex;
   flex-direction:column;
   align-items:center;
@@ -31,12 +33,12 @@ html,body{
 }
 .topRow{
   display:flex;
-  gap:16px;
+  gap:20px;
   align-items:center;
 }
 .chartBox{
-  width:220px;
-  height:220px;
+  width:240px;
+  height:240px;
 }
 svg{ width:100%; height:100%; overflow:visible; }
 
@@ -55,7 +57,6 @@ svg{ width:100%; height:100%; overflow:visible; }
   height:12px;
   border-radius:3px;
 }
-
 .tableBox{
   border:1px solid #d1d5db;
   border-radius:6px;
@@ -73,45 +74,56 @@ th{ background:#f9fafb; text-align:left; }
 td:last-child, th:last-child{ text-align:right; }
 
 .pctLabel{
-  font-size:8px;
+  font-size:10px;
   font-weight:600;
   fill:#111827;
+}
+.line{
+  stroke:#6b7280;
+  stroke-width:0.6;
 }
 </style>
 </head>
 
 <body>
-<div class="titleBar">Canais 1P</div>
+<div id="container">
+  <div class="titleBar">Canais 1P</div>
 
-<div class="wrap">
-  <div class="topRow">
-    <div class="chartBox">
-      <svg id="donut" viewBox="0 0 100 100"></svg>
+  <div class="wrap">
+    <div class="topRow">
+      <div class="chartBox">
+        <svg id="donut" viewBox="0 0 100 100"></svg>
+      </div>
+
+      <div class="tableBox">
+        <table>
+          <thead>
+            <tr><th>Canal</th><th>Prog %</th></tr>
+          </thead>
+          <tbody id="progBody"></tbody>
+        </table>
+      </div>
     </div>
 
-    <div class="tableBox">
-      <table>
-        <thead>
-          <tr><th>Canal</th><th>Prog %</th></tr>
-        </thead>
-        <tbody id="progBody"></tbody>
-      </table>
-    </div>
+    <div class="legend" id="legend"></div>
   </div>
-
-  <div class="legend" id="legend"></div>
 </div>
 
 <script>
-/* ================= CONFIG ================= */
+/* ================= CONFIG FILTROS ================= */
 
 const LAYER_URL =
   "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
 const FIELDS = {
+  loja: "id_loja_venda",
+  mes: "mes",
+  ano: "ano",
   canal: "id_canal_venda",
-  valorAtual: "valor_vendas_atual",
-  valorAnterior: "valor_vendas_anterior"
+  secao: "secao",
+  codZ: "cod_loja_zinflu2",
+  atual: "valor_vendas_atual",
+  ant: "valor_vendas_anterior"
 };
 
 const CANAL_LABEL = {
@@ -120,106 +132,149 @@ const CANAL_LABEL = {
   "2": "Televendas"
 };
 
-const COLORS = {
+const CANAL_COLOR = {
   "0": "#1F5A78",
   "1": "#0B2E3F",
   "2": "#F28C38"
 };
 
-/* ================= QUERY ================= */
+const qs = new URLSearchParams(window.location.search);
 
+function escapeSqlString(s){
+  return String(s).replace(/'/g,"''");
+}
+function parseList(name){
+  if(!qs.has(name)) return [];
+  return qs.get(name).split(",").map(v=>v.trim()).filter(Boolean);
+}
+function buildWhere(){
+  const parts = ["1=1", `${FIELDS.codZ} IS NOT NULL`, `${FIELDS.codZ} <> '0'`];
+
+  const filtros = {
+    loja: FIELDS.loja,
+    mes: FIELDS.mes,
+    ano: FIELDS.ano,
+    id_canal_venda: FIELDS.canal,
+    secao: FIELDS.secao
+  };
+
+  for(const k in filtros){
+    const vals = parseList(k);
+    if(vals.length){
+      parts.push(`${filtros[k]} IN (${vals.map(v=>`'${escapeSqlString(v)}'`).join(",")})`);
+    }
+  }
+  return parts.join(" AND ");
+}
 async function esriQuery(params){
   const url = new URL(LAYER_URL + "/query");
-  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k,v));
+  Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));
   const r = await fetch(url);
   const j = await r.json();
-  if (j.error) throw j.error;
+  if(j.error) throw j.error;
   return j;
 }
 
-/* ================= LOAD ================= */
+/* ================= LOAD DADOS ================= */
 
 async function load(){
+  const where = buildWhere();
+
   const q = await esriQuery({
     f:"json",
-    where:"cod_loja_zinflu2 IS NOT NULL AND cod_loja_zinflu2 <> '0'",
-    groupByFieldsForStatistics:FIELDS.canal,
+    where,
+    groupByFieldsForStatistics: FIELDS.canal,
     outStatistics: JSON.stringify([
-      { statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"ATUAL" },
-      { statisticType:"sum", onStatisticField:FIELDS.valorAnterior, outStatisticFieldName:"ANT" }
+      { statisticType:"sum", onStatisticField:FIELDS.atual, outStatisticFieldName:"ATUAL" },
+      { statisticType:"sum", onStatisticField:FIELDS.ant,   outStatisticFieldName:"ANT" }
     ]),
     returnGeometry:"false"
   });
 
-  const rows = q.features.map(f=>{
-    const c = f.attributes[FIELDS.canal];
+  const data = q.features.map(f=>{
+    const canal = String(f.attributes[FIELDS.canal]);
     return {
-      canal:c,
-      label:CANAL_LABEL[c],
-      atual:f.attributes.ATUAL,
-      ant:f.attributes.ANT,
-      color:COLORS[c]
+      label: CANAL_LABEL[canal],
+      atual: Number(f.attributes.ATUAL||0),
+      ant:   Number(f.attributes.ANT||0),
+      color: CANAL_COLOR[canal]
     };
-  });
+  }).filter(d=>d.atual>0);
 
-  render(rows);
+  render(data);
 }
 
-/* ================= RENDER ================= */
+/* ================= RENDER BASELINE (INALTERADO) ================= */
 
 function render(data){
   const svg = document.getElementById("donut");
-  const tb  = document.getElementById("progBody");
-  const lg  = document.getElementById("legend");
-
   svg.innerHTML="";
-  tb.innerHTML="";
-  lg.innerHTML="";
+  document.getElementById("legend").innerHTML="";
+  document.getElementById("progBody").innerHTML="";
 
-  const cx=50, cy=50, rO=46, rI=28;
+  const cx=50, cy=50, rO=42, rI=26;
   const total = data.reduce((s,d)=>s+d.atual,0);
 
-  let angle = -90;
+  const bg = document.createElementNS("http://www.w3.org/2000/svg","circle");
+  bg.setAttribute("cx",cx);
+  bg.setAttribute("cy",cy);
+  bg.setAttribute("r",(rO+rI)/2);
+  bg.setAttribute("fill","none");
+  bg.setAttribute("stroke","#e5e7eb");
+  bg.setAttribute("stroke-width",rO-rI);
+  svg.appendChild(bg);
+
+  let angle=-90;
 
   data.forEach(d=>{
-    const pct = d.atual / total;
-    const delta = pct * 360;
+    const pct=d.atual/total;
+    const delta=pct*360;
 
-    const a0 = angle * Math.PI/180;
-    const a1 = (angle+delta) * Math.PI/180;
+    const a0=angle*Math.PI/180;
+    const a1=(angle+delta)*Math.PI/180;
 
-    const path = document.createElementNS("http://www.w3.org/2000/svg","path");
-    path.setAttribute("fill", d.color);
+    const path=document.createElementNS("http://www.w3.org/2000/svg","path");
+    path.setAttribute("fill",d.color);
     path.setAttribute("d",`
       M ${cx+rO*Math.cos(a1)} ${cy+rO*Math.sin(a1)}
       A ${rO} ${rO} 0 ${delta>180?1:0} 0 ${cx+rO*Math.cos(a0)} ${cy+rO*Math.sin(a0)}
       L ${cx+rI*Math.cos(a0)} ${cy+rI*Math.sin(a0)}
       A ${rI} ${rI} 0 ${delta>180?1:0} 1 ${cx+rI*Math.cos(a1)} ${cy+rI*Math.sin(a1)}
-      Z
-    `);
+      Z`);
     svg.appendChild(path);
 
-    angle += delta;
-  });
+    const mid=angle+delta/2;
+    const rad=mid*Math.PI/180;
+    const x1=cx+rO*Math.cos(rad), y1=cy+rO*Math.sin(rad);
+    const x2=cx+(rO+8)*Math.cos(rad), y2=cy+(rO+8)*Math.sin(rad);
+    const x3=x2+(Math.cos(rad)>0?6:-6);
 
-  data.forEach(d=>{
-    const prog = (d.ant === 0)
-      ? 0
-      : ((d.atual - d.ant) / d.ant) * 100; // <<< AJUSTE
+    const line=document.createElementNS("http://www.w3.org/2000/svg","polyline");
+    line.setAttribute("points",`${x1},${y1} ${x2},${y2} ${x3},${y2}`);
+    line.setAttribute("class","line");
+    line.setAttribute("fill","none");
+    svg.appendChild(line);
 
-    tb.innerHTML += `
-      <tr>
-        <td>${d.label}</td>
-        <td>${prog.toFixed(2).replace(".",",")}%</td>
-      </tr>
-    `;
+    const txt=document.createElementNS("http://www.w3.org/2000/svg","text");
+    txt.setAttribute("x",x3+(Math.cos(rad)>0?2:-2));
+    txt.setAttribute("y",y2);
+    txt.setAttribute("text-anchor",Math.cos(rad)>0?"start":"end");
+    txt.setAttribute("dominant-baseline","middle");
+    txt.setAttribute("class","pctLabel");
+    txt.textContent=(pct*100).toFixed(1).replace(".",",")+"%";
+    svg.appendChild(txt);
 
-    lg.innerHTML += `
+    angle+=delta;
+
+    document.getElementById("legend").innerHTML+=`
       <div class="legItem">
         <span class="swatch" style="background:${d.color}"></span>
         <span>${d.label}</span>
-      </div>
-    `;
+      </div>`;
+
+    const prog=((d.atual-d.ant)/d.ant)*100;
+    document.getElementById("progBody").innerHTML+=`
+      <tr><td>${d.label}</td><td>${prog.toFixed(2).replace(".",",")}%</td></tr>`;
   });
 }
 

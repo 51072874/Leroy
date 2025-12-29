@@ -10,7 +10,6 @@ html,body{
   width:100%;
   height:100%;
   font-family:Arial,Helvetica,sans-serif;
-  overflow:hidden;
 }
 #container{
   height:100%;
@@ -34,18 +33,15 @@ html,body{
 }
 .topRow{
   display:flex;
-  gap:16px;
+  gap:20px;
   align-items:center;
 }
 .chartBox{
-  width:220px;
-  height:220px;
+  width:240px;
+  height:240px;
 }
-svg{
-  width:100%;
-  height:100%;
-  overflow:visible;
-}
+svg{ width:100%; height:100%; overflow:visible; }
+
 .legend{
   display:flex;
   gap:14px;
@@ -78,15 +74,11 @@ th{ background:#f9fafb; text-align:left; }
 td:last-child, th:last-child{ text-align:right; }
 
 .pctLabel{
-  font-size:6px;
-  fill:#111;
+  font-size:10px;
   font-weight:600;
-  paint-order:stroke fill;
-  stroke:#fff;
-  stroke-width:2px;
+  fill:#111827;
 }
-
-.leaderLine{
+.line{
   stroke:#6b7280;
   stroke-width:0.6;
 }
@@ -126,8 +118,8 @@ const data = [
 
 // ===== DONUT =====
 const svg = document.getElementById("donut");
-const cx=50, cy=50, rO=46, rI=28;
-const ROTATION = 0; // <<< rotação do gráfico (0 = começa à direita)
+const cx=50, cy=50, rO=42, rI=26;
+const total = data.reduce((s,d)=>s+d.atual,0);
 
 // fundo
 const bg = document.createElementNS("http://www.w3.org/2000/svg","circle");
@@ -139,53 +131,49 @@ bg.setAttribute("stroke","#e5e7eb");
 bg.setAttribute("stroke-width",rO-rI);
 svg.appendChild(bg);
 
-const total = data.reduce((s,d)=>s+d.atual,0);
-let angle = ROTATION;
+let angle = -90; // <<< ROTAÇÃO CORRETA
 
 data.forEach(d=>{
   const pct = d.atual / total;
   const delta = pct * 360;
-  const start = angle;
-  const end = angle + delta;
 
-  const a0=(start)*Math.PI/180;
-  const a1=(end)*Math.PI/180;
+  const a0 = angle * Math.PI/180;
+  const a1 = (angle+delta) * Math.PI/180;
 
   const path = document.createElementNS("http://www.w3.org/2000/svg","path");
   path.setAttribute("fill", d.color);
   path.setAttribute("d",`
     M ${cx+rO*Math.cos(a1)} ${cy+rO*Math.sin(a1)}
-    A ${rO} ${rO} 0 ${delta>180?1:0} 1 ${cx+rO*Math.cos(a0)} ${cy+rO*Math.sin(a0)}
+    A ${rO} ${rO} 0 ${delta>180?1:0} 0 ${cx+rO*Math.cos(a0)} ${cy+rO*Math.sin(a0)}
     L ${cx+rI*Math.cos(a0)} ${cy+rI*Math.sin(a0)}
-    A ${rI} ${rI} 0 ${delta>180?1:0} 0 ${cx+rI*Math.cos(a1)} ${cy+rI*Math.sin(a1)}
+    A ${rI} ${rI} 0 ${delta>180?1:0} 1 ${cx+rI*Math.cos(a1)} ${cy+rI*Math.sin(a1)}
     Z
   `);
   svg.appendChild(path);
 
   // ===== LINHA + TEXTO =====
-  const mid = start + delta/2;
-  const aMid = mid * Math.PI/180;
+  const mid = angle + delta/2;
+  const rad = mid * Math.PI/180;
 
-  const x1 = cx + rO * Math.cos(aMid);
-  const y1 = cy + rO * Math.sin(aMid);
+  const x1 = cx + rO * Math.cos(rad);
+  const y1 = cy + rO * Math.sin(rad);
+  const x2 = cx + (rO+8) * Math.cos(rad);
+  const y2 = cy + (rO+8) * Math.sin(rad);
+  const x3 = x2 + (Math.cos(rad) > 0 ? 6 : -6);
 
-  const x2 = cx + (rO + 10) * Math.cos(aMid);
-  const y2 = cy + (rO + 10) * Math.sin(aMid);
-
-  const line = document.createElementNS("http://www.w3.org/2000/svg","line");
-  line.setAttribute("x1",x1);
-  line.setAttribute("y1",y1);
-  line.setAttribute("x2",x2);
-  line.setAttribute("y2",y2);
-  line.setAttribute("class","leaderLine");
+  const line = document.createElementNS("http://www.w3.org/2000/svg","polyline");
+  line.setAttribute("points",`${x1},${y1} ${x2},${y2} ${x3},${y2}`);
+  line.setAttribute("class","line");
+  line.setAttribute("fill","none");
   svg.appendChild(line);
 
   const txt = document.createElementNS("http://www.w3.org/2000/svg","text");
-  txt.setAttribute("x", cx + (rO + 14) * Math.cos(aMid));
-  txt.setAttribute("y", cy + (rO + 14) * Math.sin(aMid));
+  txt.setAttribute("x",x3 + (Math.cos(rad)>0 ? 2 : -2));
+  txt.setAttribute("y",y2);
+  txt.setAttribute("text-anchor",Math.cos(rad)>0?"start":"end");
+  txt.setAttribute("dominant-baseline","middle");
   txt.setAttribute("class","pctLabel");
-  txt.setAttribute("text-anchor", Math.cos(aMid) > 0 ? "start" : "end");
-  txt.textContent = (pct*100).toFixed(1).replace(".",",") + "%";
+  txt.textContent = (pct*100).toFixed(1).replace(".",",")+"%";
   svg.appendChild(txt);
 
   angle += delta;
@@ -201,7 +189,7 @@ data.forEach(d=>{
     </div>`;
 });
 
-// ===== TABELA =====
+// ===== TABELA (PROGRESSÃO CORRETA) =====
 const tb = document.getElementById("progBody");
 data.forEach(d=>{
   const prog = ((d.atual - d.ant) / d.ant) * 100;

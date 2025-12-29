@@ -520,7 +520,7 @@ async function load(){
     renderLegend(slices);
 
     const tableRows = slices.map(s => {
-      const prog = (s.somaAnt === 0) ? 0 : (s.somaAtual / s.somaAnt) * 100;
+      const prog = (s.somaAnt === 0) ? 0 : ((s.somaAtual - s.somaAnt) / s.somaAnt) * 100;
       return { label: s.label, prog: fmtPct1(prog) };
     });
 

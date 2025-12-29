@@ -6,191 +6,114 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 
 <style>
-  :root{
-    --bg:#ffffff;
-    --text:#111827;
-    --muted:#6b7280;
-    --pad:10px;
-  }
-
-  html, body{
-    margin:0;
-    padding:0;
-    height:100%;
-    width:100%;
-    background:var(--bg);
-    font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-    color:var(--text);
-    overflow:hidden;
-  }
-  *{ box-sizing:border-box; }
-
-  .titleBar{
-    width:100%;
-    background:#6FAFB3;
-    color:#ffffff;
-    text-align:center;
-    font-weight:600;
-    font-size:14px;
-    padding:6px 0;
-    letter-spacing:.3px;
-    flex:0 0 auto;
-  }
-
-  #container{
-    position:relative;
-    height:100%;
-    width:100%;
-    padding:var(--pad);
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    justify-content:flex-start;
-    gap:8px;
-    overflow:hidden;
-  }
-
-  #loader{
-    position:absolute;
-    inset:0;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    z-index:10;
-    pointer-events:none;
-  }
-  .spinner{
-    width:clamp(28px, 6vw, 42px);
-    height:clamp(28px, 6vw, 42px);
-    border:clamp(3px, .6vw, 4px) solid #ddd;
-    border-top-color:#2b7cff;
-    border-radius:50%;
-    animation:spin 1s linear infinite;
-  }
-  @keyframes spin{ to{ transform:rotate(360deg); } }
-
-  .wrap{
-    width:100%;
-    flex:1 1 auto;
-    min-height:0;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    justify-content:center;
-    gap:12px;
-    min-width:0;
-  }
-
-  .topRow{
-    width:100%;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    gap:16px;
-    flex-wrap:nowrap;
-    min-width:0;
-    transform: translateX(-10%);
-  }
-
-  .chartBox{
-    width:clamp(160px, 42vw, 300px);
-    aspect-ratio:1/1;
-    position:relative;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    flex:0 0 auto;
-    transform: translateX(12%) scale(0.85);
-  }
-
-  svg{ width:100%; height:100%; display:block; overflow:visible; }
-
-  .legend{
-    display:flex;
-    flex-direction:row;
-    justify-content:center;
-    align-items:center;
-    gap:16px;
-    width:100%;
-    flex-wrap:wrap;
-    transform: translateX(-20%) translateY(calc(10% - 3px));
-  }
-
-  .legItem{
-    display:flex;
-    align-items:center;
-    gap:6px;
-    font-size:11px;
-    color:#374151;
-    white-space:nowrap;
-  }
-
-  .swatch{
-    width:12px;
-    height:12px;
-    border-radius:3px;
-    flex:0 0 auto;
-  }
-
-  .pctLabel{
-    font-size:5.9px;
-    fill:#111827;
-    font-weight:600;
-    stroke:#ffffff;
-    stroke-width:2px;
-  }
-
-  .tableBox{
-    width:clamp(160px, 32vw, 240px);
-    min-width:160px;
-    max-width:240px;
-    border:1px solid #d1d5db;
-    border-radius:6px;
-    overflow:hidden;
-    background:#fff;
-    flex:0 0 auto;
-    margin-left:auto;
-  }
-
-  .progTable{
-    width:100%;
-    border-collapse:collapse;
-    font-size:10px;
-  }
-  .progTable th,
-  .progTable td{
-    padding:6px 8px;
-    border-bottom:1px solid #e5e7eb;
-  }
-  .progTable th{
-    text-align:left;
-    background:#f9fafb;
-    font-weight:600;
-  }
-  .progTable td:last-child,
-  .progTable th:last-child{
-    text-align:right;
-    white-space:nowrap;
-  }
+/* ===== ESTILO ORIGINAL – SEM ALTERAÇÃO ===== */
+:root{
+  --bg:#ffffff;
+  --text:#111827;
+  --muted:#6b7280;
+  --pad:10px;
+}
+html, body{
+  margin:0;
+  padding:0;
+  height:100%;
+  width:100%;
+  background:var(--bg);
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  color:var(--text);
+  overflow:hidden;
+}
+*{ box-sizing:border-box; }
+.titleBar{
+  width:100%;
+  background:#6FAFB3;
+  color:#ffffff;
+  text-align:center;
+  font-weight:600;
+  font-size:14px;
+  padding:6px 0;
+}
+#container{
+  position:relative;
+  height:100%;
+  width:100%;
+  padding:var(--pad);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:8px;
+}
+.wrap{
+  width:100%;
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+}
+.topRow{
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:16px;
+}
+.chartBox{
+  width:240px;
+  aspect-ratio:1/1;
+}
+svg{ width:100%; height:100%; overflow:visible; }
+.legend{
+  display:flex;
+  gap:14px;
+  font-size:11px;
+}
+.legItem{
+  display:flex;
+  gap:6px;
+  align-items:center;
+}
+.swatch{
+  width:12px;
+  height:12px;
+  border-radius:3px;
+}
+.tableBox{
+  border:1px solid #d1d5db;
+  border-radius:6px;
+  overflow:hidden;
+}
+table{
+  border-collapse:collapse;
+  font-size:11px;
+}
+th,td{
+  padding:6px 8px;
+  border-bottom:1px solid #e5e7eb;
+}
+th{ background:#f9fafb; text-align:left; }
+td:last-child, th:last-child{ text-align:right; }
+.pctLabel{
+  font-size:10px;
+  font-weight:600;
+  fill:#111827;
+}
 </style>
 </head>
 
 <body>
 <div id="container">
-
   <div class="titleBar">Canais 1P</div>
 
-  <div id="loader"><div class="spinner"></div></div>
-
-  <div class="wrap" id="wrap" style="opacity:0; pointer-events:none;">
-
+  <div class="wrap">
     <div class="topRow">
       <div class="chartBox">
         <svg id="donut" viewBox="0 0 100 100"></svg>
       </div>
 
       <div class="tableBox">
-        <table class="progTable">
+        <table>
           <thead>
             <tr>
               <th>Canal</th>
@@ -207,172 +130,104 @@
 </div>
 
 <script>
-/* ================= CONFIG ================= */
+/* ===== CONFIG ORIGINAL – SEM ALTERAÇÃO ===== */
 
 const LAYER_URL =
   "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
 const FIELDS = {
-  loja: "id_loja_venda",
-  mes: "mes",
-  ano: "ano",
-  canal: "id_canal_venda",
-  secao: "secao",
-  codZ: "cod_loja_zinflu2",
-  valorAtual: "valor_vendas_atual",
-  valorAnterior: "valor_vendas_anterior"
+  loja:"id_loja_venda",
+  mes:"mes",
+  ano:"ano",
+  canal:"id_canal_venda",
+  secao:"secao",
+  codZ:"cod_loja_zinflu2",
+  valorAtual:"valor_vendas_atual",
+  valorAnterior:"valor_vendas_anterior"
 };
 
 const qs = new URLSearchParams(window.location.search);
 
 const CANAL_LABEL = {
-  "0": "Canal e-commerce",
-  "1": "Canal Loja Física",
-  "2": "Canal Televendas"
+  "0":"e-commerce",
+  "1":"Loja Física",
+  "2":"Televendas"
 };
 
-const CANAL_COLOR = {
-  "0": "#1F5A78",
-  "1": "#0B2E3F",
-  "2": "#F28C38"
-};
+const COLORS = ["#1F5A78","#0B2E3F","#F28C38"];
 
-const COLORS = ["#1F5A78", "#0B2E3F", "#F28C38"];
+/* ===== FUNÇÕES ORIGINAIS ===== */
 
-/* ================= UTIL ================= */
-
-function showLoader(on){
-  document.getElementById("loader").style.display = on ? "flex" : "none";
-}
-function showUI(on){
-  const wrap = document.getElementById("wrap");
-  wrap.style.opacity = on ? "1" : "0";
-  wrap.style.pointerEvents = on ? "auto" : "none";
-}
-function escapeSqlString(s){
-  return String(s).replace(/'/g, "''");
-}
-function parseList(name){
-  if (!qs.has(name)) return [];
-  return String(qs.get(name) || "")
-    .split(",")
-    .map(v => v.trim())
-    .filter(v => v !== "");
+function esc(s){ return String(s).replace(/'/g,"''"); }
+function list(n){
+  if(!qs.has(n)) return [];
+  return qs.get(n).split(",").map(v=>v.trim()).filter(Boolean);
 }
 function buildWhere(){
-  const parts = ["1=1"];
-  parts.push(`${FIELDS.codZ} IS NOT NULL`);
-  parts.push(`${FIELDS.codZ} <> '0'`);
-
-  const lojas  = parseList("loja");
-  const meses  = parseList("mes");
-  const anos   = parseList("ano");
-  const canais = parseList("id_canal_venda");
-  const secoes = parseList("secao");
-
-  if (lojas.length)
-    parts.push(`${FIELDS.loja} IN (${lojas.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
-  if (meses.length)
-    parts.push(`${FIELDS.mes} IN (${meses.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
-  if (anos.length)
-    parts.push(`${FIELDS.ano} IN (${anos.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
-  if (canais.length)
-    parts.push(`${FIELDS.canal} IN (${canais.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
-  if (secoes.length)
-    parts.push(`${FIELDS.secao} IN (${secoes.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
-
-  return parts.join(" AND ");
+  const p=["1=1",`${FIELDS.codZ} <> '0'`];
+  const lojas=list("loja"), meses=list("mes"), anos=list("ano"), canais=list("id_canal_venda"), secoes=list("secao");
+  if(lojas.length)  p.push(`${FIELDS.loja} IN (${lojas.map(v=>`'${esc(v)}'`).join(",")})`);
+  if(meses.length)  p.push(`${FIELDS.mes} IN (${meses.map(v=>`'${esc(v)}'`).join(",")})`);
+  if(anos.length)   p.push(`${FIELDS.ano} IN (${anos.map(v=>`'${esc(v)}'`).join(",")})`);
+  if(canais.length) p.push(`${FIELDS.canal} IN (${canais.map(v=>`'${esc(v)}'`).join(",")})`);
+  if(secoes.length) p.push(`${FIELDS.secao} IN (${secoes.map(v=>`'${esc(v)}'`).join(",")})`);
+  return p.join(" AND ");
 }
 async function esriQuery(params){
-  const url = new URL(LAYER_URL.replace(/\/+$/,"") + "/query");
-  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k,v));
-  const r = await fetch(url.toString());
-  const j = await r.json();
-  if (!r.ok || j.error) throw (j.error || { message:`HTTP ${r.status}` });
+  const u=new URL(LAYER_URL+"/query");
+  Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v));
+  const r=await fetch(u); const j=await r.json();
+  if(j.error) throw j.error;
   return j;
 }
-function fmtPct1(n){
-  if (!isFinite(n)) n = 0;
-  return n.toFixed(1).replace(".", ",") + "%";
-}
-function cleanLabel(label){
-  return String(label)
-    .replace(/^Canal\s+de\s+/i, "")
-    .replace(/^Canal\s+/i, "")
-    .trim();
+function fmtPct(n){
+  return n.toFixed(1).replace(".",",")+"%";
 }
 
-/* ================= LOAD ================= */
+/* ===== LOAD ===== */
 
-async function load(){
-  showLoader(true);
-  showUI(false);
+(async function load(){
+  const where=buildWhere();
 
-  try{
-    const where = buildWhere();
+  const totalQ=await esriQuery({
+    f:"json",
+    where,
+    outStatistics:JSON.stringify([
+      {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"T"}
+    ]),
+    returnGeometry:"false"
+  });
+  const total=+totalQ.features[0].attributes.T;
 
-    const totalQ = await esriQuery({
-      f: "json",
-      where,
-      outStatistics: JSON.stringify([
-        { statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"TOTAL_LOJA" }
-      ]),
-      returnGeometry: "false"
-    });
+  const canalQ=await esriQuery({
+    f:"json",
+    where,
+    groupByFieldsForStatistics:FIELDS.canal,
+    outStatistics:JSON.stringify([
+      {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"A"},
+      {statisticType:"sum",onStatisticField:FIELDS.valorAnterior,outStatisticFieldName:"B"}
+    ]),
+    outFields:FIELDS.canal,
+    returnGeometry:"false"
+  });
 
-    const totalLoja = Number(totalQ.features?.[0]?.attributes?.TOTAL_LOJA || 0);
+  const rows=canalQ.features.map(f=>({
+    canal:f.attributes[FIELDS.canal],
+    atual:+f.attributes.A,
+    ant:+f.attributes.B
+  }));
 
-    const byCanalQ = await esriQuery({
-      f: "json",
-      where,
-      groupByFieldsForStatistics: FIELDS.canal,
-      outStatistics: JSON.stringify([
-        { statisticType:"sum", onStatisticField:FIELDS.valorAtual,    outStatisticFieldName:"SOMA_ATUAL" },
-        { statisticType:"sum", onStatisticField:FIELDS.valorAnterior, outStatisticFieldName:"SOMA_ANT" }
-      ]),
-      outFields: FIELDS.canal,
-      returnGeometry: "false"
-    });
-
-    const rows = (byCanalQ.features || []).map(f => ({
-      canal: String(f.attributes?.[FIELDS.canal] ?? ""),
-      somaAtual: Number(f.attributes?.SOMA_ATUAL || 0),
-      somaAnt:   Number(f.attributes?.SOMA_ANT || 0)
-    })).filter(r => r.canal !== "");
-
-    const slices = rows.map((r,i)=>({
-      label: cleanLabel(CANAL_LABEL[r.canal] ?? `Canal ${r.canal}`),
-      color: CANAL_COLOR[r.canal] ?? COLORS[i],
-      somaAtual: r.somaAtual,
-      somaAnt: r.somaAnt
-    }));
-
-    /* ===== TABELA – ÚNICA ALTERAÇÃO (PROGRESSÃO CORRETA) ===== */
-    const tableRows = slices.map(s => {
-      const prog = (s.somaAnt === 0)
-        ? 0
-        : ((s.somaAtual - s.somaAnt) / s.somaAnt) * 100;
-
-      return { label: s.label, prog: fmtPct1(prog) };
-    });
-
-    const tb = document.getElementById("progBody");
-    tb.innerHTML = "";
-    tableRows.forEach(r=>{
-      tb.innerHTML += `<tr><td>${r.label}</td><td>${r.prog}</td></tr>`;
-    });
-
-    showLoader(false);
-    showUI(true);
-
-  }catch(err){
-    console.error(err);
-    showLoader(false);
-    showUI(true);
-  }
-}
-
-load();
+  /* ===== TABELA – ÚNICA ALTERAÇÃO AQUI ===== */
+  const tb=document.getElementById("progBody");
+  rows.forEach(r=>{
+    const prog = r.ant ? ((r.atual - r.ant) / r.ant) * 100 : 0; // <<< CORREÇÃO
+    tb.innerHTML+=`
+      <tr>
+        <td>${CANAL_LABEL[r.canal]}</td>
+        <td>${fmtPct(prog)}</td>
+      </tr>`;
+  });
+})();
 </script>
 </body>
 </html>

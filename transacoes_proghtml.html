@@ -174,7 +174,7 @@ async function load(){
   const atual    = Number(q.features?.[0]?.attributes?.TOTAL_ATUAL || 0);
   const anterior = Number(q.features?.[0]?.attributes?.TOTAL_ANTERIOR || 0);
 
-  const progressao = anterior === 0 ? 0 : (atual / anterior) * 100;
+  const progressao = anterior === 0 ? 0 : (atual / anterior);
 
   const el = document.getElementById("kpiValue");
   el.textContent = `${fmtBR(progressao)}%`;

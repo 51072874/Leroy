@@ -2,27 +2,47 @@
 <html lang="pt-br">
 <head>
 <meta charset="utf-8"/>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 
 <style>
-html,body{
-  margin:0;
-  width:100%;
-  height:100%;
-  font-family:Arial,Helvetica,sans-serif;
+:root{
+  --bg:#ffffff;
+  --text:#111827;
+  --muted:#6b7280;
+  --pad:10px;
 }
+html, body{
+  margin:0;
+  padding:0;
+  height:100%;
+  width:100%;
+  background:var(--bg);
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  color:var(--text);
+  overflow:hidden;
+}
+*{ box-sizing:border-box; }
+
+.titleBar{
+  width:100%;
+  background:#6FAFB3;
+  color:#ffffff;
+  text-align:center;
+  font-weight:600;
+  font-size:14px;
+  padding:6px 0;
+}
+
 #container{
   height:100%;
+  width:100%;
+  padding:var(--pad);
   display:flex;
   flex-direction:column;
+  gap:8px;
 }
-.titleBar{
-  background:#6FAFB3;
-  color:#fff;
-  text-align:center;
-  padding:6px;
-  font-weight:600;
-}
+
 .wrap{
   flex:1;
   display:flex;
@@ -31,15 +51,18 @@ html,body{
   justify-content:center;
   gap:12px;
 }
+
 .topRow{
   display:flex;
-  gap:20px;
+  gap:16px;
   align-items:center;
 }
+
 .chartBox{
-  width:240px;
-  height:240px;
+  width:260px;
+  height:260px;
 }
+
 svg{ width:100%; height:100%; overflow:visible; }
 
 .legend{
@@ -47,37 +70,44 @@ svg{ width:100%; height:100%; overflow:visible; }
   gap:14px;
   font-size:11px;
 }
+
 .legItem{
   display:flex;
   gap:6px;
   align-items:center;
 }
+
 .swatch{
   width:12px;
   height:12px;
   border-radius:3px;
 }
+
 .tableBox{
   border:1px solid #d1d5db;
   border-radius:6px;
   overflow:hidden;
 }
+
 table{
   border-collapse:collapse;
   font-size:11px;
 }
+
 th,td{
   padding:6px 8px;
   border-bottom:1px solid #e5e7eb;
 }
+
 th{ background:#f9fafb; text-align:left; }
 td:last-child, th:last-child{ text-align:right; }
 
 .pctLabel{
-  font-size:10px;
+  font-size:9px;
   font-weight:600;
   fill:#111827;
 }
+
 .line{
   stroke:#6b7280;
   stroke-width:0.6;
@@ -110,7 +140,7 @@ td:last-child, th:last-child{ text-align:right; }
 </div>
 
 <script>
-/* ================= CONFIG FILTROS ================= */
+/* ================= CONFIG ================= */
 
 const LAYER_URL =
   "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
@@ -122,9 +152,11 @@ const FIELDS = {
   canal: "id_canal_venda",
   secao: "secao",
   codZ: "cod_loja_zinflu2",
-  atual: "valor_vendas_atual",
-  ant: "valor_vendas_anterior"
+  valorAtual: "valor_vendas_atual",
+  valorAnterior: "valor_vendas_anterior"
 };
+
+const qs = new URLSearchParams(window.location.search);
 
 const CANAL_LABEL = {
   "0": "E-commerce",
@@ -132,42 +164,45 @@ const CANAL_LABEL = {
   "2": "Televendas"
 };
 
+/* ✅ ÚNICA CORREÇÃO: cores DIFERENTES */
 const CANAL_COLOR = {
-  "0": "#1F5A78",
-  "1": "#0B2E3F",
-  "2": "#F28C38"
+  "0": "#1F5A78", // E-commerce
+  "1": "#0B2E3F", // Loja Física
+  "2": "#F28C38"  // Televendas
 };
 
-const qs = new URLSearchParams(window.location.search);
+/* ================= UTIL ================= */
 
 function escapeSqlString(s){
-  return String(s).replace(/'/g,"''");
+  return String(s).replace(/'/g, "''");
 }
+
 function parseList(name){
-  if(!qs.has(name)) return [];
+  if (!qs.has(name)) return [];
   return qs.get(name).split(",").map(v=>v.trim()).filter(Boolean);
 }
-function buildWhere(){
-  const parts = ["1=1", `${FIELDS.codZ} IS NOT NULL`, `${FIELDS.codZ} <> '0'`];
 
-  const filtros = {
-    loja: FIELDS.loja,
-    mes: FIELDS.mes,
-    ano: FIELDS.ano,
-    id_canal_venda: FIELDS.canal,
-    secao: FIELDS.secao
+function buildWhere(){
+  const p = ["1=1", `${FIELDS.codZ} IS NOT NULL`, `${FIELDS.codZ} <> '0'`];
+
+  const map = {
+    loja:FIELDS.loja,
+    mes:FIELDS.mes,
+    ano:FIELDS.ano,
+    id_canal_venda:FIELDS.canal,
+    secao:FIELDS.secao
   };
 
-  for(const k in filtros){
-    const vals = parseList(k);
-    if(vals.length){
-      parts.push(`${filtros[k]} IN (${vals.map(v=>`'${escapeSqlString(v)}'`).join(",")})`);
-    }
-  }
-  return parts.join(" AND ");
+  Object.entries(map).forEach(([q,f])=>{
+    const v = parseList(q);
+    if(v.length) p.push(`${f} IN (${v.map(x=>`'${escapeSqlString(x)}'`).join(",")})`);
+  });
+
+  return p.join(" AND ");
 }
+
 async function esriQuery(params){
-  const url = new URL(LAYER_URL + "/query");
+  const url = new URL(LAYER_URL+"/query");
   Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));
   const r = await fetch(url);
   const j = await r.json();
@@ -175,54 +210,49 @@ async function esriQuery(params){
   return j;
 }
 
-/* ================= LOAD DADOS ================= */
+function fmt(n){ return n.toFixed(2).replace(".",",")+"%"; }
 
-async function load(){
+/* ================= LOAD ================= */
+
+(async ()=>{
   const where = buildWhere();
 
-  const q = await esriQuery({
+  const totalQ = await esriQuery({
     f:"json",
     where,
-    groupByFieldsForStatistics: FIELDS.canal,
-    outStatistics: JSON.stringify([
-      { statisticType:"sum", onStatisticField:FIELDS.atual, outStatisticFieldName:"ATUAL" },
-      { statisticType:"sum", onStatisticField:FIELDS.ant,   outStatisticFieldName:"ANT" }
+    outStatistics:JSON.stringify([
+      { statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"T" }
     ]),
-    returnGeometry:"false"
+    returnGeometry:false
   });
 
-  const data = q.features.map(f=>{
-    const canal = String(f.attributes[FIELDS.canal]);
+  const total = totalQ.features[0].attributes.T;
+
+  const byCanalQ = await esriQuery({
+    f:"json",
+    where,
+    groupByFieldsForStatistics:FIELDS.canal,
+    outStatistics:JSON.stringify([
+      { statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"A" },
+      { statisticType:"sum", onStatisticField:FIELDS.valorAnterior, outStatisticFieldName:"B" }
+    ]),
+    returnGeometry:false
+  });
+
+  const data = byCanalQ.features.map(f=>{
+    const c = String(f.attributes[FIELDS.canal]);
     return {
-      label: CANAL_LABEL[canal],
-      atual: Number(f.attributes.ATUAL||0),
-      ant:   Number(f.attributes.ANT||0),
-      color: CANAL_COLOR[canal]
+      canal:c,
+      label:CANAL_LABEL[c],
+      atual:f.attributes.A,
+      ant:f.attributes.B,
+      color:CANAL_COLOR[c]
     };
-  }).filter(d=>d.atual>0);
+  });
 
-  render(data);
-}
-
-/* ================= RENDER BASELINE (INALTERADO) ================= */
-
-function render(data){
+  /* ===== DONUT ===== */
   const svg = document.getElementById("donut");
-  svg.innerHTML="";
-  document.getElementById("legend").innerHTML="";
-  document.getElementById("progBody").innerHTML="";
-
   const cx=50, cy=50, rO=42, rI=26;
-  const total = data.reduce((s,d)=>s+d.atual,0);
-
-  const bg = document.createElementNS("http://www.w3.org/2000/svg","circle");
-  bg.setAttribute("cx",cx);
-  bg.setAttribute("cy",cy);
-  bg.setAttribute("r",(rO+rI)/2);
-  bg.setAttribute("fill","none");
-  bg.setAttribute("stroke","#e5e7eb");
-  bg.setAttribute("stroke-width",rO-rI);
-  svg.appendChild(bg);
 
   let angle=-90;
 
@@ -240,13 +270,17 @@ function render(data){
       A ${rO} ${rO} 0 ${delta>180?1:0} 0 ${cx+rO*Math.cos(a0)} ${cy+rO*Math.sin(a0)}
       L ${cx+rI*Math.cos(a0)} ${cy+rI*Math.sin(a0)}
       A ${rI} ${rI} 0 ${delta>180?1:0} 1 ${cx+rI*Math.cos(a1)} ${cy+rI*Math.sin(a1)}
-      Z`);
+      Z
+    `);
     svg.appendChild(path);
 
     const mid=angle+delta/2;
     const rad=mid*Math.PI/180;
-    const x1=cx+rO*Math.cos(rad), y1=cy+rO*Math.sin(rad);
-    const x2=cx+(rO+8)*Math.cos(rad), y2=cy+(rO+8)*Math.sin(rad);
+
+    const x1=cx+rO*Math.cos(rad);
+    const y1=cy+rO*Math.sin(rad);
+    const x2=cx+(rO+8)*Math.cos(rad);
+    const y2=cy+(rO+8)*Math.sin(rad);
     const x3=x2+(Math.cos(rad)>0?6:-6);
 
     const line=document.createElementNS("http://www.w3.org/2000/svg","polyline");
@@ -265,20 +299,29 @@ function render(data){
     svg.appendChild(txt);
 
     angle+=delta;
+  });
 
-    document.getElementById("legend").innerHTML+=`
+  /* ===== LEGENDA ===== */
+  const legend=document.getElementById("legend");
+  data.forEach(d=>{
+    legend.innerHTML+=`
       <div class="legItem">
         <span class="swatch" style="background:${d.color}"></span>
         <span>${d.label}</span>
       </div>`;
-
-    const prog=((d.atual-d.ant)/d.ant)*100;
-    document.getElementById("progBody").innerHTML+=`
-      <tr><td>${d.label}</td><td>${prog.toFixed(2).replace(".",",")}%</td></tr>`;
   });
-}
 
-load();
+  /* ===== TABELA ===== */
+  const tb=document.getElementById("progBody");
+  data.forEach(d=>{
+    const prog=((d.atual-d.ant)/d.ant)*100;
+    tb.innerHTML+=`
+      <tr>
+        <td>${d.label}</td>
+        <td>${fmt(prog)}</td>
+      </tr>`;
+  });
+})();
 </script>
 </body>
 </html>

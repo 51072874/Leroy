@@ -165,7 +165,7 @@ async function load(){
     f: "json",
     where,
     outStatistics: JSON.stringify([
-      { statisticType:"sum", onStatisticField:FIELDS.clientesAtual,    outStatisticFieldName:"TOTAL_ATUAL" },
+      { statisticType:"sum", onStatisticField:FIELDS.clientesAtual,     outStatisticFieldName:"TOTAL_ATUAL" },
       { statisticType:"sum", onStatisticField:FIELDS.clientesAnterior, outStatisticFieldName:"TOTAL_ANTERIOR" }
     ]),
     returnGeometry:"false"
@@ -174,11 +174,14 @@ async function load(){
   const atual    = Number(q.features?.[0]?.attributes?.TOTAL_ATUAL || 0);
   const anterior = Number(q.features?.[0]?.attributes?.TOTAL_ANTERIOR || 0);
 
-  /* ✅ PERCENTUAL CORRETO */
-  const progressao = anterior === 0 ? 0 : (atual / anterior) * 100;
+  /* ✅ VARIAÇÃO PERCENTUAL CORRETA */
+  const variacao =
+    anterior === 0
+      ? 0
+      : ((atual - anterior) / anterior) * 100;
 
   const el = document.getElementById("kpiValue");
-  el.textContent = `${fmtBR(progressao)}%`;
+  el.textContent = `${fmtBR(variacao)}%`;
   el.style.visibility = "visible";
 
   showLoader(false);

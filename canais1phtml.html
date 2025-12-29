@@ -2,121 +2,160 @@
 <html lang="pt-br">
 <head>
 <meta charset="utf-8"/>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 
 <style>
-:root{
-  --bg:#ffffff;
-  --text:#111827;
-  --pad:10px;
-}
-html, body{
-  margin:0;
-  padding:0;
-  height:100%;
-  width:100%;
-  background:var(--bg);
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-  overflow:hidden;
-}
-*{ box-sizing:border-box; }
+  :root{
+    --bg:#ffffff;
+    --text:#111827;
+    --muted:#6b7280;
+    --pad:10px;
+  }
 
-.titleBar{
-  width:100%;
-  background:#6FAFB3;
-  color:#fff;
-  text-align:center;
-  font-weight:600;
-  font-size:14px;
-  padding:6px 0;
-}
+  html, body{
+    margin:0;
+    padding:0;
+    height:100%;
+    width:100%;
+    background:var(--bg);
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+    color:var(--text);
+    overflow:hidden;
+  }
+  *{ box-sizing:border-box; }
 
-#container{
-  height:100%;
-  width:100%;
-  padding:var(--pad);
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-}
+  .titleBar{
+    width:100%;
+    background:#6FAFB3;
+    color:#ffffff;
+    text-align:center;
+    font-weight:600;
+    font-size:14px;
+    padding:6px 0;
+    letter-spacing:.3px;
+  }
 
-.wrap{
-  flex:1;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  gap:12px;
-}
+  #container{
+    position:relative;
+    height:100%;
+    width:100%;
+    padding:var(--pad);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+  }
 
-.topRow{
-  width:100%;
-  display:flex;
-  justify-content:center;
-  gap:16px;
-}
+  #loader{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:10;
+    pointer-events:none;
+  }
 
-.chartBox{
-  width:260px;
-  aspect-ratio:1;
-}
+  .spinner{
+    width:32px;
+    height:32px;
+    border:4px solid #ddd;
+    border-top-color:#2b7cff;
+    border-radius:50%;
+    animation:spin 1s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg);} }
 
-svg{ width:100%; height:100%; }
+  .wrap{
+    width:100%;
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    opacity:0;
+    pointer-events:none;
+  }
 
-.legend{
-  display:flex;
-  gap:16px;
-  flex-wrap:wrap;
-  justify-content:center;
-}
+  .topRow{
+    width:100%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:16px;
+    transform:translateX(-10%);
+  }
 
-.legItem{
-  display:flex;
-  align-items:center;
-  gap:6px;
-  font-size:11px;
-}
+  .chartBox{
+    width:260px;
+    aspect-ratio:1/1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transform:translateX(12%) scale(0.85);
+  }
 
-.swatch{
-  width:12px;
-  height:12px;
-  border-radius:3px;
-}
+  svg{ width:100%; height:100%; }
 
-.tableBox{
-  width:220px;
-  border:1px solid #d1d5db;
-  border-radius:6px;
-  overflow:hidden;
-}
+  .legend{
+    display:flex;
+    gap:16px;
+    flex-wrap:wrap;
+    justify-content:center;
+    transform:translateX(-20%);
+  }
 
-table{
-  width:100%;
-  border-collapse:collapse;
-  font-size:11px;
-}
+  .legItem{
+    display:flex;
+    gap:6px;
+    font-size:11px;
+    align-items:center;
+  }
 
-th, td{
-  padding:6px 8px;
-  border-bottom:1px solid #e5e7eb;
-}
+  .swatch{
+    width:12px;
+    height:12px;
+    border-radius:3px;
+  }
 
-th{
-  background:#f9fafb;
-  text-align:left;
-}
+  .tableBox{
+    width:220px;
+    border:1px solid #d1d5db;
+    border-radius:6px;
+    overflow:hidden;
+    background:#fff;
+  }
 
-td:last-child, th:last-child{
-  text-align:right;
-}
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:10px;
+  }
+
+  th, td{
+    padding:6px 8px;
+    border-bottom:1px solid #e5e7eb;
+  }
+
+  th{
+    background:#f9fafb;
+    text-align:left;
+  }
+
+  td:last-child, th:last-child{
+    text-align:right;
+  }
 </style>
 </head>
 
 <body>
 <div id="container">
   <div class="titleBar">Canais 1P</div>
+  <div id="loader"><div class="spinner"></div></div>
 
-  <div class="wrap">
+  <div class="wrap" id="wrap">
     <div class="topRow">
       <div class="chartBox">
         <svg id="donut" viewBox="0 0 100 100"></svg>
@@ -125,10 +164,7 @@ td:last-child, th:last-child{
       <div class="tableBox">
         <table>
           <thead>
-            <tr>
-              <th>Canal</th>
-              <th>Prog %</th>
-            </tr>
+            <tr><th>Canal</th><th>Prog %</th></tr>
           </thead>
           <tbody id="progBody"></tbody>
         </table>
@@ -140,61 +176,105 @@ td:last-child, th:last-child{
 </div>
 
 <script>
-const data = [
-  { canal:"E-commerce", atual:65146146.23, ant:72279516.41, color:"#1F5A78" },
-  { canal:"Loja Física", atual:858291478.47, ant:844164025.08, color:"#0B2E3F" },
-  { canal:"Televendas", atual:10464634.10, ant:11265095.23, color:"#F28C38" }
-];
+const LAYER_URL =
+  "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
-// ===== DONUT =====
-const total = data.reduce((s,d)=>s+d.atual,0);
-let angle = 0;
-const svg = document.getElementById("donut");
+const FIELDS = {
+  canal:"id_canal_venda",
+  codZ:"cod_loja_zinflu2",
+  valorAtual:"valor_vendas_atual",
+  valorAnterior:"valor_vendas_anterior"
+};
 
-data.forEach(d=>{
-  const pct = (d.atual / total) * 100;
-  const delta = pct * 3.6;
-  const rO=46, rI=28, cx=50, cy=50;
+const CANAL_LABEL = {
+  "0":"E-commerce",
+  "1":"Loja Física",
+  "2":"Televendas"
+};
 
-  const a0=(angle-90)*Math.PI/180;
-  const a1=(angle+delta-90)*Math.PI/180;
+const COLORS = ["#1F5A78","#0B2E3F","#F28C38"];
 
-  const p = document.createElementNS("http://www.w3.org/2000/svg","path");
-  p.setAttribute("fill", d.color);
-  p.setAttribute("d",`
-    M ${cx+rO*Math.cos(a1)} ${cy+rO*Math.sin(a1)}
-    A ${rO} ${rO} 0 ${delta>180?1:0} 0 ${cx+rO*Math.cos(a0)} ${cy+rO*Math.sin(a0)}
-    L ${cx+rI*Math.cos(a0)} ${cy+rI*Math.sin(a0)}
-    A ${rI} ${rI} 0 ${delta>180?1:0} 1 ${cx+rI*Math.cos(a1)} ${cy+rI*Math.sin(a1)}
-    Z
-  `);
-  svg.appendChild(p);
-  angle += delta;
-});
+function showUI(){
+  document.getElementById("loader").style.display="none";
+  document.getElementById("wrap").style.opacity="1";
+  document.getElementById("wrap").style.pointerEvents="auto";
+}
 
-// ===== LEGENDA =====
-const leg = document.getElementById("legend");
-data.forEach(d=>{
-  leg.innerHTML += `
-    <div class="legItem">
-      <span class="swatch" style="background:${d.color}"></span>
-      <span>${d.canal}</span>
-    </div>
-  `;
-});
+function fmtPct(n){
+  return n.toFixed(2).replace(".",",")+"%";
+}
 
-// ===== TABELA (PROGRESSÃO CORRETA) =====
-const tb = document.getElementById("progBody");
+function renderProgTable(rows){
+  const tb=document.getElementById("progBody");
+  tb.innerHTML="";
+  rows.forEach(r=>{
+    tb.innerHTML+=`<tr><td>${r.label}</td><td>${fmtPct(r.prog)}</td></tr>`;
+  });
+}
 
-data.forEach(d=>{
-  const prog = ((d.atual - d.ant) / d.ant) * 100;
-  tb.innerHTML += `
-    <tr>
-      <td>${d.canal}</td>
-      <td>${prog.toFixed(2).replace(".",",")}%</td>
-    </tr>
-  `;
-});
+function renderLegend(slices){
+  const el=document.getElementById("legend");
+  el.innerHTML="";
+  slices.forEach(s=>{
+    el.innerHTML+=`
+      <div class="legItem">
+        <span class="swatch" style="background:${s.color}"></span>
+        <span>${s.label}</span>
+      </div>`;
+  });
+}
+
+function renderDonut(slices){
+  const svg=document.getElementById("donut");
+  svg.innerHTML="";
+  let angle=0;
+  slices.forEach(s=>{
+    const delta=s.pct*3.6;
+    const x1=50+46*Math.cos((angle-90)*Math.PI/180);
+    const y1=50+46*Math.sin((angle-90)*Math.PI/180);
+    angle+=delta;
+    const x2=50+46*Math.cos((angle-90)*Math.PI/180);
+    const y2=50+46*Math.sin((angle-90)*Math.PI/180);
+    const large=delta>180?1:0;
+    const d=`M50 50 L ${x1} ${y1} A46 46 0 ${large} 1 ${x2} ${y2} Z`;
+    const p=document.createElementNS("http://www.w3.org/2000/svg","path");
+    p.setAttribute("d",d);
+    p.setAttribute("fill",s.color);
+    svg.appendChild(p);
+  });
+}
+
+async function load(){
+  const where = `${FIELDS.codZ} IS NOT NULL AND ${FIELDS.codZ} <> '0'`;
+
+  const q = await fetch(`${LAYER_URL}/query?f=json&where=${encodeURIComponent(where)}&groupByFieldsForStatistics=${FIELDS.canal}&outStatistics=${encodeURIComponent(JSON.stringify([
+    {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"A"},
+    {statisticType:"sum",onStatisticField:FIELDS.valorAnterior,outStatisticFieldName:"B"}
+  ]))}&outFields=${FIELDS.canal}&returnGeometry=false`).then(r=>r.json());
+
+  const rows=q.features.map(f=>({
+    canal:f.attributes[FIELDS.canal],
+    atual:+f.attributes.A,
+    ant:+f.attributes.B
+  }));
+
+  const total=rows.reduce((s,r)=>s+r.atual,0);
+
+  const slices=rows.map((r,i)=>({
+    label:CANAL_LABEL[r.canal],
+    pct:(r.atual/total)*100,
+    prog:((r.atual-r.ant)/r.ant)*100,
+    color:COLORS[i]
+  }));
+
+  renderDonut(slices);
+  renderLegend(slices);
+  renderProgTable(slices);
+
+  showUI();
+}
+
+load();
 </script>
 </body>
 </html>

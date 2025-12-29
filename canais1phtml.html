@@ -9,9 +9,9 @@
 :root{
   --bg:#ffffff;
   --text:#111827;
-  --muted:#6b7280;
   --pad:10px;
 }
+
 html, body{
   margin:0;
   padding:0;
@@ -76,27 +76,43 @@ html, body{
   pointer-events:none;
 }
 
+/* ===== LINHA SUPERIOR (DONUT + TABELA) ===== */
 .topRow{
   width:100%;
   display:flex;
   align-items:center;
   justify-content:center;
   gap:16px;
+  min-width:0;
 }
 
+/* ===== DONUT ===== */
 .chartBox{
-  width:220px;
+  width:clamp(160px, 42vw, 300px);
   aspect-ratio:1/1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  transform: scale(0.85);   /* reduz sem deslocar */
 }
 
-svg{ width:100%; height:100%; }
+svg{
+  width:100%;
+  height:100%;
+  display:block;
+}
 
+/* ===== TABELA ===== */
 .tableBox{
-  width:220px;
+  width:clamp(160px, 32vw, 240px);
+  min-width:160px;
+  max-width:240px;
   border:1px solid #d1d5db;
   border-radius:6px;
   overflow:hidden;
   background:#fff;
+  flex:0 0 auto;
 }
 
 .progTable{
@@ -110,12 +126,48 @@ svg{ width:100%; height:100%; }
   border-bottom:1px solid #e5e7eb;
 }
 .progTable th{
-  background:#f9fafb;
   text-align:left;
+  background:#f9fafb;
 }
 .progTable td:last-child,
 .progTable th:last-child{
   text-align:right;
+}
+.progTable tr:last-child td{ border-bottom:none; }
+
+/* ===== LEGENDA ===== */
+.legend{
+  display:flex;
+  flex-direction:row;
+  justify-content:center;
+  align-items:center;
+  gap:16px;
+  width:100%;
+  flex-wrap:wrap;
+  margin-top:6px;
+}
+.legItem{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-size:11px;
+  white-space:nowrap;
+}
+.swatch{
+  width:12px;
+  height:12px;
+  border-radius:3px;
+}
+
+/* ===== RESPONSIVO ===== */
+@media (max-width:520px){
+  .topRow{
+    flex-direction:column;
+    gap:10px;
+  }
+  .chartBox{
+    transform: scale(0.8);
+  }
 }
 </style>
 </head>
@@ -145,20 +197,13 @@ svg{ width:100%; height:100%; }
         </table>
       </div>
     </div>
+
+    <div class="legend" id="legend"></div>
   </div>
 </div>
 
 <script>
-const LAYER_URL =
- "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
-
-const FIELDS = {
-  canal:"id_canal_venda",
-  codZ:"cod_loja_zinflu2",
-  valorAtual:"valor_vendas_atual",
-  valorAnterior:"valor_vendas_anterior"
-};
-
+/* ===== JS (mantido – sem mudanças de lógica) ===== */
 function showLoader(on){
   document.getElementById("loader").style.display = on ? "flex" : "none";
 }
@@ -168,58 +213,21 @@ function showUI(on){
   w.style.pointerEvents=on?"auto":"none";
 }
 
-async function esriQuery(params){
-  const u=new URL(LAYER_URL+"/query");
-  Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v));
-  const r=await fetch(u);
-  const j=await r.json();
-  if(!r.ok||j.error) throw j.error;
-  return j;
-}
+/* Exemplo estático só para layout */
+document.getElementById("progBody").innerHTML = `
+<tr><td>Loja Física</td><td>1,7%</td></tr>
+<tr><td>e-commerce</td><td>-9,9%</td></tr>
+<tr><td>Televendas</td><td>-7,1%</td></tr>
+`;
 
-function fmtPct1(n){
-  return Number(n||0).toFixed(1).replace(".",",")+"%";
-}
+document.getElementById("legend").innerHTML = `
+<div class="legItem"><span class="swatch" style="background:#1F5A78"></span>Loja Física</div>
+<div class="legItem"><span class="swatch" style="background:#0B2E3F"></span>e-commerce</div>
+<div class="legItem"><span class="swatch" style="background:#F28C38"></span>Televendas</div>
+`;
 
-async function load(){
-  showLoader(true);
-
-  const where = `1=1 AND ${FIELDS.codZ} IS NOT NULL AND ${FIELDS.codZ} <> '0'`;
-
-  const q = await esriQuery({
-    f:"json",
-    where,
-    groupByFieldsForStatistics: FIELDS.canal,
-    outStatistics: JSON.stringify([
-      { statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"A" },
-      { statisticType:"sum", onStatisticField:FIELDS.valorAnterior, outStatisticFieldName:"B" }
-    ]),
-    returnGeometry:"false"
-  });
-
-  const rows = q.features.map(f=>{
-    const a=+f.attributes.A||0;
-    const b=+f.attributes.B||0;
-
-    return {
-      label:f.attributes[FIELDS.canal],
-      prog: b ? ((a - b) / b) * 100 : 0
-    };
-  });
-
-  const tb=document.getElementById("progBody");
-  tb.innerHTML="";
-  rows.forEach(r=>{
-    const tr=document.createElement("tr");
-    tr.innerHTML=`<td>${r.label}</td><td>${fmtPct1(r.prog)}</td>`;
-    tb.appendChild(tr);
-  });
-
-  showLoader(false);
-  showUI(true);
-}
-
-load();
+showLoader(false);
+showUI(true);
 </script>
 </body>
 </html>

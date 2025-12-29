@@ -7,14 +7,11 @@
 <style>
 html,body{
   margin:0;
+  padding:0;
+  height:100%;
   width:100%;
-  height:100%;
-  font-family:Arial,Helvetica,sans-serif;
-}
-#container{
-  height:100%;
-  display:flex;
-  flex-direction:column;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  overflow:hidden;
 }
 .titleBar{
   background:#6FAFB3;
@@ -24,7 +21,7 @@ html,body{
   font-weight:600;
 }
 .wrap{
-  flex:1;
+  height:100%;
   display:flex;
   flex-direction:column;
   align-items:center;
@@ -33,12 +30,12 @@ html,body{
 }
 .topRow{
   display:flex;
-  gap:20px;
+  gap:16px;
   align-items:center;
 }
 .chartBox{
-  width:240px;
-  height:240px;
+  width:220px;
+  height:220px;
 }
 svg{ width:100%; height:100%; overflow:visible; }
 
@@ -57,6 +54,7 @@ svg{ width:100%; height:100%; overflow:visible; }
   height:12px;
   border-radius:3px;
 }
+
 .tableBox{
   border:1px solid #d1d5db;
   border-radius:6px;
@@ -74,131 +72,157 @@ th{ background:#f9fafb; text-align:left; }
 td:last-child, th:last-child{ text-align:right; }
 
 .pctLabel{
-  font-size:10px;
+  font-size:8px;
   font-weight:600;
   fill:#111827;
-}
-.line{
-  stroke:#6b7280;
-  stroke-width:0.6;
 }
 </style>
 </head>
 
 <body>
-<div id="container">
-  <div class="titleBar">Canais 1P</div>
+<div class="titleBar">Canais 1P</div>
 
-  <div class="wrap">
-    <div class="topRow">
-      <div class="chartBox">
-        <svg id="donut" viewBox="0 0 100 100"></svg>
-      </div>
-
-      <div class="tableBox">
-        <table>
-          <thead>
-            <tr><th>Canal</th><th>Prog %</th></tr>
-          </thead>
-          <tbody id="progBody"></tbody>
-        </table>
-      </div>
+<div class="wrap">
+  <div class="topRow">
+    <div class="chartBox">
+      <svg id="donut" viewBox="0 0 100 100"></svg>
     </div>
 
-    <div class="legend" id="legend"></div>
+    <div class="tableBox">
+      <table>
+        <thead>
+          <tr><th>Canal</th><th>Prog %</th></tr>
+        </thead>
+        <tbody id="progBody"></tbody>
+      </table>
+    </div>
   </div>
+
+  <div class="legend" id="legend"></div>
 </div>
 
 <script>
-const data = [
-  { label:"E-commerce", atual:65146146.23, ant:72279516.41, color:"#1F5A78" },
-  { label:"Loja Física", atual:858291478.47, ant:844164025.08, color:"#0B2E3F" },
-  { label:"Televendas", atual:10464634.10, ant:11265095.23, color:"#F28C38" }
-];
+/* ================= CONFIG ================= */
 
-// ===== DONUT =====
-const svg = document.getElementById("donut");
-const cx=50, cy=50, rO=42, rI=26;
-const total = data.reduce((s,d)=>s+d.atual,0);
+const LAYER_URL =
+  "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
-// fundo
-const bg = document.createElementNS("http://www.w3.org/2000/svg","circle");
-bg.setAttribute("cx",cx);
-bg.setAttribute("cy",cy);
-bg.setAttribute("r",(rO+rI)/2);
-bg.setAttribute("fill","none");
-bg.setAttribute("stroke","#e5e7eb");
-bg.setAttribute("stroke-width",rO-rI);
-svg.appendChild(bg);
+const FIELDS = {
+  canal: "id_canal_venda",
+  valorAtual: "valor_vendas_atual",
+  valorAnterior: "valor_vendas_anterior"
+};
 
-let angle = -90; // <<< ROTAÇÃO CORRETA
+const CANAL_LABEL = {
+  "0": "E-commerce",
+  "1": "Loja Física",
+  "2": "Televendas"
+};
 
-data.forEach(d=>{
-  const pct = d.atual / total;
-  const delta = pct * 360;
+const COLORS = {
+  "0": "#1F5A78",
+  "1": "#0B2E3F",
+  "2": "#F28C38"
+};
 
-  const a0 = angle * Math.PI/180;
-  const a1 = (angle+delta) * Math.PI/180;
+/* ================= QUERY ================= */
 
-  const path = document.createElementNS("http://www.w3.org/2000/svg","path");
-  path.setAttribute("fill", d.color);
-  path.setAttribute("d",`
-    M ${cx+rO*Math.cos(a1)} ${cy+rO*Math.sin(a1)}
-    A ${rO} ${rO} 0 ${delta>180?1:0} 0 ${cx+rO*Math.cos(a0)} ${cy+rO*Math.sin(a0)}
-    L ${cx+rI*Math.cos(a0)} ${cy+rI*Math.sin(a0)}
-    A ${rI} ${rI} 0 ${delta>180?1:0} 1 ${cx+rI*Math.cos(a1)} ${cy+rI*Math.sin(a1)}
-    Z
-  `);
-  svg.appendChild(path);
+async function esriQuery(params){
+  const url = new URL(LAYER_URL + "/query");
+  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k,v));
+  const r = await fetch(url);
+  const j = await r.json();
+  if (j.error) throw j.error;
+  return j;
+}
 
-  // ===== LINHA + TEXTO =====
-  const mid = angle + delta/2;
-  const rad = mid * Math.PI/180;
+/* ================= LOAD ================= */
 
-  const x1 = cx + rO * Math.cos(rad);
-  const y1 = cy + rO * Math.sin(rad);
-  const x2 = cx + (rO+8) * Math.cos(rad);
-  const y2 = cy + (rO+8) * Math.sin(rad);
-  const x3 = x2 + (Math.cos(rad) > 0 ? 6 : -6);
+async function load(){
+  const q = await esriQuery({
+    f:"json",
+    where:"cod_loja_zinflu2 IS NOT NULL AND cod_loja_zinflu2 <> '0'",
+    groupByFieldsForStatistics:FIELDS.canal,
+    outStatistics: JSON.stringify([
+      { statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"ATUAL" },
+      { statisticType:"sum", onStatisticField:FIELDS.valorAnterior, outStatisticFieldName:"ANT" }
+    ]),
+    returnGeometry:"false"
+  });
 
-  const line = document.createElementNS("http://www.w3.org/2000/svg","polyline");
-  line.setAttribute("points",`${x1},${y1} ${x2},${y2} ${x3},${y2}`);
-  line.setAttribute("class","line");
-  line.setAttribute("fill","none");
-  svg.appendChild(line);
+  const rows = q.features.map(f=>{
+    const c = f.attributes[FIELDS.canal];
+    return {
+      canal:c,
+      label:CANAL_LABEL[c],
+      atual:f.attributes.ATUAL,
+      ant:f.attributes.ANT,
+      color:COLORS[c]
+    };
+  });
 
-  const txt = document.createElementNS("http://www.w3.org/2000/svg","text");
-  txt.setAttribute("x",x3 + (Math.cos(rad)>0 ? 2 : -2));
-  txt.setAttribute("y",y2);
-  txt.setAttribute("text-anchor",Math.cos(rad)>0?"start":"end");
-  txt.setAttribute("dominant-baseline","middle");
-  txt.setAttribute("class","pctLabel");
-  txt.textContent = (pct*100).toFixed(1).replace(".",",")+"%";
-  svg.appendChild(txt);
+  render(rows);
+}
 
-  angle += delta;
-});
+/* ================= RENDER ================= */
 
-// ===== LEGENDA =====
-const legend = document.getElementById("legend");
-data.forEach(d=>{
-  legend.innerHTML += `
-    <div class="legItem">
-      <span class="swatch" style="background:${d.color}"></span>
-      <span>${d.label}</span>
-    </div>`;
-});
+function render(data){
+  const svg = document.getElementById("donut");
+  const tb  = document.getElementById("progBody");
+  const lg  = document.getElementById("legend");
 
-// ===== TABELA (PROGRESSÃO CORRETA) =====
-const tb = document.getElementById("progBody");
-data.forEach(d=>{
-  const prog = ((d.atual - d.ant) / d.ant) * 100;
-  tb.innerHTML += `
-    <tr>
-      <td>${d.label}</td>
-      <td>${prog.toFixed(2).replace(".",",")}%</td>
-    </tr>`;
-});
+  svg.innerHTML="";
+  tb.innerHTML="";
+  lg.innerHTML="";
+
+  const cx=50, cy=50, rO=46, rI=28;
+  const total = data.reduce((s,d)=>s+d.atual,0);
+
+  let angle = -90;
+
+  data.forEach(d=>{
+    const pct = d.atual / total;
+    const delta = pct * 360;
+
+    const a0 = angle * Math.PI/180;
+    const a1 = (angle+delta) * Math.PI/180;
+
+    const path = document.createElementNS("http://www.w3.org/2000/svg","path");
+    path.setAttribute("fill", d.color);
+    path.setAttribute("d",`
+      M ${cx+rO*Math.cos(a1)} ${cy+rO*Math.sin(a1)}
+      A ${rO} ${rO} 0 ${delta>180?1:0} 0 ${cx+rO*Math.cos(a0)} ${cy+rO*Math.sin(a0)}
+      L ${cx+rI*Math.cos(a0)} ${cy+rI*Math.sin(a0)}
+      A ${rI} ${rI} 0 ${delta>180?1:0} 1 ${cx+rI*Math.cos(a1)} ${cy+rI*Math.sin(a1)}
+      Z
+    `);
+    svg.appendChild(path);
+
+    angle += delta;
+  });
+
+  data.forEach(d=>{
+    const prog = (d.ant === 0)
+      ? 0
+      : ((d.atual - d.ant) / d.ant) * 100; // <<< AJUSTE
+
+    tb.innerHTML += `
+      <tr>
+        <td>${d.label}</td>
+        <td>${prog.toFixed(2).replace(".",",")}%</td>
+      </tr>
+    `;
+
+    lg.innerHTML += `
+      <div class="legItem">
+        <span class="swatch" style="background:${d.color}"></span>
+        <span>${d.label}</span>
+      </div>
+    `;
+  });
+}
+
+load();
 </script>
 </body>
 </html>

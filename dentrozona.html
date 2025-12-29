@@ -168,6 +168,7 @@ function buildWhere(removeMes=false){
   /* filtro fixo cod_loja_zinflu2 != '0' */
   p.push(`${FIELDS.codZ} IS NOT NULL`);
   p.push(`${FIELDS.codZ} <> '0'`);
+  p.push(`${FIELDS.codZ} <> '-1'`);
 
   const lojas  = list("loja");
   const meses  = list("mes");

@@ -13,7 +13,7 @@ html, body{
   background:transparent;
   overflow:hidden;
   font-family: Arial, Helvetica, sans-serif;
-  color:#444;
+  color:#444444;
 }
 #container{
   position:relative;
@@ -34,27 +34,43 @@ html, body{
 .spinner{
   width:22px;
   height:22px;
-  border:3px solid #ddd;
+  border:3px solid #dddddd;
   border-top-color:#2b7cff;
   border-radius:50%;
   animation:spin 1s linear infinite;
 }
 @keyframes spin{ to{ transform:rotate(360deg);} }
 .loading #content{ visibility:hidden; }
-.kpiWrap{
-  max-width:520px;
+#content{
   width:100%;
+  height:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:6px;
+}
+.kpiWrap{
+  width:100%;
+  max-width:520px;
   display:grid;
-  grid-template-columns:repeat(3,1fr);
+  grid-template-columns:repeat(3, 1fr);
+  border-radius:6px;
+  overflow:hidden;
 }
 .kpi{
-  background:#e3e3e3;
-  padding:10px;
   display:flex;
+  align-items:center;
   justify-content:center;
+  padding:10px 6px;
+  background:#e3e3e3;
 }
-.kpi + .kpi{ border-left:1px solid #fff; }
-.kpiValue{ font-size:11px; font-weight:600; display:flex; gap:4px; }
+.kpi + .kpi{ border-left:1px solid #ffffff; }
+.kpiValue{
+  display:flex;
+  gap:4px;
+  font-size:11px;
+  font-weight:600;
+}
 </style>
 </head>
 
@@ -76,41 +92,67 @@ const LAYER_URL =
  "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
 const FIELDS = {
+  loja:"id_loja_venda",
+  mes:"mes",
+  ano:"ano",
+  canal:"id_canal_venda",
+  secao:"secao",
   codZ:"cod_loja_zinflu2",
   valorAtual:"valor_vendas_atual",
   valorAnterior:"valor_vendas_anterior"
 };
 
-let currentSQLWhere = "1=1";
-
-window.addEventListener("message", e=>{
-  if(e.data?.type==="SPOTX_FILTER_CHANGE" && e.data.filters?.sqlWhere){
-    currentSQLWhere = e.data.filters.sqlWhere;
-    load();
-  }
-});
+const qs = new URLSearchParams(window.location.search);
 
 function showLoader(on){
-  document.getElementById("loader").style.display = on?"flex":"none";
-  document.body.classList.toggle("loading",on);
+  document.getElementById("loader").style.display = on ? "flex":"none";
+  document.body.classList.toggle("loading", on);
 }
-function fmtBR(n){ return Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:2}); }
-function fmtPct(n){ return Number(n||0).toFixed(2).replace(".",","); }
-
-function removeMes(sql){
-  return sql
-    .replace(/\s*AND\s+mes\s+IN\s*\([^)]+\)/gi,'')
-    .replace(/\s*AND\s+mes\s*=\s*'[^']+'/gi,'');
+function esc(s){ return String(s).replace(/'/g,"''"); }
+function list(n){
+  if(!qs.has(n)) return [];
+  return qs.get(n).split(",").map(v=>v.trim()).filter(Boolean);
 }
 
+/* ===== WHERE BASE (SEM ZONA) ===== */
+function buildWhereBase(removeMes=false){
+  const p=["1=1"];
+
+  const lojas=list("loja"),
+        meses=list("mes"),
+        anos=list("ano"),
+        canais=list("id_canal_venda"),
+        secoes=list("secao");
+
+  const hasZero=a=>a.includes("0");
+
+  if(lojas.length&&!hasZero(lojas))
+    p.push(`${FIELDS.loja} IN (${lojas.map(v=>`'${esc(v)}'`).join(",")})`);
+
+  if(!removeMes&&meses.length&&!hasZero(meses))
+    p.push(`${FIELDS.mes} IN (${meses.map(v=>`'${esc(v)}'`).join(",")})`);
+
+  if(anos.length&&!hasZero(anos))
+    p.push(`${FIELDS.ano} IN (${anos.map(v=>`'${esc(v)}'`).join(",")})`);
+
+  if(canais.length&&!hasZero(canais))
+    p.push(`${FIELDS.canal} IN (${canais.map(v=>`'${esc(v)}'`).join(",")})`);
+
+  if(secoes.length&&!hasZero(secoes))
+    p.push(`${FIELDS.secao} IN (${secoes.map(v=>`'${esc(v)}'`).join(",")})`);
+
+  return p.join(" AND ");
+}
+
+/* ===== WHERES ===== */
 function whereSelecionado(){
-  return `(${currentSQLWhere}) AND ${FIELDS.codZ} <> '0'`;
+  return `${buildWhereBase(false)} AND ${FIELDS.codZ} <> '0'`;
 }
 function whereTotalDentro(){
-  return `(${removeMes(currentSQLWhere)}) AND ${FIELDS.codZ} <> '0'`;
+  return `${buildWhereBase(true)} AND ${FIELDS.codZ} <> '0'`;
 }
 function whereTotalFora(){
-  return `(${removeMes(currentSQLWhere)}) AND ${FIELDS.codZ} = '0'`;
+  return `${buildWhereBase(true)} AND ${FIELDS.codZ} = '0'`;
 }
 
 async function esriQuery(p){
@@ -122,51 +164,51 @@ async function esriQuery(p){
   return j;
 }
 
+function fmtBR(n){ return Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:2}); }
+function fmtPct(n){ return Number(n||0).toFixed(2).replace(".",","); }
+
 async function load(){
   showLoader(true);
-  try{
-    const sel = await esriQuery({
-      f:"json",
-      where:whereSelecionado(),
-      outStatistics:JSON.stringify([
-        {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"A"},
-        {statisticType:"sum",onStatisticField:FIELDS.valorAnterior,outStatisticFieldName:"B"}
-      ]),
-      returnGeometry:false
-    });
 
-    const dentro = await esriQuery({
-      f:"json",
-      where:whereTotalDentro(),
-      outStatistics:JSON.stringify([
-        {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"TD"}
-      ]),
-      returnGeometry:false
-    });
+  const sel = await esriQuery({
+    f:"json",
+    where:whereSelecionado(),
+    outStatistics:JSON.stringify([
+      {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"A"},
+      {statisticType:"sum",onStatisticField:FIELDS.valorAnterior,outStatisticFieldName:"B"}
+    ]),
+    returnGeometry:false
+  });
 
-    const fora = await esriQuery({
-      f:"json",
-      where:whereTotalFora(),
-      outStatistics:JSON.stringify([
-        {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"TF"}
-      ]),
-      returnGeometry:false
-    });
+  const dentro = await esriQuery({
+    f:"json",
+    where:whereTotalDentro(),
+    outStatistics:JSON.stringify([
+      {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"TD"}
+    ]),
+    returnGeometry:false
+  });
 
-    const A=+sel.features?.[0]?.attributes?.A||0;
-    const B=+sel.features?.[0]?.attributes?.B||0;
-    const TD=+dentro.features?.[0]?.attributes?.TD||0;
-    const TF=+fora.features?.[0]?.attributes?.TF||0;
+  const fora = await esriQuery({
+    f:"json",
+    where:whereTotalFora(),
+    outStatistics:JSON.stringify([
+      {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"TF"}
+    ]),
+    returnGeometry:false
+  });
 
-    const T=TD+TF;
+  const A  = +sel.features?.[0]?.attributes?.A  || 0;
+  const B  = +sel.features?.[0]?.attributes?.B  || 0;
+  const TD = +dentro.features?.[0]?.attributes?.TD || 0;
+  const TF = +fora.features?.[0]?.attributes?.TF || 0;
 
-    vAtual.textContent=fmtBR(A);
-    vPct.textContent=fmtPct(T?(A/T)*100:0);
-    vProg.textContent=fmtPct(B?((A-B)/B)*100:0);
+  const T = TD + TF;
 
-  }catch(e){
-    console.error(e);
-  }
+  vAtual.textContent = fmtBR(A);
+  vPct.textContent   = fmtPct(T ? (A/T)*100 : 0);
+  vProg.textContent  = fmtPct(B ? ((A/B)-1)*100 : 0);
+
   showLoader(false);
 }
 

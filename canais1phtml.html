@@ -61,8 +61,7 @@ const LAYER_URL="https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One
 const FIELDS={loja:"id_loja_venda", mes:"mes", ano:"ano", canal:"id_canal_venda", secao:"secao", codZ:"cod_loja_zinflu2", valorAtual:"valor_vendas_atual", valorAnterior:"valor_vendas_anterior"};
 const qs=new URLSearchParams(window.location.search);
 const CANAL_LABEL={ "0":"Canal e-commerce","1":"Canal Loja Física","2":"Canal Televendas" };
-// CORES FIXAS POR CANAL
-const CANAL_COLOR={ "0":"#1F5A78","1":"#0B2E3F","2":"#F28C38" };
+const COLORS=["#1F5A78","#0B2E3F","#F28C38"]; // cores dinâmicas originais
 
 function showLoader(on){document.getElementById("loader").style.display=on?"flex":"none";}
 function showUI(on){const wrap=document.getElementById("wrap"); wrap.style.opacity=on?"1":"0"; wrap.style.pointerEvents=on?"auto":"none";}
@@ -96,12 +95,12 @@ function renderDonut(slices){
   bg.setAttribute("fill","none"); bg.setAttribute("stroke","#e5e7eb"); bg.setAttribute("stroke-width",(rOuter-rInner));
   svg.appendChild(bg);
   let angle=0;
-  slices.sort((a,b)=>b.pct-a.pct).forEach(s=>{
+  slices.sort((a,b)=>b.pct-a.pct).forEach((s,i)=>{
     const delta=(s.pct/100)*360; const start=angle,end=angle+delta;
     if(delta>0.15){
       const p=document.createElementNS("http://www.w3.org/2000/svg","path");
       p.setAttribute("d",arcPath(cx,cy,rOuter,rInner,start,end));
-      p.setAttribute("fill", CANAL_COLOR[s.canal] ); // COR FIXA
+      p.setAttribute("fill",COLORS[i % COLORS.length]); // cores dinâmicas originais
       const title=document.createElementNS("http://www.w3.org/2000/svg","title"); title.textContent=`${s.label}: ${fmtPctChart(s.pct)}`;
       p.appendChild(title); svg.appendChild(p);
       const mid=start+(delta/2); const pos=polarToCartesian(cx,cy,rOuter+10,mid);
@@ -115,9 +114,9 @@ function renderDonut(slices){
 
 function renderLegend(slices){
   const el=document.getElementById("legend"); el.innerHTML="";
-  slices.sort((a,b)=>b.pct-a.pct).forEach(s=>{
+  slices.sort((a,b)=>b.pct-a.pct).forEach((s,i)=>{
     const row=document.createElement("div"); row.className="legItem";
-    row.innerHTML=`<span class="swatch" style="background:${CANAL_COLOR[s.canal]}"></span><span>${s.label}</span>`;
+    row.innerHTML=`<span class="swatch" style="background:${COLORS[i % COLORS.length]}"></span><span>${s.label}</span>`;
     el.appendChild(row);
   });
 }
@@ -133,20 +132,20 @@ async function load(){
     const where=buildWhere();
     const totalQ=await esriQuery({f:"json",where,outStatistics:JSON.stringify([{statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"TOTAL_LOJA"}]),returnGeometry:"false"});
     const totalLoja=Number(totalQ.features?.[0]?.attributes?.TOTAL_LOJA||0);
-    if(totalLoja<=0){ const fallback=[{canal:"0",pct:0,label:"Sem dados"}]; renderDonut(fallback); renderLegend(fallback); renderProgTable([{label:"Sem dados",prog:"0,0%"}]); showLoader(false); showUI(true); return; }
+    if(totalLoja<=0){ const fallback=[{pct:0,label:"Sem dados"}]; renderDonut(fallback); renderLegend(fallback); renderProgTable([{label:"Sem dados",prog:"0,0%"}]); showLoader(false); showUI(true); return; }
 
     const byCanalQ=await esriQuery({f:"json",where,groupByFieldsForStatistics:FIELDS.canal,outStatistics:JSON.stringify([{statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"SOMA_ATUAL"},{statisticType:"sum",onStatisticField:FIELDS.valorAnterior,outStatisticFieldName:"SOMA_ANT"}]),outFields:FIELDS.canal,returnGeometry:"false"});
 
     const rows=(byCanalQ.features||[]).map(f=>({canal:String(f.attributes?.[FIELDS.canal]||""), somaAtual:Number(f.attributes?.SOMA_ATUAL||0), somaAnt:Number(f.attributes?.SOMA_ANT||0)})).filter(r=>r.canal!=="");
 
-    let slices=rows.map(r=>{
+    let slices=rows.map((r,i)=>{
       const pct=(r.somaAtual/totalLoja)*100;
       const rawLabel=CANAL_LABEL[r.canal]??`Canal ${r.canal}`;
       const label=cleanLabel(rawLabel);
       return {canal:r.canal,label,pct,somaAtual:r.somaAtual,somaAnt:r.somaAnt};
     }).filter(s=>s.pct>0);
 
-    if(!slices.length){ const fallback=[{canal:"0",pct:0,label:"Sem dados"}]; renderDonut(fallback); renderLegend(fallback); renderProgTable([{label:"Sem dados",prog:"0,0%"}]); showLoader(false); showUI(true); return; }
+    if(!slices.length){ const fallback=[{pct:0,label:"Sem dados"}]; renderDonut(fallback); renderLegend(fallback); renderProgTable([{label:"Sem dados",prog:"0,0%"}]); showLoader(false); showUI(true); return; }
 
     renderDonut(slices); renderLegend(slices);
 
@@ -154,7 +153,7 @@ async function load(){
     renderProgTable(tableRows);
 
     showLoader(false); showUI(true);
-  }catch(err){ console.error("Erro:",err); const fallback=[{canal:"0",pct:0,label:"Erro"}]; renderDonut(fallback); renderLegend(fallback); renderProgTable([{label:"Erro",prog:"0,00%"}]); showLoader(false); showUI(true);}
+  }catch(err){ console.error("Erro:",err); const fallback=[{pct:0,label:"Erro"}]; renderDonut(fallback); renderLegend(fallback); renderProgTable([{label:"Erro",prog:"0,00%"}]); showLoader(false); showUI(true);}
 }
 
 load();

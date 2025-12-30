@@ -335,7 +335,7 @@ async function esriQuery(params){
 }
 function fmtPct1(n){
   if (!isFinite(n)) n = 0;
-  return n.toFixed(1).replace(".", ",") + "%";
+  return n.toFixed(2).replace(".", ",") + "%";
 }
 function cleanLabel(label){
   return String(label)

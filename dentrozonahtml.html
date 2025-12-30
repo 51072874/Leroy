@@ -34,7 +34,7 @@ html, body{
 .spinner{
   width:22px;
   height:22px;
-  border:3px solid #ddd;
+  border:3px solid #dddddd;
   border-top-color:#2b7cff;
   border-radius:50%;
   animation:spin 1s linear infinite;
@@ -53,8 +53,8 @@ html, body{
   max-width:520px;
   display:grid;
   grid-template-columns:repeat(3,1fr);
-  overflow:hidden;
   border-radius:6px;
+  overflow:hidden;
 }
 .kpi{
   background:#e3e3e3;
@@ -63,7 +63,7 @@ html, body{
   justify-content:center;
   padding:10px;
 }
-.kpi + .kpi{ border-left:1px solid #fff; }
+.kpi + .kpi{ border-left:1px solid #ffffff; }
 .kpiValue{
   font-size:11px;
   font-weight:600;
@@ -105,8 +105,8 @@ const FIELDS = {
 /* ================= FILTROS (WIDGET) ================= */
 let currentSQLWhere = null;
 
-window.addEventListener('message', function(event) {
-  if (event.data.type === 'SPOTX_FILTER_CHANGE' && event.data.filters?.sqlWhere) {
+window.addEventListener("message", function(event){
+  if(event.data?.type === "SPOTX_FILTER_CHANGE" && event.data.filters?.sqlWhere){
     currentSQLWhere = event.data.filters.sqlWhere;
     load();
   }
@@ -124,41 +124,42 @@ function fmtPct(n){
   return Number(n||0).toFixed(2).replace(".",",");
 }
 
-/* ================= WHERE BASE ================= */
-function buildWhereBase(removeMes=false){
-  let sql = currentSQLWhere && currentSQLWhere !== "1=1"
-    ? currentSQLWhere
-    : "1=1";
-
-  if(removeMes){
-    sql = sql.replace(/\s*AND\s+mes\s+IN\s*\([^)]+\)/gi,'')
-             .replace(/\s*AND\s+mes\s*=\s*'[^']+'/gi,'');
-  }
-  return sql;
+/* ================= SQL HELPERS ================= */
+function removeMesFromSQL(sql){
+  if(!sql) return "1=1";
+  return sql
+    .replace(/\s*AND\s+mes\s+IN\s*\([^)]+\)/gi,'')
+    .replace(/\s*AND\s+mes\s*=\s*'[^']+'/gi,'');
 }
 
 /* ================= WHERES ================= */
-// 🔹 Selecionado (DENTRO da zona)
+// 🔹 A → DENTRO DA ZONA (COM MÊS)
 function whereSelecionado(){
-  return `${buildWhereBase(false)} AND ${FIELDS.codZ} <> '0'`;
+  const base = currentSQLWhere && currentSQLWhere !== "1=1"
+    ? currentSQLWhere
+    : "1=1";
+
+  return `${base} AND ${FIELDS.codZ} <> '0'`;
 }
 
-// 🔹 Total dentro
+// 🔹 TOTAL DENTRO (SEM MÊS)
 function whereTotalDentro(){
-  return `${buildWhereBase(true)} AND ${FIELDS.codZ} <> '0'`;
+  const base = removeMesFromSQL(currentSQLWhere || "1=1");
+  return `${base} AND ${FIELDS.codZ} <> '0'`;
 }
 
-// 🔹 Total fora
+// 🔹 TOTAL FORA (SEM MÊS)
 function whereTotalFora(){
-  return `${buildWhereBase(true)} AND ${FIELDS.codZ} = '0'`;
+  const base = removeMesFromSQL(currentSQLWhere || "1=1");
+  return `${base} AND ${FIELDS.codZ} = '0'`;
 }
 
 /* ================= QUERY ================= */
 async function esriQuery(params){
-  const u=new URL(LAYER_URL+"/query");
-  Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v));
-  const r=await fetch(u);
-  const j=await r.json();
+  const u = new URL(LAYER_URL + "/query");
+  Object.entries(params).forEach(([k,v]) => u.searchParams.set(k,v));
+  const r = await fetch(u);
+  const j = await r.json();
   if(j.error) throw j.error;
   return j;
 }
@@ -207,7 +208,7 @@ async function load(){
     document.getElementById("vProg").textContent  = fmtPct(B ? ((A-B)/B)*100 : 0);
 
   }catch(e){
-    console.error(e);
+    console.error("Erro KPI:", e);
     document.getElementById("vAtual").textContent="Erro";
     document.getElementById("vPct").textContent="—";
     document.getElementById("vProg").textContent="—";

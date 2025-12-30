@@ -184,16 +184,10 @@ function list(n){
 }
 
 /* ===== BUILD WHERE (IGNORA =0 PARA TODOS OS PARAMETROS) ===== */
-function buildWhere(removeMes=false){
+function buildWhere(removeMes=false, removeZona=false){
   // 🎯 PRIORIDADE 1: Usar SQL do widget de filtro
   if (currentSQLWhere && currentSQLWhere !== "1=1") {
     let sqlBase = currentSQLWhere;
-    
-    // Adicionar filtro fixo cod_loja_zinflu2
-    const fixedFilters = [
-      `${FIELDS.codZ} IS NOT NULL`,
-      `${FIELDS.codZ} <> '0'`
-    ];
     
     // Se precisar remover mês, fazer isso aqui
     if (removeMes) {
@@ -202,17 +196,32 @@ function buildWhere(removeMes=false){
       sqlBase = sqlBase.replace(/\s*AND\s+mes\s*=\s*'[^']+'/gi, '');
     }
     
-    const finalSQL = `${sqlBase} AND ${fixedFilters.join(" AND ")}`;
-    console.log(`✅ SQL KPI (removeMes=${removeMes}):`, finalSQL);
-    return finalSQL;
+    // Se NÃO remover zona, adicionar filtro fixo cod_loja_zinflu2
+    if (!removeZona) {
+      const fixedFilters = [
+        `${FIELDS.codZ} IS NOT NULL`,
+        `${FIELDS.codZ} <> '0'`
+      ];
+      sqlBase = `${sqlBase} AND ${fixedFilters.join(" AND ")}`;
+    } else {
+      // Se remover zona, limpar filtros de cod_loja_zinflu2 do SQL
+      sqlBase = sqlBase.replace(/\s*AND\s+cod_loja_zinflu2\s+IS\s+NOT\s+NULL/gi, '');
+      sqlBase = sqlBase.replace(/\s*AND\s+cod_loja_zinflu2\s*<>\s*'0'/gi, '');
+      sqlBase = sqlBase.replace(/\s*AND\s+cod_loja_zinflu2\s+IN\s*\([^)]+\)/gi, '');
+    }
+    
+    console.log(`✅ SQL KPI (removeMes=${removeMes}, removeZona=${removeZona}):`, sqlBase);
+    return sqlBase;
   }
 
   // 🎯 PRIORIDADE 2: Usar parâmetros da URL (fallback)
   const p=["1=1"];
 
-  /* filtro fixo cod_loja_zinflu2 != '0' */
-  p.push(`${FIELDS.codZ} IS NOT NULL`);
-  p.push(`${FIELDS.codZ} <> '0'`);
+  /* filtro fixo cod_loja_zinflu2 != '0' (se não remover zona) */
+  if (!removeZona) {
+    p.push(`${FIELDS.codZ} IS NOT NULL`);
+    p.push(`${FIELDS.codZ} <> '0'`);
+  }
 
   const lojas  = list("loja");
   const meses  = list("mes");
@@ -270,8 +279,9 @@ async function load(){
   showLoader(true);
 
   try {
-    const wSel = buildWhere(false); // com mes
-    const wAll = buildWhere(true);  // sem mes
+    const wSel = buildWhere(false, false); // com mes, com zona
+    const wAll = buildWhere(true, false);  // sem mes, com zona
+    const wNoZona = buildWhere(false, true); // com mes, SEM zona (para calcular %)
 
     const sel = await esriQuery({
       f:"json", where:wSel,
@@ -290,13 +300,22 @@ async function load(){
       returnGeometry:"false"
     });
 
+    const noZona = await esriQuery({
+      f:"json", where:wNoZona,
+      outStatistics:JSON.stringify([
+        {statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"Z"}
+      ]),
+      returnGeometry:"false"
+    });
+
     const a=sel.features?.[0]?.attributes||{};
     const b=all.features?.[0]?.attributes||{};
+    const c=noZona.features?.[0]?.attributes||{};
 
-    const atual=+a.A||0, ant=+a.B||0, total=+b.T||0;
+    const atual=+a.A||0, ant=+a.B||0, total=+b.T||0, semZona=+c.Z||0;
 
     document.getElementById("vAtual").textContent = fmtBR(atual);
-    document.getElementById("vPct").textContent   = fmtPct(total ? (atual/total)*100 : 0);
+    document.getElementById("vPct").textContent   = fmtPct(semZona ? (atual/semZona)*100 : 0);
     document.getElementById("vProg").textContent  = fmtPct(ant ? ((atual/ant)-1)*100 : 0);
 
   } catch(e) {

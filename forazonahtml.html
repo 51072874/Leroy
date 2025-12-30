@@ -30,7 +30,6 @@ html, body{
   align-items:center;
   justify-content:center;
   z-index:10;
-  pointer-events:none;
 }
 .spinner{
   width:22px;
@@ -42,39 +41,35 @@ html, body{
 }
 @keyframes spin{ to{ transform:rotate(360deg);} }
 .loading #content{ visibility:hidden; }
+
 #content{
   width:100%;
   height:100%;
   display:flex;
   align-items:center;
   justify-content:center;
-  padding:6px;
 }
 .kpiWrap{
-  width:100%;
   max-width:520px;
+  width:100%;
   display:grid;
   grid-template-columns:repeat(3,1fr);
-  border-radius:6px;
   overflow:hidden;
+  border-radius:6px;
 }
 .kpi{
+  background:#e3e3e3;
   display:flex;
   align-items:center;
   justify-content:center;
-  padding:10px 6px;
-  background:#e3e3e3;
+  padding:10px;
 }
-.kpi + .kpi{
-  border-left:1px solid #ffffff;
-}
+.kpi + .kpi{ border-left:1px solid #fff; }
 .kpiValue{
-  display:flex;
-  align-items:baseline;
-  gap:4px;
   font-size:11px;
   font-weight:600;
-  white-space:nowrap;
+  display:flex;
+  gap:4px;
 }
 </style>
 </head>
@@ -109,30 +104,39 @@ const FIELDS = {
 
 const qs = new URLSearchParams(window.location.search);
 
+/* ================= UTIL ================= */
 function showLoader(on){
   document.getElementById("loader").style.display = on ? "flex":"none";
   document.body.classList.toggle("loading", on);
 }
-function esc(s){ return String(s).replace(/'/g,"''"); }
+function esc(v){ return String(v).replace(/'/g,"''"); }
 function list(n){
   if(!qs.has(n)) return [];
   return qs.get(n).split(",").map(v=>v.trim()).filter(Boolean);
 }
+function fmtBR(n){
+  return Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:2});
+}
+function fmtPct(n){
+  return Number(n||0).toFixed(2).replace(".",",");
+}
 
-/* WHERE ATUAL / ANTERIOR */
-function buildWhere(removeMes=false){
+/* ============ WHERE BASE (FILTROS URL) ============ */
+function buildWhereBase(){
   const p=["1=1"];
-  p.push(`${FIELDS.codZ} = '0'`);
 
-  const lojas=list("loja"), meses=list("mes"), anos=list("ano"),
-        canais=list("id_canal_venda"), secoes=list("secao");
+  const lojas=list("loja"),
+        meses=list("mes"),
+        anos=list("ano"),
+        canais=list("id_canal_venda"),
+        secoes=list("secao");
 
   const hasZero=a=>a.includes("0");
 
   if(lojas.length&&!hasZero(lojas))
     p.push(`${FIELDS.loja} IN (${lojas.map(v=>`'${esc(v)}'`).join(",")})`);
 
-  if(!removeMes&&meses.length&&!hasZero(meses))
+  if(meses.length&&!hasZero(meses))
     p.push(`${FIELDS.mes} IN (${meses.map(v=>`'${esc(v)}'`).join(",")})`);
 
   if(anos.length&&!hasZero(anos))
@@ -144,63 +148,80 @@ function buildWhere(removeMes=false){
   if(secoes.length&&!hasZero(secoes))
     p.push(`${FIELDS.secao} IN (${secoes.map(v=>`'${esc(v)}'`).join(",")})`);
 
+  return p;
+}
+
+/* ============ WHERES ESPECÍFICOS ============ */
+function whereSelecionado(){
+  const p = buildWhereBase();
+  p.push(`${FIELDS.codZ} = '0'`);
   return p.join(" AND ");
 }
 
-/* WHERE TOTAL REAL */
-function buildWhereTotal(){
-  return [
-    "1=1",
-    `${FIELDS.codZ} = '0'`
-  ].join(" AND ");
+function whereTotalFora(){
+  const p = buildWhereBase();
+  p.push(`${FIELDS.codZ} = '0'`);
+  return p.join(" AND ");
 }
 
+function whereTotalDentro(){
+  const p = buildWhereBase();
+  p.push(`${FIELDS.codZ} <> '0'`);
+  return p.join(" AND ");
+}
+
+/* ============ QUERY ============ */
 async function esriQuery(params){
   const u=new URL(LAYER_URL+"/query");
   Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v));
   const r=await fetch(u);
   const j=await r.json();
-  if(!r.ok||j.error) throw j.error;
+  if(j.error) throw j.error;
   return j;
 }
 
-function fmtBR(n){
-  return Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
-}
-function fmtPct(n){ return Number(n||0).toFixed(2).replace(".",","); }
-
+/* ============ LOAD ============ */
 async function load(){
   showLoader(true);
 
-  const wSel   = buildWhere(false);
-  const wTotal = buildWhereTotal();
-
   const sel = await esriQuery({
     f:"json",
-    where:wSel,
+    where:whereSelecionado(),
     outStatistics:JSON.stringify([
-      {statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"A"},
-      {statisticType:"sum", onStatisticField:FIELDS.valorAnterior, outStatisticFieldName:"B"}
+      {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"A"},
+      {statisticType:"sum",onStatisticField:FIELDS.valorAnterior,outStatisticFieldName:"B"}
     ]),
-    returnGeometry:"false"
+    returnGeometry:false
   });
 
-  const all = await esriQuery({
+  const fora = await esriQuery({
     f:"json",
-    where:wTotal,
+    where:whereTotalFora(),
     outStatistics:JSON.stringify([
-      {statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"T"}
+      {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"TF"}
     ]),
-    returnGeometry:"false"
+    returnGeometry:false
   });
 
-  const A=+sel.features?.[0]?.attributes?.A||0;
-  const B=+sel.features?.[0]?.attributes?.B||0;
-  const T=+all.features?.[0]?.attributes?.T||0;
+  const dentro = await esriQuery({
+    f:"json",
+    where:whereTotalDentro(),
+    outStatistics:JSON.stringify([
+      {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"TD"}
+    ]),
+    returnGeometry:false
+  });
+
+  const A  = +sel.features?.[0]?.attributes?.A  || 0;
+  const B  = +sel.features?.[0]?.attributes?.B  || 0;
+  const TF = +fora.features?.[0]?.attributes?.TF || 0;
+  const TD = +dentro.features?.[0]?.attributes?.TD || 0;
+
+  const T = TF + TD;
 
   document.getElementById("vAtual").textContent = fmtBR(A);
-  document.getElementById("vPct").textContent   = fmtPct(T ? (A / T) * 100 : 0);
-  document.getElementById("vProg").textContent  = fmtPct(B ? ((A - B) / B) * 100 : 0);
+  document.getElementById("vPct").textContent   = fmtPct(T ? (A/T)*100 : 0);
+  document.getElementById("vProg").textContent  = fmtPct(B ? ((A-B)/B)*100 : 0);
 
   showLoader(false);
 }

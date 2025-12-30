@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-br">
 <head>
-  <me<meta charset="ISO-8859-1">
+  <meta charset="ISO-8859-1">
 <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
 
   <style>
@@ -60,7 +60,7 @@
     .rows{
       display:flex;
       flex-direction:column;
-      gap:7px; /* mantém o espaçamento atual */
+      gap:7px;
     }
 
     .row{
@@ -76,7 +76,7 @@
       color:#374151;
     }
 
-    /* BARRAS – espessura 25px */
+    /* BARRAS */
     .barTrack{
       height:25px;
       border-radius:7px;
@@ -157,9 +157,7 @@
       .axis{ padding-left:46px; padding-right:146px; }
     }
 
-    /* =========================
-       LEGENDA (botão abre/fecha)
-       ========================= */
+    /* LEGENDA */
     .legendWrap{
       position:fixed;
       right:2px;
@@ -169,7 +167,7 @@
       flex-direction:column;
       align-items:flex-end;
       gap:6px;
-      pointer-events:none; /* libera o painel/botão individualmente */
+      pointer-events:none;
     }
 
     .legendPanel{
@@ -247,7 +245,6 @@
     <div class="loading"><div class="spinner"></div></div>
   </div>
 
-  <!-- Legenda fixa (abre/fecha) -->
   <div class="legendWrap" id="legendWrap" aria-live="polite">
     <div class="legendPanel" role="dialog" aria-label="Legenda Renda Média">
       <div class="legendTitle">Renda Média</div>
@@ -339,7 +336,7 @@ function safeDiv(a,b){ a=Number(a)||0; b=Number(b)||0; return b===0?0:a/b; }
 function escSql(s){ return String(s).replaceAll("'","''"); }
 
 function fmtPct(x){
-  const v = Math.round((x||0)*10)/10;
+  const v = (x||0);
   return v.toFixed(2).replace(".",",")+"%";
 }
 function fmtPctBar(x){
@@ -390,9 +387,12 @@ function normalize(rows){
   const ord=CLASSES_ORDER.map(c=>map.get(c)||{classe:c,v:0,c:0,va:0,ca:0});
   const total=ord.reduce((s,r)=>s+r.v,0);
 
+  console.log("Dados brutos:", rows);
+  
   return ord.map(r=>{
     const pctBar=safeDiv(r.v,total)*100;
     const prog=r.va===0?0:((safeDiv(r.v,r.va))-1)*100;
+    console.log(`${r.classe}: v=${r.v}, va=${r.va}, prog=${prog.toFixed(2)}%`);
     return{classe:r.classe,pctBar,prog};
   });
 }
@@ -429,7 +429,6 @@ function render(data){
     </div>`;
 }
 
-/* Toggle legenda */
 (function initLegend(){
   const wrap = document.getElementById("legendWrap");
   const btn  = document.getElementById("legendBtn");

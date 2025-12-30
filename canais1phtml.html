@@ -266,9 +266,6 @@ const CANAL_COLOR = {
   "2": "#0B2E3F"
 };
 
-/* Ordem fixa de canais para manter cores consistentes */
-const CANAL_ORDER = ["0","1","2"];
-
 /* fallback */
 const COLORS = ["#1F5A78", "#0B2E3F", "#F28C38"];
 
@@ -340,7 +337,7 @@ function renderDonut(slices){
   bg.setAttribute("stroke-width",(rOuter-rInner));
   svg.appendChild(bg);
 
-  const ordered = [...slices].sort((a,b)=>CANAL_ORDER.indexOf(a.canal)-CANAL_ORDER.indexOf(b.canal));
+  const ordered = [...slices].sort((a,b)=>b.pct-a.pct);
 
   let angle=0;
   ordered.forEach(s=>{
@@ -371,7 +368,7 @@ function renderDonut(slices){
 }
 function renderLegend(slices){
   const el=document.getElementById("legend"); el.innerHTML="";
-  const ordered = [...slices].sort((a,b)=>CANAL_ORDER.indexOf(a.canal)-CANAL_ORDER.indexOf(b.canal));
+  const ordered = [...slices].sort((a,b)=>b.pct-a.pct);
   ordered.forEach(s=>{
     const row=document.createElement("div");
     row.className="legItem";
@@ -438,7 +435,7 @@ async function load(){
       showLoader(false); showUI(true); return;
     }
 
-    slices.sort((a,b)=>CANAL_ORDER.indexOf(a.canal)-CANAL_ORDER.indexOf(b.canal));
+    slices.sort((a,b)=>b.pct-a.pct);
     renderDonut(slices); renderLegend(slices);
 
     const tableRows = slices.map(s=>{

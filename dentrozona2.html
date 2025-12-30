@@ -196,19 +196,15 @@ function buildWhere(removeMes=false, removeZona=false){
       sqlBase = sqlBase.replace(/\s*AND\s+mes\s*=\s*'[^']+'/gi, '');
     }
     
-    // Se NÃO remover zona, adicionar filtro fixo cod_loja_zinflu2
+    // Sempre adicionar filtro fixo cod_loja_zinflu2, EXCETO quando removeZona=true
     if (!removeZona) {
       const fixedFilters = [
         `${FIELDS.codZ} IS NOT NULL`,
         `${FIELDS.codZ} <> '0'`
       ];
       sqlBase = `${sqlBase} AND ${fixedFilters.join(" AND ")}`;
-    } else {
-      // Se remover zona, limpar filtros de cod_loja_zinflu2 do SQL
-      sqlBase = sqlBase.replace(/\s*AND\s+cod_loja_zinflu2\s+IS\s+NOT\s+NULL/gi, '');
-      sqlBase = sqlBase.replace(/\s*AND\s+cod_loja_zinflu2\s*<>\s*'0'/gi, '');
-      sqlBase = sqlBase.replace(/\s*AND\s+cod_loja_zinflu2\s+IN\s*\([^)]+\)/gi, '');
     }
+    // Quando removeZona=true, não adiciona o filtro fixo, mas mantém o SQL base intacto
     
     console.log(`✅ SQL KPI (removeMes=${removeMes}, removeZona=${removeZona}):`, sqlBase);
     return sqlBase;

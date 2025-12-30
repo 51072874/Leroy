@@ -15,7 +15,6 @@ html, body{
   font-family: Arial, Helvetica, sans-serif;
   color:#444444;
 }
-
 #container{
   position:relative;
   width:100%;
@@ -24,7 +23,6 @@ html, body{
   align-items:center;
   justify-content:center;
 }
-
 #loader{
   position:absolute;
   inset:0;
@@ -32,58 +30,45 @@ html, body{
   align-items:center;
   justify-content:center;
   z-index:10;
-  pointer-events:none;
 }
-
 .spinner{
   width:22px;
   height:22px;
-  border:3px solid #dddddd;
+  border:3px solid #ddd;
   border-top-color:#2b7cff;
   border-radius:50%;
   animation:spin 1s linear infinite;
 }
 @keyframes spin{ to{ transform:rotate(360deg);} }
-
 .loading #content{ visibility:hidden; }
-
 #content{
   width:100%;
   height:100%;
   display:flex;
   align-items:center;
   justify-content:center;
-  padding:6px;
 }
-
 .kpiWrap{
   width:100%;
   max-width:520px;
   display:grid;
   grid-template-columns:repeat(3,1fr);
-  border-radius:6px;
   overflow:hidden;
+  border-radius:6px;
 }
-
 .kpi{
+  background:#e3e3e3;
   display:flex;
   align-items:center;
   justify-content:center;
-  padding:10px 6px;
-  background:#e3e3e3;
+  padding:10px;
 }
-
-.kpi + .kpi{
-  border-left:1px solid #ffffff;
-}
-
+.kpi + .kpi{ border-left:1px solid #fff; }
 .kpiValue{
-  display:flex;
-  align-items:baseline;
-  gap:4px;
   font-size:11px;
   font-weight:600;
-  white-space:nowrap;
+  display:flex;
+  gap:4px;
 }
 </style>
 </head>
@@ -94,23 +79,9 @@ html, body{
 
   <div id="content">
     <div class="kpiWrap">
-      <div class="kpi">
-        <div class="kpiValue">
-          <span>R$</span><span id="vAtual">—</span>
-        </div>
-      </div>
-
-      <div class="kpi">
-        <div class="kpiValue">
-          <span id="vPct">—</span><span>%</span>
-        </div>
-      </div>
-
-      <div class="kpi">
-        <div class="kpiValue">
-          <span id="vProg">—</span><span>%</span>
-        </div>
-      </div>
+      <div class="kpi"><div class="kpiValue"><span>R$</span><span id="vAtual">—</span></div></div>
+      <div class="kpi"><div class="kpiValue"><span id="vPct">—</span><span>%</span></div></div>
+      <div class="kpi"><div class="kpiValue"><span id="vProg">—</span><span>%</span></div></div>
     </div>
   </div>
 </div>
@@ -131,117 +102,116 @@ const FIELDS = {
   valorAnterior:"valor_vendas_anterior"
 };
 
-const qs = new URLSearchParams(window.location.search);
+/* ================= FILTROS (WIDGET) ================= */
+let currentSQLWhere = null;
+
+window.addEventListener('message', function(event) {
+  if (event.data.type === 'SPOTX_FILTER_CHANGE' && event.data.filters?.sqlWhere) {
+    currentSQLWhere = event.data.filters.sqlWhere;
+    load();
+  }
+});
 
 /* ================= UTIL ================= */
 function showLoader(on){
   document.getElementById("loader").style.display = on ? "flex":"none";
   document.body.classList.toggle("loading", on);
 }
-
-function esc(s){ return String(s).replace(/'/g,"''"); }
-
-function list(n){
-  if(!qs.has(n)) return [];
-  return qs.get(n).split(",").map(v=>v.trim()).filter(Boolean);
-}
-
-/* ===== WHERE ATUAL / ANTERIOR (SEUS FILTROS ORIGINAIS) ===== */
-function buildWhere(removeMes=false){
-  const p=["1=1"];
-  p.push(`${FIELDS.codZ} IS NOT NULL`);
-  p.push(`${FIELDS.codZ} <> '0'`);
-  p.push(`${FIELDS.codZ} <> '-1'`);
-
-  const lojas=list("loja"),
-        meses=list("mes"),
-        anos=list("ano"),
-        canais=list("id_canal_venda"),
-        secoes=list("secao");
-
-  const hasZero=a=>a.includes("0");
-
-  if(lojas.length&&!hasZero(lojas))
-    p.push(`${FIELDS.loja} IN (${lojas.map(v=>`'${esc(v)}'`).join(",")})`);
-
-  if(!removeMes&&meses.length&&!hasZero(meses))
-    p.push(`${FIELDS.mes} IN (${meses.map(v=>`'${esc(v)}'`).join(",")})`);
-
-  if(anos.length&&!hasZero(anos))
-    p.push(`${FIELDS.ano} IN (${anos.map(v=>`'${esc(v)}'`).join(",")})`);
-
-  if(canais.length&&!hasZero(canais))
-    p.push(`${FIELDS.canal} IN (${canais.map(v=>`'${esc(v)}'`).join(",")})`);
-
-  if(secoes.length&&!hasZero(secoes))
-    p.push(`${FIELDS.secao} IN (${secoes.map(v=>`'${esc(v)}'`).join(",")})`);
-
-  return p.join(" AND ");
-}
-
-/* ===== WHERE TOTAL (APENAS BASE GLOBAL) ===== */
-function buildWhereTotal(){
-  return [
-    "1=1",
-    `${FIELDS.codZ} IS NOT NULL`,
-    `${FIELDS.codZ} <> '0'`,
-    `${FIELDS.codZ} <> '-1'`
-  ].join(" AND ");
-}
-
-async function esriQuery(params){
-  const u=new URL(LAYER_URL+"/query");
-  Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v));
-  const r=await fetch(u);
-  const j=await r.json();
-  if(!r.ok||j.error) throw j.error;
-  return j;
-}
-
 function fmtBR(n){
-  return Number(n||0).toLocaleString("pt-BR",{
-    minimumFractionDigits:2,
-    maximumFractionDigits:2
-  });
+  return Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:2});
 }
 function fmtPct(n){
   return Number(n||0).toFixed(2).replace(".",",");
 }
 
+/* ================= WHERE BASE ================= */
+function buildWhereBase(removeMes=false){
+  let sql = currentSQLWhere && currentSQLWhere !== "1=1"
+    ? currentSQLWhere
+    : "1=1";
+
+  if(removeMes){
+    sql = sql.replace(/\s*AND\s+mes\s+IN\s*\([^)]+\)/gi,'')
+             .replace(/\s*AND\s+mes\s*=\s*'[^']+'/gi,'');
+  }
+  return sql;
+}
+
+/* ================= WHERES ================= */
+// 🔹 Selecionado (DENTRO da zona)
+function whereSelecionado(){
+  return `${buildWhereBase(false)} AND ${FIELDS.codZ} <> '0'`;
+}
+
+// 🔹 Total dentro
+function whereTotalDentro(){
+  return `${buildWhereBase(true)} AND ${FIELDS.codZ} <> '0'`;
+}
+
+// 🔹 Total fora
+function whereTotalFora(){
+  return `${buildWhereBase(true)} AND ${FIELDS.codZ} = '0'`;
+}
+
+/* ================= QUERY ================= */
+async function esriQuery(params){
+  const u=new URL(LAYER_URL+"/query");
+  Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v));
+  const r=await fetch(u);
+  const j=await r.json();
+  if(j.error) throw j.error;
+  return j;
+}
+
 /* ================= LOAD ================= */
 async function load(){
   showLoader(true);
+  try{
+    const sel = await esriQuery({
+      f:"json",
+      where:whereSelecionado(),
+      outStatistics:JSON.stringify([
+        {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"A"},
+        {statisticType:"sum",onStatisticField:FIELDS.valorAnterior,outStatisticFieldName:"B"}
+      ]),
+      returnGeometry:false
+    });
 
-  const wSel   = buildWhere(false);   // atual / anterior
-  const wTotal = buildWhereTotal();   // TOTAL REAL
+    const dentro = await esriQuery({
+      f:"json",
+      where:whereTotalDentro(),
+      outStatistics:JSON.stringify([
+        {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"TD"}
+      ]),
+      returnGeometry:false
+    });
 
-  const sel = await esriQuery({
-    f:"json",
-    where:wSel,
-    outStatistics:JSON.stringify([
-      {statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"A"},
-      {statisticType:"sum", onStatisticField:FIELDS.valorAnterior, outStatisticFieldName:"B"}
-    ]),
-    returnGeometry:"false"
-  });
+    const fora = await esriQuery({
+      f:"json",
+      where:whereTotalFora(),
+      outStatistics:JSON.stringify([
+        {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"TF"}
+      ]),
+      returnGeometry:false
+    });
 
-  const all = await esriQuery({
-    f:"json",
-    where:wTotal,
-    outStatistics:JSON.stringify([
-      {statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"T"}
-    ]),
-    returnGeometry:"false"
-  });
+    const A  = +sel.features?.[0]?.attributes?.A  || 0;
+    const B  = +sel.features?.[0]?.attributes?.B  || 0;
+    const TD = +dentro.features?.[0]?.attributes?.TD || 0;
+    const TF = +fora.features?.[0]?.attributes?.TF || 0;
 
-  const A = +sel.features?.[0]?.attributes?.A || 0;
-  const B = +sel.features?.[0]?.attributes?.B || 0;
-  const T = +all.features?.[0]?.attributes?.T || 0;
+    const T = TD + TF;
 
-  document.getElementById("vAtual").textContent = fmtBR(A);
-  document.getElementById("vPct").textContent   = fmtPct(T ? (A / T) * 100 : 0);
-  document.getElementById("vProg").textContent  = fmtPct(B ? ((A - B) / B) * 100 : 0);
+    document.getElementById("vAtual").textContent = fmtBR(A);
+    document.getElementById("vPct").textContent   = fmtPct(T ? (A/T)*100 : 0);
+    document.getElementById("vProg").textContent  = fmtPct(B ? ((A-B)/B)*100 : 0);
 
+  }catch(e){
+    console.error(e);
+    document.getElementById("vAtual").textContent="Erro";
+    document.getElementById("vPct").textContent="—";
+    document.getElementById("vProg").textContent="—";
+  }
   showLoader(false);
 }
 

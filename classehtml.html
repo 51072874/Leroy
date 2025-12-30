@@ -391,7 +391,7 @@ function normalize(rows){
   
   return ord.map(r=>{
     const pctBar=safeDiv(r.v,total)*100;
-    const prog=r.va===0?0:((safeDiv(r.v,r.va))-1)*100;
+    const prog=r.va===0?0:((r.v/r.va)-1)*100;
     console.log(`${r.classe}: v=${r.v}, va=${r.va}, prog=${prog.toFixed(2)}%`);
     return{classe:r.classe,pctBar,prog};
   });

@@ -333,10 +333,17 @@ async function esriQuery(params){
   if (!r.ok || j.error) throw (j.error || { message:`HTTP ${r.status}` });
   return j;
 }
-function fmtPct1(n){
+
+function fmtPctChart(n){
+  if (!isFinite(n)) n = 0;
+  return n.toFixed(1).replace(".", ",") + "%";
+}
+
+function fmtPctTable(n){
   if (!isFinite(n)) n = 0;
   return n.toFixed(2).replace(".", ",") + "%";
 }
+  
 function cleanLabel(label){
   return String(label)
     .replace(/^Canal\s+de\s+/i, "")
@@ -394,7 +401,7 @@ function renderDonut(slices){
       p.setAttribute("fill", s.color);
 
       const title = document.createElementNS("http://www.w3.org/2000/svg","title");
-      title.textContent = `${s.label}: ${fmtPct1(s.pct)}`;
+      title.textContent = `${s.label}: ${fmtPctChart(s.pct)}`;
       p.appendChild(title);
       svg.appendChild(p);
 
@@ -412,7 +419,7 @@ function renderDonut(slices){
       txt.setAttribute("y", pos.y);
       txt.setAttribute("dominant-baseline", "middle");
       txt.setAttribute("class", "pctLabel");
-      txt.textContent = fmtPct1(s.pct);
+      txt.textContent = fmtPctChart(s.pct);
       svg.appendChild(txt);
     }
 
@@ -521,7 +528,7 @@ async function load(){
 
     const tableRows = slices.map(s => {
       const prog = (s.somaAnt === 0) ? 0 : ((s.somaAtual - s.somaAnt) / s.somaAnt) * 100;
-      return { label: s.label, prog: fmtPct1(prog) };
+      return { label: s.label, prog: fmtPctTable(prog) };
     });
 
     renderProgTable(tableRows);

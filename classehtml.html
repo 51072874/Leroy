@@ -340,7 +340,7 @@ function escSql(s){ return String(s).replaceAll("'","''"); }
 
 function fmtPct(x){
   const v = Math.round((x||0)*10)/10;
-  return v.toFixed(1).replace(".",",")+"%";
+  return v.toFixed(2).replace(".",",")+"%";
 }
 function fmtPctBar(x){
   const v = Math.round((x||0)*100)/100;

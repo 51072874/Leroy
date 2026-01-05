@@ -4,541 +4,385 @@
 <meta charset="utf-8"/>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
- 
+
 <style>
-
 html, body {
-
   margin: 0;
-
   padding: 0;
-
   height: 100%;
-
   background: #fff;
-
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
-
 }
- 
+
 #container {
-
   position: relative;
-
   height: 100%;
-
   width: 100%;
-
   padding: 10px;
-
   box-sizing: border-box;
-
 }
- 
-/* Loader */
 
+/* Loader: apenas o círculo (sem fundo) */
 #loader{
-
   position: absolute;
-
   inset: 0;
-
   display: flex;
-
   align-items: center;
-
   justify-content: center;
-
-  background: rgba(255,255,255,0.75);
-
+  background: transparent;     /* <<< sem overlay */
   z-index: 10;
-
+  pointer-events: none;        /* <<< não bloqueia interação */
 }
 
 .spinner{
-
   width: 42px;
-
   height: 42px;
-
   border: 4px solid #ddd;
-
   border-top-color: #2b7cff;
-
   border-radius: 50%;
-
   animation: spin 1s linear infinite;
-
 }
-
 @keyframes spin { to { transform: rotate(360deg); } }
- 
+
 /* Wrapper */
-
 .tableWrap{
-
   width: 100%;
-
   height: 100%;
-
   overflow: auto;
-
   border: 1px solid #e6e6e6;
-
   border-radius: 10px;
-
   background: #fff;
-
 }
- 
+
 /* Table */
-
 table{
-
   border-collapse: collapse;
-
   width: 100%;
-
   table-layout: fixed;
-
 }
- 
+
 /* Header */
-
 thead th{
-
   position: sticky;
-
   top: 0;
-
   background: #fafafa;
-
   z-index: 1;
-
   text-align: left;
-
   font-size: 12px;
-
   font-weight: 650;
-
-  padding: 7px 12px;          /* ? 30% */
-
+  padding: 7px 12px;
   line-height: 1.2;
-
   border-bottom: 1px solid #e6e6e6;
-
 }
- 
+
 /* Body */
-
 tbody td{
-
   font-size: 12px;
-
-  line-height: 1.2;           /* ? altura da linha */
-
-  padding: 7px 12px;          /* ? 30% */
-
-  border-bottom: 1px solid #f0f0f0;
-
-  vertical-align: top;
-
-}
- 
-tbody tr:hover{
-
-  background: #fcfcff;
-
-}
- 
-/* First column: Secao */
-
-td:first-child, th:first-child{
-
-  white-space: normal;
-
-  word-break: break-word;
-
-  overflow-wrap: anywhere;
-
-}
- 
-/* Numeric columns */
-
-.num{
-
-  text-align: right;
-
-  font-variant-numeric: tabular-nums;
-
-  white-space: nowrap;
-
-}
- 
-.pos{ color:#0a7a2f; }
-
-.neg{ color:#b00020; }
-
-.muted{ color:#666; }
- 
-/* Footer */
-
-tfoot td{
-
-  position: sticky;
-
-  bottom: 0;
-
-  background: #fafafa;
-
-  font-size: 12px;
-
   line-height: 1.2;
-
-  font-weight: 650;
-
-  padding: 7px 12px;          /* ? 30% */
-
-  border-top: 1px solid #e6e6e6;
-
+  padding: 7px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  vertical-align: top;
 }
- 
+
+tbody tr:hover{ background: #fcfcff; }
+
+/* First column: Secao */
+td:first-child, th:first-child{
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* Numeric columns */
+.num{
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pos{ color:#0a7a2f; }
+.neg{ color:#b00020; }
+.muted{ color:#666; }
+
+/* Footer */
+tfoot td{
+  position: sticky;
+  bottom: 0;
+  background: #fafafa;
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 650;
+  padding: 7px 12px;
+  border-top: 1px solid #e6e6e6;
+}
+
 /* Column widths */
-
 col.col-secao { width: auto; }
-
 col.col-pct   { width: 90px; }
-
 col.col-prog  { width: 90px; }
- 
+
 /* Mobile / iframe estreito */
-
 @media (max-width: 480px){
-
   #container{ padding: 6px; }
- 
+
   thead th,
-
   tbody td,
-
   tfoot td{
-
-    padding: 6px 8px;        /* ainda mais compacto */
-
+    padding: 6px 8px;
     font-size: 11px;
-
   }
- 
+
   col.col-pct,
-
   col.col-prog{
-
     width: 78px;
-
   }
-
 }
 </style>
 </head>
- 
+
 <body>
 <div id="container">
-<div id="loader"><div class="spinner"></div></div>
- 
+  <div id="loader"><div class="spinner"></div></div>
+
   <div class="tableWrap">
-<table>
-<colgroup>
-<col class="col-secao">
-<col class="col-pct">
-<col class="col-prog">
-</colgroup>
- 
+    <table>
+      <colgroup>
+        <col class="col-secao">
+        <col class="col-pct">
+        <col class="col-prog">
+      </colgroup>
+
       <thead>
-<tr>
-<th>Secao</th>
-<th class="num">% Vendas</th>
-<th class="num">Prog %</th>
-</tr>
-</thead>
- 
+        <tr>
+          <th>Secao</th>
+          <th class="num">% Vendas</th>
+          <th class="num">Prog %</th>
+        </tr>
+      </thead>
+
       <tbody id="tbody"></tbody>
- 
+
       <tfoot>
-<tr>
-<td>Total</td>
-<td class="num">100,00%</td>
-<td class="num" id="tProg"></td>
-</tr>
-</tfoot>
-</table>
+        <tr>
+          <td>Total</td>
+          <td class="num" id="tPerc"></td>
+          <td class="num" id="tProg"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
 </div>
-</div>
- 
+
 <script>
-
 /* ================= CONFIG ================= */
-
 const LAYER_URL =
-
   "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
- 
+
 const FIELDS = {
-
   loja: "id_loja_venda",
-
   mes: "mes",
-
   ano: "ano",
-
   canal: "id_canal_venda",
-
   secao: "secao",
-
   codZ: "cod_loja_zinflu2",
-
   valorAtual: "valor_vendas_atual",
-
   valorAnterior: "valor_vendas_anterior"
-
 };
- 
+
 const qs = new URLSearchParams(window.location.search);
- 
+
 /* ================= UTIL ================= */
-
 function showLoader(on){
-
   document.getElementById("loader").style.display = on ? "flex" : "none";
-
 }
- 
+
 function escapeSqlString(s){
-
   return String(s).replace(/'/g, "''");
-
 }
- 
+
 function parseList(name){
-
   if (!qs.has(name)) return [];
-
   return String(qs.get(name) || "")
-
     .split(",")
-
     .map(v => v.trim())
-
     .filter(v => v !== "");
-
 }
- 
-function buildWhere(){
 
-  const parts = ["1=1"];
- 
-  /* filtro fixo */
-
+/* >>>> FIXO (sempre aplicado) <<<< */
+function fixedParts(){
+  const parts = [];
   parts.push(`${FIELDS.codZ} IS NOT NULL`);
-
   parts.push(`${FIELDS.codZ} <> '0'`);
- 
+  return parts;
+}
+
+/* Where com seleção (para linhas e Prog %) */
+function buildWhere(){
+  const parts = ["1=1", ...fixedParts()];
+
   const lojas  = parseList("loja");
-
   const meses  = parseList("mes");
-
   const anos   = parseList("ano");
-
   const canais = parseList("id_canal_venda");
-
   const secoes = parseList("secao");
- 
+
   if (lojas.length)
-
     parts.push(`${FIELDS.loja} IN (${lojas.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
- 
+
   if (meses.length)
-
     parts.push(`${FIELDS.mes} IN (${meses.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
- 
+
   if (anos.length)
-
     parts.push(`${FIELDS.ano} IN (${anos.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
- 
+
   if (canais.length)
-
     parts.push(`${FIELDS.canal} IN (${canais.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
- 
+
   if (secoes.length)
-
     parts.push(`${FIELDS.secao} IN (${secoes.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
- 
+
   return parts.join(" AND ");
-
 }
- 
+
+/* Where GLOBAL (somente fixo) para base do % Vendas */
+function buildWhereGlobal(){
+  const parts = ["1=1", ...fixedParts()];
+  return parts.join(" AND ");
+}
+
 async function esriQuery(params){
-
   const url = new URL(LAYER_URL.replace(/\/+$/,"") + "/query");
-
   Object.entries(params).forEach(([k,v]) => url.searchParams.set(k,v));
-
   const r = await fetch(url.toString());
-
   const j = await r.json();
-
   if (!r.ok || j.error) throw (j.error || { message: `HTTP ${r.status}` });
-
   return j;
-
 }
- 
+
 function fmtBR(n){
-
   if (!isFinite(n)) n = 0;
-
   return n.toFixed(2).replace(".", ",");
-
 }
-
 function fmtPct(n){ return fmtBR(n) + "%"; }
- 
+
 /* ================= RENDER ================= */
-
-function renderTable(rows, totalAtual, totalAnterior){
-
+function renderTable(rows, totalAtualSel, totalAnteriorSel, globalTotalAtual){
   const tbody = document.getElementById("tbody");
-
   tbody.innerHTML = "";
- 
+
   rows.forEach(r => {
-
     const progClass = r.prog === null ? "muted" : (r.prog >= 0 ? "pos" : "neg");
-
     const tr = document.createElement("tr");
-
     tr.innerHTML = `
-<td>${r.secao}</td>
-<td class="num">${fmtPct(r.perc)}</td>
-<td class="num ${progClass}">${r.prog === null ? "—" : fmtPct(r.prog)}</td>
-
+      <td>${r.secao}</td>
+      <td class="num">${fmtPct(r.perc)}</td>
+      <td class="num ${progClass}">${r.prog === null ? "—" : fmtPct(r.prog)}</td>
     `;
-
     tbody.appendChild(tr);
-
   });
- 
+
+  /* Prog % total (NÃO ALTERAR): segue baseado na seleção */
   const progTotal =
-
-    totalAnterior && totalAnterior !== 0
-
-      ? ((totalAtual / totalAnterior) - 1) * 100
-
+    totalAnteriorSel && totalAnteriorSel !== 0
+      ? ((totalAtualSel / totalAnteriorSel) - 1) * 100
       : null;
- 
+
   const tProg = document.getElementById("tProg");
-
   tProg.textContent = progTotal === null ? "—" : fmtPct(progTotal);
-
   tProg.className = "num " + (progTotal === null ? "muted" : (progTotal >= 0 ? "pos" : "neg"));
 
+  /* % Vendas total: seleção / total global */
+  const tPerc = document.getElementById("tPerc");
+  const percTotalSel =
+    globalTotalAtual && globalTotalAtual !== 0
+      ? (totalAtualSel / globalTotalAtual) * 100
+      : 0;
+
+  tPerc.textContent = fmtPct(percTotalSel);
 }
- 
+
 /* ================= LOAD ================= */
-
 async function load(){
-
   showLoader(true);
- 
-  const where = buildWhere();
- 
+
+  const whereSel = buildWhere();
+  const whereGlobal = buildWhereGlobal();
+
+  /* Linhas por seção (SELEÇÃO) */
   const bySecao = await esriQuery({
-
     f: "json",
-
-    where,
-
+    where: whereSel,
     groupByFieldsForStatistics: FIELDS.secao,
-
     outStatistics: JSON.stringify([
-
       { statisticType: "sum", onStatisticField: FIELDS.valorAtual, outStatisticFieldName: "SUM_ATUAL" },
-
       { statisticType: "sum", onStatisticField: FIELDS.valorAnterior, outStatisticFieldName: "SUM_ANT" }
-
     ]),
-
     returnGeometry: "false"
-
   });
- 
-  const totalsQ = await esriQuery({
 
+  /* Totais da SELEÇÃO (para Prog % total e rodapé % vendas) */
+  const totalsSelQ = await esriQuery({
     f: "json",
-
-    where,
-
+    where: whereSel,
     outStatistics: JSON.stringify([
-
       { statisticType: "sum", onStatisticField: FIELDS.valorAtual, outStatisticFieldName: "TOTAL_ATUAL" },
-
       { statisticType: "sum", onStatisticField: FIELDS.valorAnterior, outStatisticFieldName: "TOTAL_ANT" }
-
     ]),
-
     returnGeometry: "false"
-
   });
- 
-  const tAtt = totalsQ.features?.[0]?.attributes || {};
 
-  const totalAtual = Number(tAtt.TOTAL_ATUAL || 0);
+  const tSelAtt = totalsSelQ.features?.[0]?.attributes || {};
+  const totalAtualSel = Number(tSelAtt.TOTAL_ATUAL || 0);
+  const totalAnteriorSel = Number(tSelAtt.TOTAL_ANT || 0);
 
-  const totalAnterior = Number(tAtt.TOTAL_ANT || 0);
- 
-  let rows = (bySecao.features || []).map(f => {
-
-    const a = f.attributes || {};
-
-    let sec = a[FIELDS.secao];
-
-    sec = (!sec || String(sec).trim() === "") ? "SEM_SECAO" : String(sec).trim();
- 
-    const atual = Number(a.SUM_ATUAL || 0);
-
-    const anterior = Number(a.SUM_ANT || 0);
- 
-    return {
-
-      secao: sec,
-
-      perc: totalAtual === 0 ? 0 : (atual / totalAtual) * 100,
-
-      prog: (anterior && anterior !== 0) ? ((atual / anterior) - 1) * 100 : null
-
-    };
-
+  /* TOTAL GLOBAL (para base do % Vendas) - somente filtros fixos */
+  const totalsGlobalQ = await esriQuery({
+    f: "json",
+    where: whereGlobal,
+    outStatistics: JSON.stringify([
+      { statisticType: "sum", onStatisticField: FIELDS.valorAtual, outStatisticFieldName: "GLOBAL_TOTAL_ATUAL" }
+    ]),
+    returnGeometry: "false"
   });
- 
+
+  const tGlobAtt = totalsGlobalQ.features?.[0]?.attributes || {};
+  const globalTotalAtual = Number(tGlobAtt.GLOBAL_TOTAL_ATUAL || 0);
+
+  let rows = (bySecao.features || [])
+    .map(f => {
+      const a = f.attributes || {};
+      let sec = a[FIELDS.secao];
+
+      sec = (!sec || String(sec).trim() === "") ? "SEM_SECAO" : String(sec).trim();
+
+      const atual = Number(a.SUM_ATUAL || 0);
+      const anterior = Number(a.SUM_ANT || 0);
+
+      return {
+        secao: sec,
+
+        /* % Vendas agora SEMPRE sobre o TOTAL GLOBAL */
+        perc: globalTotalAtual === 0 ? 0 : (atual / globalTotalAtual) * 100,
+
+        /* Prog % NÃO ALTERAR */
+        prog: (anterior && anterior !== 0) ? ((atual / anterior) - 1) * 100 : null
+      };
+    })
+    /* Remove a seção "0" */
+    .filter(r => r.secao !== "0");
+
   // Ordena por Prog % DESC
-
   rows.sort((a,b) => {
-
     if (a.prog === null && b.prog === null) return 0;
-
     if (a.prog === null) return 1;
-
     if (b.prog === null) return -1;
-
     return b.prog - a.prog;
-
   });
- 
-  renderTable(rows, totalAtual, totalAnterior);
 
+  renderTable(rows, totalAtualSel, totalAnteriorSel, globalTotalAtual);
   showLoader(false);
-
 }
- 
+
 load();
 </script>
 </body>

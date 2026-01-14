@@ -242,9 +242,9 @@ async function esriQuery(layerUrl, params){
   return j;
 }
 
-/* valores (barras) com 1 casa */
+/* valores (barras) com 2 casas */
 function fmt1(n){
-  return (isFinite(n) ? n : 0).toFixed(1).replace(".",",");
+  return (isFinite(n) ? n : 0).toFixed(2).replace(".",",");
 }
 
 /* eixo Y "escala 0" (sem casas) */

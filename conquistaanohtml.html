@@ -253,7 +253,7 @@ async function esriQuery(params){
   if (!r.ok || j.error) throw (j.error || { message:`HTTP ${r.status}` });
   return j;
 }
-function fmtBR(n){ return (isFinite(n) ? n : 0).toFixed(1).replace(".", ","); }
+function fmtBR(n){ return (isFinite(n) ? n : 0).toFixed(2).replace(".", ","); }
 function isocronaKey(v){
   const s = String(v).toLowerCase();
   const m = s.match(/-?\d+([.,]\d+)?/);

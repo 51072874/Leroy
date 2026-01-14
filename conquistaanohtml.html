@@ -218,9 +218,16 @@
 
 <script>
 const LAYER_URL =
-  "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/3";
+  "https://servidorvo.com/server/rest/services/Hosted/single_p/FeatureServer/3";
 
-const FIELDS = { loja:"loja", isocrona:"isocrona", ano:"ano", percConquista:"perc_conquista" };
+const FIELDS = { 
+  loja:"loja", 
+  isocrona:"isocrona", 
+  ano:"ano", 
+  vendasBrutas:"vendas_brutas",
+  potencialTotal:"potencial_total"
+};
+
 const qs = new URLSearchParams(window.location.search);
 
 function showLoader(on){
@@ -369,11 +376,18 @@ async function load(){
       f:"json",
       where: buildWhere(),
       groupByFieldsForStatistics: `${FIELDS.isocrona},${FIELDS.ano}`,
-      outStatistics: JSON.stringify([{
-        statisticType:"sum",
-        onStatisticField: FIELDS.percConquista,
-        outStatisticFieldName:"SUM_PERC_CONQUISTA"
-      }]),
+      outStatistics: JSON.stringify([
+        {
+          statisticType:"sum",
+          onStatisticField: FIELDS.vendasBrutas,
+          outStatisticFieldName:"SUM_VENDAS"
+        },
+        {
+          statisticType:"sum",
+          onStatisticField: FIELDS.potencialTotal,
+          outStatisticFieldName:"SUM_POTENCIAL"
+        }
+      ]),
       outFields: `${FIELDS.isocrona},${FIELDS.ano}`,
       returnGeometry:"false"
     });
@@ -392,13 +406,17 @@ async function load(){
       const ano = String(anoRaw ?? "").trim();
       if (!ano || ano === "null" || ano === "undefined") return;
 
-      const soma = Number(f?.attributes?.SUM_PERC_CONQUISTA || 0) / 100;
+      const sumVendas = Number(f?.attributes?.SUM_VENDAS || 0);
+      const sumPotencial = Number(f?.attributes?.SUM_POTENCIAL || 0);
+      
+      // Calcula conquista: vendas / potencial * 100
+      const conquista = sumPotencial > 0 ? (sumVendas / sumPotencial) * 100 : 0;
 
       isoSet.add(iso);
       yearSet.add(ano);
 
       if (!values[iso]) values[iso] = {};
-      values[iso][ano] = (values[iso][ano] || 0) + (isFinite(soma) ? soma : 0);
+      values[iso][ano] = isFinite(conquista) ? conquista : 0;
     });
 
     const isocronas = Array.from(isoSet).sort((a,b) => isocronaKey(a) - isocronaKey(b));

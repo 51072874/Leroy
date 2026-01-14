@@ -194,8 +194,7 @@ const LAYER_PROG =
 const PDM_FIELDS = {
   loja: "loja",
   isocrona: "isocrona",
-  ano: "ano",
-  vendasBrutas: "vendas_brutas"
+  percConquista: "perc_conquista"
 };
 
 const PROG_FIELDS = {
@@ -242,17 +241,17 @@ async function esriQuery(layerUrl, params){
   return j;
 }
 
-/* valores (barras) com 2 casas */
+/* valores (barras) com 1 casa */
 function fmt1(n){
-  return (isFinite(n) ? n : 0).toFixed(2).replace(".",",");
+  return (isFinite(n) ? n : 0).toFixed(1).replace(".",",");
 }
 
-/* eixo Y "escala 0" (sem casas) */
+/* eixo Y “escala 0” (sem casas) */
 function fmt0(n){
   return String(Math.round(isFinite(n) ? n : 0)).replace(".",",");
 }
 
-/* escolhe um passo "bonito" para o eixo (1,2,5,10 * 10^k) */
+/* escolhe um passo “bonito” para o eixo (1,2,5,10 * 10^k) */
 function niceStep(target){
   if (target <= 0) return 1;
   const pow = Math.pow(10, Math.floor(Math.log10(target)));
@@ -270,7 +269,7 @@ function buildYAxis(axisMax, step){
   const y = document.getElementById("yAxis");
   y.innerHTML = "";
   for (let i=5;i>=0;i--){
-    const val = step * i;           // garante números inteiros "redondos"
+    const val = step * i;           // garante números inteiros “redondos”
     y.innerHTML += `<div class="yTick">${fmt0(val)}%</div>`;
   }
 }
@@ -309,22 +308,10 @@ async function detectExistingField(layerUrl, candidates, sampleValue){
 
 /* ================= WHERE ================= */
 
-async function buildWherePdm(){
+function buildWherePdm(){
   const parts = ["1=1"];
-  
   const lojas = parseList("loja");
   if (lojas.length) parts.push(buildInClause(PDM_FIELDS.loja, lojas));
-  
-  const ano = parseList("ano");
-  if (ano.length){
-    const anoField = await detectExistingField(
-      LAYER_PDM,
-      ["ano","id_ano","nr_ano","year","year_id"],
-      ano[0]
-    );
-    if (anoField) parts.push(buildInClause(anoField, ano));
-  }
-  
   return parts.join(" AND ");
 }
 
@@ -391,7 +378,7 @@ function renderBars(rows){
   // ===== eixo Y arredondado (escala 0) =====
   const rawMax = Math.max(...rows.map(r=>r.value));
   const target = (rawMax * 1.05) / 5;      // +5% respiro, dividido pelos 5 intervalos
-  const step = niceStep(target);           // passo "bonito"
+  const step = niceStep(target);           // passo “bonito”
   const axisMax = step * 5;                // garante 0..axisMax em 6 ticks inteiros
   buildYAxis(axisMax, step);
 
@@ -435,43 +422,25 @@ async function load(){
   document.getElementById("loader").style.display="flex";
 
   try{
-    const pdmWhere = await buildWherePdm();
-    
-    // 1) Soma vendas por isócrona
-    const pdmIso = await esriQuery(LAYER_PDM,{
+    const pdm = await esriQuery(LAYER_PDM,{
       f:"json",
-      where: pdmWhere,
+      where: buildWherePdm(),
       groupByFieldsForStatistics: PDM_FIELDS.isocrona,
       outStatistics: JSON.stringify([{
         statisticType:"sum",
-        onStatisticField: PDM_FIELDS.vendasBrutas,
-        outStatisticFieldName:"VENDAS_ISO"
+        onStatisticField: PDM_FIELDS.percConquista,
+        outStatisticFieldName:"V"
       }]),
       outFields: PDM_FIELDS.isocrona,
       returnGeometry:false
     });
 
-    // 2) Soma total de vendas (sem agrupar por isócrona)
-    const pdmTotal = await esriQuery(LAYER_PDM,{
-      f:"json",
-      where: pdmWhere,
-      outStatistics: JSON.stringify([{
-        statisticType:"sum",
-        onStatisticField: PDM_FIELDS.vendasBrutas,
-        outStatisticFieldName:"VENDAS_TOTAL"
-      }]),
-      returnGeometry:false
-    });
-
-    const totalVendas = Number(pdmTotal.features?.[0]?.attributes?.VENDAS_TOTAL || 0);
-
-    const rows = (pdmIso.features || [])
+    const rows = (pdm.features || [])
       .map(f=>{
         const iso = f.attributes?.[PDM_FIELDS.isocrona];
-        const vendasIso = Number(f.attributes?.VENDAS_ISO || 0);
-        if (isBlank(iso) || !isFinite(vendasIso) || totalVendas <= 0) return null;
-        
-        const value = (vendasIso / totalVendas) * 100;
+        const raw = f.attributes?.V;
+        if (isBlank(iso) || raw == null) return null;
+        const value = Number(raw)/100;
         if (!isFinite(value)) return null;
         return { label:String(iso).trim(), value };
       })
@@ -503,7 +472,7 @@ async function load(){
           if (isBlank(iso) || va == null || vb == null) return null;
           const VA = Number(va), VB = Number(vb);
           if (!isFinite(VA) || !isFinite(VB) || VB <= 0) return [String(iso).trim(), null];
-          return [String(iso).trim(), (VA/VB)*100];
+          return [String(iso).trim(), ((VA/VB)-1)*100];
         })
         .filter(Boolean)
     );

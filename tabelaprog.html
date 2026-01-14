@@ -338,7 +338,7 @@ async function load(){
   /* TOTAL GLOBAL (para base do % Vendas) - somente filtros fixos */
   const totalsGlobalQ = await esriQuery({
     f: "json",
-    where: whereGlobal,
+    where: whereSel,
     outStatistics: JSON.stringify([
       { statisticType: "sum", onStatisticField: FIELDS.valorAtual, outStatisticFieldName: "GLOBAL_TOTAL_ATUAL" }
     ]),

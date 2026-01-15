@@ -432,19 +432,25 @@ async function load(){
       returnGeometry:false
     });
 
-    const mapProg = new Map(
-      (prog.features || [])
-        .map(f=>{
-          const a = f.attributes || {};
-          const iso = a[FIELDS.isocrona];
-          const va = a.VA, vb = a.VB;
-          if (isBlank(iso) || va == null || vb == null) return null;
-          const VA = Number(va), VB = Number(vb);
-          if (!isFinite(VA) || !isFinite(VB) || VB <= 0) return [String(iso).trim(), null];
-          return [String(iso).trim(), ((VA/VB)-1)*100];
-        })
-        .filter(Boolean)
-    );
+
+	const mapProg = new Map();
+		(prog.features || []).forEach(f => {
+			const a = f.attributes || {};
+			const iso = a[FIELDS.isocrona];
+			const VA = Number(a.VA);
+			const VB = Number(a.VB);
+
+			if (isBlank(iso) || !isFinite(VA) || !isFinite(VB) || VB === 0) {
+			mapProg.set(String(iso).trim(), null);
+			return;
+		}
+
+		// PROG correta: soma atual / soma anterior
+		const progPerc = (VA / VB) * 100;
+		mapProg.set(String(iso).trim(), progPerc);
+	});
+
+
 
     const progEl = document.getElementById("prog");
     progEl.style.gridTemplateColumns = `48px repeat(${rows.length || 1}, 1fr)`;

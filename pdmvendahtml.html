@@ -188,7 +188,7 @@ async function load(){
 
   const pdm=await esriQuery(LAYER_PDM,{
     f:"json",
-    where:"1=1",
+    where: `${PDM_FIELDS.vendasAtual} IS NOT NULL AND ${PDM_FIELDS.vendasAtual} > 0`,
     groupByFieldsForStatistics:PDM_FIELDS.isocrona,
     outStatistics:JSON.stringify([{
       statisticType:"sum",
@@ -210,11 +210,7 @@ async function load(){
     .sort((a,b)=>isocronaKey(a.label)-isocronaKey(b.label));
 
   const totalLoja=raw.reduce((s,r)=>s+r.va,0);
-
-  if(!isFinite(totalLoja)||totalLoja<=0){
-    console.error("Total da loja inválido",raw);
-    return;
-  }
+  if(totalLoja<=0) return;
 
   const rows=raw.map(r=>({
     label:r.label,
@@ -223,7 +219,6 @@ async function load(){
 
   const rawMax=Math.max(...rows.map(r=>r.value));
   const max=rawMax>0?rawMax*1.05:1;
-
   buildYAxis(max);
 
   const bars=document.getElementById("bars");
@@ -242,7 +237,11 @@ async function load(){
 
   const prog=await esriQuery(LAYER_PROG,{
     f:"json",
-    where:`${PROG_FIELDS.zinflu} IS NOT NULL`,
+    where: `
+      ${PROG_FIELDS.zinflu} IS NOT NULL
+      AND ${PROG_FIELDS.vendasAtual} IS NOT NULL
+      AND ${PROG_FIELDS.vendasAnterior} IS NOT NULL
+    `,
     groupByFieldsForStatistics:PROG_FIELDS.isocrona,
     outStatistics:JSON.stringify([
       {statisticType:"sum",onStatisticField:PROG_FIELDS.vendasAtual,outStatisticFieldName:"VA"},
@@ -259,7 +258,6 @@ async function load(){
         const iso=a?.[PROG_FIELDS.isocrona];
         const VA=Number(a?.VA);
         const VB=Number(a?.VB);
-
         if(isBlank(iso)||!isFinite(VA)||!isFinite(VB)||VB===0) return null;
         return [iso.trim(),((VA/VB)-1)*100];
       })
@@ -268,7 +266,6 @@ async function load(){
 
   const progEl=document.getElementById("prog");
   progEl.style.gridTemplateColumns=`48px repeat(${rows.length},1fr)`;
-
   progEl.innerHTML=
     `<div class="prog-title">PROG</div>`+
     rows.map(r=>{

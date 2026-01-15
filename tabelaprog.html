@@ -285,10 +285,9 @@ function renderTable(rows, totalAtualSel, totalAnteriorSel){
   tProg.textContent = progTotal === null ? "—" : fmtPct(progTotal);
   tProg.className = "num " + (progTotal === null ? "muted" : (progTotal >= 0 ? "pos" : "neg"));
 
-  /* % Vendas total: soma dos percentuais exibidos */
+  /* % Vendas total: sempre 100% (soma das partes) */
   const tPerc = document.getElementById("tPerc");
-  const somaPct = rows.reduce((acc, r) => acc + r.perc, 0);
-  tPerc.textContent = fmtPct(somaPct);
+  tPerc.textContent = "100,00%";
 }
 
 /* ================= LOAD ================= */

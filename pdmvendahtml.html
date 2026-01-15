@@ -9,18 +9,14 @@
   --text:#111827;
   --muted:#6b7280;
   --bar:#4F7987;
-  --barHover:#3F6673;
   --axis:#e5e7eb;
 }
 
 html,body{
   margin:0;
   height:100%;
-  background:transparent;
   font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-  color:var(--text);
 }
-*{ box-sizing:border-box; }
 
 #container{
   height:100%;
@@ -42,7 +38,7 @@ html,body{
 }
 
 .yAxis{
-  width:46px;
+  width:50px;
   display:flex;
   flex-direction:column;
   justify-content:space-between;
@@ -91,6 +87,7 @@ html,body{
   font-size:11px;
   color:var(--muted);
   margin-top:6px;
+  text-align:center;
 }
 
 .prog{
@@ -138,7 +135,6 @@ const LAYER_PROG =
   "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
 const PDM_FIELDS = {
-  loja: "loja",
   isocrona: "isocrona",
   vendasAtual: "valor_vendas_atual"
 };
@@ -150,45 +146,37 @@ const PROG_FIELDS = {
   zinflu: "cod_loja_zinflu2"
 };
 
-const qs = new URLSearchParams(window.location.search);
-
 /* ================= UTIL ================= */
 
-function parseList(p){
-  return qs.has(p)
-    ? qs.get(p).split(",").map(v=>v.trim()).filter(Boolean)
-    : [];
-}
-
 function isBlank(v){
-  return v == null || String(v).trim() === "";
+  return v == null || String(v).trim()==="";
 }
 
 function isocronaKey(label){
-  const s = label.toLowerCase();
-  if (s.includes("fora")) return 9999;
-  const m = s.match(/\d+/);
-  return m ? Number(m[0]) : 9999;
-}
-
-async function esriQuery(url, params){
-  const u = new URL(url + "/query");
-  Object.entries(params).forEach(([k,v]) => u.searchParams.set(k,v));
-  const r = await fetch(u);
-  return r.json();
+  const s=label.toLowerCase();
+  if(s.includes("fora")) return 9999;
+  const m=s.match(/\d+/);
+  return m?Number(m[0]):9999;
 }
 
 function fmt(n){
   return n.toFixed(1).replace(".",",");
 }
 
+async function esriQuery(url, params){
+  const u=new URL(url+"/query");
+  Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v));
+  const r=await fetch(u);
+  return r.json();
+}
+
 /* ================= Y AXIS ================= */
 
 function buildYAxis(max){
-  const y = document.getElementById("yAxis");
-  y.innerHTML = "";
+  const y=document.getElementById("yAxis");
+  y.innerHTML="";
   for(let i=5;i>=0;i--){
-    y.innerHTML += `<div class="yTick">${Math.round((max/5)*i)}%</div>`;
+    y.innerHTML+=`<div class="yTick">${Math.round((max/5)*i)}%</div>`;
   }
 }
 
@@ -198,11 +186,11 @@ async function load(){
 
   /* ---------- PDM ---------- */
 
-  const pdm = await esriQuery(LAYER_PDM,{
+  const pdm=await esriQuery(LAYER_PDM,{
     f:"json",
     where:"1=1",
-    groupByFieldsForStatistics: PDM_FIELDS.isocrona,
-    outStatistics: JSON.stringify([{
+    groupByFieldsForStatistics:PDM_FIELDS.isocrona,
+    outStatistics:JSON.stringify([{
       statisticType:"sum",
       onStatisticField:PDM_FIELDS.vendasAtual,
       outStatisticFieldName:"VA"
@@ -211,65 +199,82 @@ async function load(){
     returnGeometry:false
   });
 
-  const raw = (pdm.features||[])
+  const raw=(pdm.features||[])
     .map(f=>{
-      const iso = f.attributes[PDM_FIELDS.isocrona];
-      const va  = Number(f.attributes.VA);
-      if(isBlank(iso) || !isFinite(va)) return null;
-      return {label:iso.trim(), va};
+      const iso=f.attributes?.[PDM_FIELDS.isocrona];
+      const va=Number(f.attributes?.VA);
+      if(isBlank(iso)||!isFinite(va)) return null;
+      return {label:iso.trim(),va};
     })
     .filter(Boolean)
     .sort((a,b)=>isocronaKey(a.label)-isocronaKey(b.label));
 
-  const totalLoja = raw.reduce((s,r)=>s+r.va,0);
+  const totalLoja=raw.reduce((s,r)=>s+r.va,0);
 
-  const rows = raw.map(r=>({
+  if(!isFinite(totalLoja)||totalLoja<=0){
+    console.error("Total da loja inválido",raw);
+    return;
+  }
+
+  const rows=raw.map(r=>({
     label:r.label,
-    value: totalLoja > 0 ? (r.va/totalLoja)*100 : 0
+    value:(r.va/totalLoja)*100
   }));
 
-  const max = Math.max(...rows.map(r=>r.value))*1.05;
+  const rawMax=Math.max(...rows.map(r=>r.value));
+  const max=rawMax>0?rawMax*1.05:1;
+
   buildYAxis(max);
 
-  const bars = document.getElementById("bars");
+  const bars=document.getElementById("bars");
   bars.innerHTML="";
 
   rows.forEach(r=>{
-    bars.innerHTML += `
+    bars.innerHTML+=`
       <div class="barCol">
         <div class="barValue">${fmt(r.value)}%</div>
-        <div class="bar" style="height:${(r.value/max)*200}px"></div>
+        <div class="bar" style="height:${(r.value/max)*220}px"></div>
         <div class="barLabel">${r.label}</div>
       </div>`;
   });
 
   /* ---------- PROG ---------- */
 
-  const prog = await esriQuery(LAYER_PROG,{
+  const prog=await esriQuery(LAYER_PROG,{
     f:"json",
     where:`${PROG_FIELDS.zinflu} IS NOT NULL`,
-    groupByFieldsForStatistics: PROG_FIELDS.isocrona,
-    outStatistics: JSON.stringify([
-      {statisticType:"sum", onStatisticField:PROG_FIELDS.vendasAtual, outStatisticFieldName:"VA"},
-      {statisticType:"sum", onStatisticField:PROG_FIELDS.vendasAnterior, outStatisticFieldName:"VB"}
+    groupByFieldsForStatistics:PROG_FIELDS.isocrona,
+    outStatistics:JSON.stringify([
+      {statisticType:"sum",onStatisticField:PROG_FIELDS.vendasAtual,outStatisticFieldName:"VA"},
+      {statisticType:"sum",onStatisticField:PROG_FIELDS.vendasAnterior,outStatisticFieldName:"VB"}
     ]),
     outFields:PROG_FIELDS.isocrona,
     returnGeometry:false
   });
 
-  const progMap = new Map(
-    (prog.features||[]).map(f=>{
-      const a=f.attributes;
-      if(!a || a.VB<=0) return null;
-      return [a[PROG_FIELDS.isocrona].trim(), ((a.VA/a.VB)-1)*100];
-    }).filter(Boolean)
+  const progMap=new Map(
+    (prog.features||[])
+      .map(f=>{
+        const a=f.attributes;
+        const iso=a?.[PROG_FIELDS.isocrona];
+        const VA=Number(a?.VA);
+        const VB=Number(a?.VB);
+
+        if(isBlank(iso)||!isFinite(VA)||!isFinite(VB)||VB===0) return null;
+        return [iso.trim(),((VA/VB)-1)*100];
+      })
+      .filter(Boolean)
   );
 
   const progEl=document.getElementById("prog");
   progEl.style.gridTemplateColumns=`48px repeat(${rows.length},1fr)`;
+
   progEl.innerHTML=
     `<div class="prog-title">PROG</div>`+
-    rows.map(r=>`<div>${progMap.has(r.label)?fmt(progMap.get(r.label))+"%":""}</div>`).join("");
+    rows.map(r=>{
+      const v=progMap.get(r.label);
+      return `<div>${v!=null?fmt(v)+"%":""}</div>`;
+    }).join("");
 }
 
 load();

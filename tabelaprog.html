@@ -264,7 +264,12 @@ function renderTable(rows, totalAtualSel, totalAnteriorSel){
   const tbody = document.getElementById("tbody");
   tbody.innerHTML = "";
 
+  console.log("=== RENDERIZANDO TABELA ===");
+  console.log("Total Atual Seleção (base para %):", totalAtualSel);
+
   rows.forEach(r => {
+    console.log(`Seção: ${r.secao} | Perc: ${r.perc.toFixed(2)}%`);
+    
     const progClass = r.prog === null ? "muted" : (r.prog >= 0 ? "pos" : "neg");
     const tr = document.createElement("tr");
     tr.innerHTML = `
@@ -285,9 +290,11 @@ function renderTable(rows, totalAtualSel, totalAnteriorSel){
   tProg.textContent = progTotal === null ? "—" : fmtPct(progTotal);
   tProg.className = "num " + (progTotal === null ? "muted" : (progTotal >= 0 ? "pos" : "neg"));
 
-  /* % Vendas total: sempre 100% (soma das partes) */
+  /* % Vendas total: soma dos percentuais exibidos */
   const tPerc = document.getElementById("tPerc");
-  tPerc.textContent = "100,00%";
+  const somaPct = rows.reduce((acc, r) => acc + r.perc, 0);
+  console.log("Soma dos percentuais:", somaPct.toFixed(2) + "%");
+  tPerc.textContent = fmtPct(somaPct);
 }
 
 /* ================= LOAD ================= */
@@ -295,6 +302,8 @@ async function load(){
   showLoader(true);
 
   const whereSel = buildWhere();
+  console.log("=== WHERE CLAUSE ===");
+  console.log(whereSel);
 
   /* Linhas por seção (SELEÇÃO) */
   const bySecao = await esriQuery({
@@ -308,6 +317,9 @@ async function load(){
     returnGeometry: "false"
   });
 
+  console.log("=== DADOS POR SEÇÃO ===");
+  console.log(bySecao);
+
   /* Totais da SELEÇÃO (para Prog % total e base do % Vendas) */
   const totalsSelQ = await esriQuery({
     f: "json",
@@ -318,6 +330,9 @@ async function load(){
     ]),
     returnGeometry: "false"
   });
+
+  console.log("=== TOTAIS DA SELEÇÃO ===");
+  console.log(totalsSelQ);
 
   const tSelAtt = totalsSelQ.features?.[0]?.attributes || {};
   const totalAtualSel = Number(tSelAtt.TOTAL_ATUAL || 0);
@@ -336,13 +351,13 @@ async function load(){
       const atual = Number(a.SUM_ATUAL || 0);
       const anterior = Number(a.SUM_ANT || 0);
 
+      const perc = totalAtualSel === 0 ? 0 : (atual / totalAtualSel) * 100;
+
+      console.log(`Calculando ${sec}: ${atual} / ${totalAtualSel} = ${perc.toFixed(2)}%`);
+
       return {
         secao: sec,
-
-        /* CORREÇÃO: % Vendas sobre o TOTAL DA SELEÇÃO */
-        perc: totalAtualSel === 0 ? 0 : (atual / totalAtualSel) * 100,
-
-        /* Prog % */
+        perc: perc,
         prog: (anterior && anterior !== 0) ? ((atual / anterior) - 1) * 100 : null
       };
     })

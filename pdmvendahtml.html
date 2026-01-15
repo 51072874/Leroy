@@ -1,26 +1,144 @@
 <!doctype html>
 <html lang="pt-br">
 <head>
-<meta charset="UTF-8">
+<meta charset="ISO-8859-1">
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 
 <style>
-body{margin:0;font-family:Arial}
-#container{padding:12px}
+:root{
+  --text:#111827;
+  --muted:#6b7280;
+  --bar:#4F7987;
+  --barHover:#3F6673;
+  --axis:#e5e7eb;
+}
+
+html,body{
+  margin:0;
+  height:100%;
+  background:transparent;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  color:var(--text);
+}
+*{ box-sizing:border-box; }
+
+#container{
+  height:100%;
+  padding:10px;
+  display:flex;
+  flex-direction:column;
+}
+
 .title{
+  flex:0 0 auto;
   text-align:center;
   font-weight:600;
-  margin-bottom:12px;
+  font-size:14px;
+  margin:0 0 10px 0;
 }
+
+#content{
+  position:relative;
+  flex:1 1 auto;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+/* loader */
+#loader{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:10;
+}
+.spinner{
+  width:36px;
+  height:36px;
+  border:4px solid #d1d5db;
+  border-top-color:#2563eb;
+  border-radius:50%;
+  animation:spin 1s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* chart */
+.chart{
+  flex:1;
+  display:flex;
+  gap:8px;
+}
+
+.yAxis{
+  width:46px;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  padding-top:25px;
+  padding-bottom:44px;
+}
+.yTick{
+  font-size:10px;
+  color:var(--muted);
+  transform:translateY(50%);
+}
+
+.plot{
+  flex:1;
+  position:relative;
+}
+
+.bars{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:flex-end;
+  gap:clamp(10px, 2vw, 16px);
+  padding:10px 14px 14px 14px;
+}
+
+.barCol{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:6px;
+}
+
+.barValue{
+  font-size:11px;
+}
+
 .bar{
-  background:#4F7987;
-  height:24px;
-  margin:6px 0;
-  color:#fff;
-  padding:0 8px;
-  line-height:24px;
-  border-radius:4px;
-  white-space:nowrap;
+  width:min(54px,100%);
+  background:var(--bar);
+  border-radius:10px 10px 6px 6px;
+}
+.barLabel{
+  font-size:11px;
+  color:var(--muted);
+  text-align:center;
+}
+
+/* PROG */
+.prog{
+  display:grid;
+  gap:6px;
+  font-size:12px;
+}
+.prog div{
+  text-align:center;
+  padding:4px 0;
+  border-top:1px solid var(--axis);
+}
+.prog-title{
+  text-align:left;
+  padding-left:6px;
+  font-weight:600;
+  color:var(--muted);
 }
 </style>
 </head>
@@ -28,79 +146,128 @@ body{margin:0;font-family:Arial}
 <body>
 <div id="container">
   <div class="title">PDM / PROG</div>
-  <div id="out"></div>
+
+  <div id="content">
+    <div id="loader"><div class="spinner"></div></div>
+
+    <div class="chart" id="chart" style="display:none">
+      <div class="yAxis" id="yAxis"></div>
+      <div class="plot">
+        <div class="bars" id="bars"></div>
+      </div>
+    </div>
+
+    <div class="prog" id="prog"></div>
+  </div>
 </div>
 
 <script>
-/* ========= JSONP ========= */
+/* ================= CONFIG ================= */
 
-function esriJSONP(url, params){
-  return new Promise((resolve,reject)=>{
-    const cb="cb_"+Math.random().toString(36).slice(2);
-    params.f="json";
-    params.callback=cb;
+const LAYER_PDM =
+  "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/3";
 
-    const qs=Object.entries(params)
-      .map(([k,v])=>k+"="+encodeURIComponent(v))
-      .join("&");
+const PDM_FIELDS = {
+  loja: "loja",
+  isocrona: "isocrona",
+  vendas: "vendas_brutas"
+};
 
-    const s=document.createElement("script");
-    s.src=url+"/query?"+qs;
+/* ================= UTIL ================= */
 
-    window[cb]=data=>{
-      delete window[cb];
-      s.remove();
-      resolve(data);
-    };
+function isBlank(v){
+  return v === null || v === undefined || String(v).trim() === "";
+}
 
-    s.onerror=()=>{
-      delete window[cb];
-      s.remove();
-      reject("JSONP error");
-    };
+function esriQuery(layerUrl, params){
+  const u = new URL(layerUrl + "/query");
+  Object.entries(params).forEach(([k,v]) => u.searchParams.set(k,v));
+  return fetch(u).then(r=>r.json());
+}
 
-    document.body.appendChild(s);
+function fmt1(n){
+  return n.toFixed(1).replace(".",",");
+}
+
+function fmt0(n){
+  return Math.round(n);
+}
+
+function niceStep(target){
+  const pow = Math.pow(10, Math.floor(Math.log10(target)));
+  const n = target / pow;
+  if (n <= 1) return 1 * pow;
+  if (n <= 2) return 2 * pow;
+  if (n <= 5) return 5 * pow;
+  return 10 * pow;
+}
+
+function buildYAxis(max){
+  const step = niceStep(max/5);
+  const y = document.getElementById("yAxis");
+  y.innerHTML="";
+  for(let i=5;i>=0;i--){
+    y.innerHTML += `<div class="yTick">${fmt0(step*i)}%</div>`;
+  }
+}
+
+/* ================= RENDER ================= */
+
+function renderBars(rows){
+  const bars = document.getElementById("bars");
+  bars.innerHTML="";
+  document.getElementById("chart").style.display="flex";
+
+  const max = Math.max(...rows.map(r=>r.value));
+  buildYAxis(max);
+
+  rows.forEach(r=>{
+    const col=document.createElement("div");
+    col.className="barCol";
+
+    col.innerHTML=`
+      <div class="barValue">${fmt1(r.value)}%</div>
+      <div class="bar" style="height:${12+(r.value/max)*220}px"></div>
+      <div class="barLabel">${r.label}</div>
+    `;
+    bars.appendChild(col);
   });
 }
 
-/* ========= LOAD ========= */
+/* ================= LOAD ================= */
 
 async function load(){
+  document.getElementById("loader").style.display="flex";
 
-  const res = await esriJSONP(
-    "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/3",
-    {
-      where: "vendas_brutas IS NOT NULL",
-      groupByFieldsForStatistics: "isocrona",
-      outStatistics: JSON.stringify([{
-        statisticType: "sum",
-        onStatisticField: "vendas_brutas",
-        outStatisticFieldName: "VB"
-      }]),
-      outFields: "*",
-      returnGeometry: false
-    }
+  const pdm = await esriQuery(LAYER_PDM,{
+    f:"json",
+    where:"vendas_brutas IS NOT NULL",
+    groupByFieldsForStatistics:PDM_FIELDS.isocrona,
+    outStatistics:JSON.stringify([{
+      statisticType:"sum",
+      onStatisticField:PDM_FIELDS.vendas,
+      outStatisticFieldName:"V"
+    }]),
+    outFields:PDM_FIELDS.isocrona,
+    returnGeometry:false
+  });
+
+  const total = pdm.features.reduce(
+    (s,f)=>s+Number(f.attributes.V||0),0
   );
 
-  console.log("Resposta:", res);
+  const rows = pdm.features
+    .map(f=>{
+      const iso=f.attributes[PDM_FIELDS.isocrona];
+      const v=f.attributes.V;
+      if(isBlank(iso)||!v||!total) return null;
+      return {label:iso,value:(v/total)*100};
+    })
+    .filter(Boolean);
 
-  if(!res.features || !res.features.length){
-    document.getElementById("out").innerHTML =
-      "<b>Sem dados retornados</b>";
-    return;
-  }
+  renderBars(rows);
 
-  const total = res.features
-    .reduce((s,f)=>s+Number(f.attributes.VB||0),0);
-
-  document.getElementById("out").innerHTML =
-    res.features.map(f=>{
-      const v = f.attributes.VB;
-      const p = ((v/total)*100).toFixed(1);
-      return `<div class="bar">
-        ${f.attributes.isocrona} – ${p}%
-      </div>`;
-    }).join("");
+  document.getElementById("loader").style.display="none";
 }
 
 load();

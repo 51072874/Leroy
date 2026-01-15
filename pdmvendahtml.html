@@ -6,102 +6,80 @@
 
 <style>
 :root{
-  --text:#111827;
-  --muted:#6b7280;
   --bar:#4F7987;
+  --muted:#6b7280;
   --axis:#e5e7eb;
 }
-
 html,body{
   margin:0;
   height:100%;
   font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
 }
-
 #container{
   height:100%;
   padding:10px;
   display:flex;
   flex-direction:column;
 }
-
 .title{
   text-align:center;
   font-weight:600;
   font-size:14px;
-  margin-bottom:10px;
+  margin-bottom:8px;
 }
-
 .chart{
   flex:1;
   display:flex;
 }
-
 .yAxis{
-  width:50px;
+  width:48px;
   display:flex;
   flex-direction:column;
   justify-content:space-between;
   padding:20px 0 40px 0;
 }
-
 .yTick{
   font-size:10px;
   color:var(--muted);
 }
-
-.plot{
-  flex:1;
-  position:relative;
-}
-
+.plot{ flex:1; position:relative; }
 .bars{
   position:absolute;
   inset:0;
   display:flex;
   align-items:flex-end;
   gap:14px;
-  padding:10px 14px 14px 14px;
+  padding:10px 14px 14px;
 }
-
 .barCol{
   flex:1;
   display:flex;
   flex-direction:column;
   align-items:center;
 }
-
-.barValue{
-  font-size:11px;
-  margin-bottom:4px;
-}
-
+.barValue{ font-size:11px; margin-bottom:4px; }
 .bar{
   width:100%;
   max-width:54px;
   background:var(--bar);
   border-radius:8px;
 }
-
 .barLabel{
   font-size:11px;
   color:var(--muted);
   margin-top:6px;
   text-align:center;
 }
-
 .prog{
   display:grid;
-  margin-top:8px;
+  margin-top:6px;
   font-size:12px;
 }
-
 .prog div{
   text-align:center;
   padding:4px 0;
   border-top:1px solid var(--axis);
 }
-
 .prog-title{
   text-align:left;
   padding-left:6px;
@@ -135,32 +113,28 @@ const LAYER_PROG =
   "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
 
 const PDM_FIELDS = {
-  isocrona: "isocrona",
-  vendasAtual: "valor_vendas_atual"
+  isocrona:"isocrona",
+  vendasAtual:"valor_vendas_atual"
 };
 
 const PROG_FIELDS = {
-  isocrona: "descricao_regiao_isocrona",
-  vendasAtual: "valor_vendas_atual",
-  vendasAnterior: "valor_vendas_anterior",
-  zinflu: "cod_loja_zinflu2"
+  isocrona:"descricao_regiao_isocrona",
+  vendasAtual:"valor_vendas_atual",
+  vendasAnterior:"valor_vendas_anterior",
+  zinflu:"cod_loja_zinflu2"
 };
 
 /* ================= UTIL ================= */
 
-function isBlank(v){
-  return v == null || String(v).trim()==="";
-}
+function fmt(n){ return n.toFixed(1).replace(".",","); }
 
-function isocronaKey(label){
-  const s=label.toLowerCase();
+function isBlank(v){ return v==null || String(v).trim()===""; }
+
+function isocronaKey(l){
+  const s=l.toLowerCase();
   if(s.includes("fora")) return 9999;
   const m=s.match(/\d+/);
   return m?Number(m[0]):9999;
-}
-
-function fmt(n){
-  return n.toFixed(1).replace(".",",");
 }
 
 async function esriQuery(url, params){
@@ -185,17 +159,16 @@ function buildYAxis(max){
 async function load(){
 
   /* ---------- PDM ---------- */
-
-  const pdm=await esriQuery(LAYER_PDM,{
+  const pdm = await esriQuery(LAYER_PDM,{
     f:"json",
-    where: `${PDM_FIELDS.vendasAtual} IS NOT NULL AND ${PDM_FIELDS.vendasAtual} > 0`,
+    where:`${PDM_FIELDS.vendasAtual} IS NOT NULL AND ${PDM_FIELDS.vendasAtual} > 0`,
     groupByFieldsForStatistics:PDM_FIELDS.isocrona,
     outStatistics:JSON.stringify([{
       statisticType:"sum",
       onStatisticField:PDM_FIELDS.vendasAtual,
       outStatisticFieldName:"VA"
     }]),
-    outFields:PDM_FIELDS.isocrona,
+    outFields:"*",              // 🔥 OBRIGATÓRIO NO ARCGIS
     returnGeometry:false
   });
 
@@ -209,6 +182,11 @@ async function load(){
     .filter(Boolean)
     .sort((a,b)=>isocronaKey(a.label)-isocronaKey(b.label));
 
+  if(!raw.length){
+    console.error("PDM vazio",pdm);
+    return;
+  }
+
   const totalLoja=raw.reduce((s,r)=>s+r.va,0);
   if(totalLoja<=0) return;
 
@@ -217,13 +195,11 @@ async function load(){
     value:(r.va/totalLoja)*100
   }));
 
-  const rawMax=Math.max(...rows.map(r=>r.value));
-  const max=rawMax>0?rawMax*1.05:1;
+  const max=Math.max(...rows.map(r=>r.value))*1.05;
   buildYAxis(max);
 
   const bars=document.getElementById("bars");
   bars.innerHTML="";
-
   rows.forEach(r=>{
     bars.innerHTML+=`
       <div class="barCol">
@@ -234,10 +210,9 @@ async function load(){
   });
 
   /* ---------- PROG ---------- */
-
-  const prog=await esriQuery(LAYER_PROG,{
+  const prog = await esriQuery(LAYER_PROG,{
     f:"json",
-    where: `
+    where:`
       ${PROG_FIELDS.zinflu} IS NOT NULL
       AND ${PROG_FIELDS.vendasAtual} IS NOT NULL
       AND ${PROG_FIELDS.vendasAnterior} IS NOT NULL
@@ -247,7 +222,7 @@ async function load(){
       {statisticType:"sum",onStatisticField:PROG_FIELDS.vendasAtual,outStatisticFieldName:"VA"},
       {statisticType:"sum",onStatisticField:PROG_FIELDS.vendasAnterior,outStatisticFieldName:"VB"}
     ]),
-    outFields:PROG_FIELDS.isocrona,
+    outFields:"*",              // 🔥 OBRIGATÓRIO NO ARCGIS
     returnGeometry:false
   });
 

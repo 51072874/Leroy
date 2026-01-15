@@ -6,9 +6,22 @@
 
 <style>
 body{margin:0;font-family:Arial}
-#container{padding:10px}
-.title{text-align:center;font-weight:600;margin-bottom:10px}
-.bar{background:#4F7987;height:20px;margin:6px 0;color:#fff;padding-left:6px}
+#container{padding:12px}
+.title{
+  text-align:center;
+  font-weight:600;
+  margin-bottom:12px;
+}
+.bar{
+  background:#4F7987;
+  height:24px;
+  margin:6px 0;
+  color:#fff;
+  padding:0 8px;
+  line-height:24px;
+  border-radius:4px;
+  white-space:nowrap;
+}
 </style>
 </head>
 
@@ -19,28 +32,28 @@ body{margin:0;font-family:Arial}
 </div>
 
 <script>
-/* ================= JSONP UTIL ================= */
+/* ========= JSONP ========= */
 
 function esriJSONP(url, params){
-  return new Promise((resolve, reject)=>{
-    const cb = "cb_" + Math.random().toString(36).slice(2);
-    params.f = "json";
-    params.callback = cb;
+  return new Promise((resolve,reject)=>{
+    const cb="cb_"+Math.random().toString(36).slice(2);
+    params.f="json";
+    params.callback=cb;
 
-    const qs = Object.entries(params)
+    const qs=Object.entries(params)
       .map(([k,v])=>k+"="+encodeURIComponent(v))
       .join("&");
 
-    const s = document.createElement("script");
-    s.src = url + "/query?" + qs;
+    const s=document.createElement("script");
+    s.src=url+"/query?"+qs;
 
-    window[cb] = (data)=>{
+    window[cb]=data=>{
       delete window[cb];
       s.remove();
       resolve(data);
     };
 
-    s.onerror = ()=>{
+    s.onerror=()=>{
       delete window[cb];
       s.remove();
       reject("JSONP error");
@@ -50,36 +63,43 @@ function esriJSONP(url, params){
   });
 }
 
-/* ================= LOAD ================= */
+/* ========= LOAD ========= */
 
 async function load(){
 
   const res = await esriJSONP(
     "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/3",
     {
-      where:"valor_vendas_atual IS NOT NULL",
-      groupByFieldsForStatistics:"isocrona",
+      where: "vendas_brutas IS NOT NULL",
+      groupByFieldsForStatistics: "isocrona",
       outStatistics: JSON.stringify([{
-        statisticType:"sum",
-        onStatisticField:"valor_vendas_atual",
-        outStatisticFieldName:"VA"
+        statisticType: "sum",
+        onStatisticField: "vendas_brutas",
+        outStatisticFieldName: "VB"
       }]),
-      outFields:"*",
-      returnGeometry:false
+      outFields: "*",
+      returnGeometry: false
     }
   );
 
+  console.log("Resposta:", res);
+
   if(!res.features || !res.features.length){
-    document.getElementById("out").innerHTML = "Sem dados";
+    document.getElementById("out").innerHTML =
+      "<b>Sem dados retornados</b>";
     return;
   }
 
-  const total = res.features.reduce((s,f)=>s+Number(f.attributes.VA),0);
+  const total = res.features
+    .reduce((s,f)=>s+Number(f.attributes.VB||0),0);
 
   document.getElementById("out").innerHTML =
     res.features.map(f=>{
-      const p = (f.attributes.VA / total * 100).toFixed(1);
-      return `<div class="bar">${f.attributes.isocrona} – ${p}%</div>`;
+      const v = f.attributes.VB;
+      const p = ((v/total)*100).toFixed(1);
+      return `<div class="bar">
+        ${f.attributes.isocrona} – ${p}%
+      </div>`;
     }).join("");
 }
 

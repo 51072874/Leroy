@@ -29,9 +29,9 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;     /* <<< sem overlay */
+  background: transparent;
   z-index: 10;
-  pointer-events: none;        /* <<< não bloqueia interação */
+  pointer-events: none;
 }
 
 .spinner{
@@ -208,7 +208,7 @@ function parseList(name){
     .filter(v => v !== "");
 }
 
-/* >>>> FIXO (sempre aplicado) <<<< */
+/* Filtros fixos (sempre aplicado) */
 function fixedParts(){
   const parts = [];
   parts.push(`${FIELDS.codZ} IS NOT NULL`);
@@ -244,12 +244,6 @@ function buildWhere(){
   return parts.join(" AND ");
 }
 
-/* Where GLOBAL (somente fixo) para base do % Vendas */
-function buildWhereGlobal(){
-  const parts = ["1=1", ...fixedParts()];
-  return parts.join(" AND ");
-}
-
 async function esriQuery(params){
   const url = new URL(LAYER_URL.replace(/\/+$/,"") + "/query");
   Object.entries(params).forEach(([k,v]) => url.searchParams.set(k,v));
@@ -266,7 +260,7 @@ function fmtBR(n){
 function fmtPct(n){ return fmtBR(n) + "%"; }
 
 /* ================= RENDER ================= */
-function renderTable(rows, totalAtualSel, totalAnteriorSel, globalTotalAtual){
+function renderTable(rows, totalAtualSel, totalAnteriorSel){
   const tbody = document.getElementById("tbody");
   tbody.innerHTML = "";
 
@@ -281,7 +275,7 @@ function renderTable(rows, totalAtualSel, totalAnteriorSel, globalTotalAtual){
     tbody.appendChild(tr);
   });
 
-  /* Prog % total (NÃO ALTERAR): segue baseado na seleção */
+  /* Prog % total baseado na seleção */
   const progTotal =
     totalAnteriorSel && totalAnteriorSel !== 0
       ? ((totalAtualSel / totalAnteriorSel) - 1) * 100
@@ -291,14 +285,10 @@ function renderTable(rows, totalAtualSel, totalAnteriorSel, globalTotalAtual){
   tProg.textContent = progTotal === null ? "—" : fmtPct(progTotal);
   tProg.className = "num " + (progTotal === null ? "muted" : (progTotal >= 0 ? "pos" : "neg"));
 
-  /* % Vendas total: seleção / total global */
+  /* % Vendas total: soma dos percentuais exibidos */
   const tPerc = document.getElementById("tPerc");
-  const percTotalSel =
-    globalTotalAtual && globalTotalAtual !== 0
-      ? (totalAtualSel / globalTotalAtual) * 100
-      : 0;
-
-  tPerc.textContent = fmtPct(percTotalSel);
+  const somaPct = rows.reduce((acc, r) => acc + r.perc, 0);
+  tPerc.textContent = fmtPct(somaPct);
 }
 
 /* ================= LOAD ================= */
@@ -306,7 +296,6 @@ async function load(){
   showLoader(true);
 
   const whereSel = buildWhere();
-  const whereGlobal = buildWhereGlobal();
 
   /* Linhas por seção (SELEÇÃO) */
   const bySecao = await esriQuery({
@@ -320,7 +309,7 @@ async function load(){
     returnGeometry: "false"
   });
 
-  /* Totais da SELEÇÃO (para Prog % total e rodapé % vendas) */
+  /* Totais da SELEÇÃO (para Prog % total e base do % Vendas) */
   const totalsSelQ = await esriQuery({
     f: "json",
     where: whereSel,
@@ -335,20 +324,8 @@ async function load(){
   const totalAtualSel = Number(tSelAtt.TOTAL_ATUAL || 0);
   const totalAnteriorSel = Number(tSelAtt.TOTAL_ANT || 0);
 
-  parseList("loja").length ? console.log(whereSel) : console.log(whereGlobal);
-
-  /* TOTAL GLOBAL (para base do % Vendas) - somente filtros fixos */
-  const totalsGlobalQ = await esriQuery({
-    f: "json",
-    where: parseList("loja").length ? whereSel : whereGlobal,
-    outStatistics: JSON.stringify([
-      { statisticType: "sum", onStatisticField: FIELDS.valorAtual, outStatisticFieldName: "GLOBAL_TOTAL_ATUAL" }
-    ]),
-    returnGeometry: "false"
-  });
-
-  const tGlobAtt = totalsGlobalQ.features?.[0]?.attributes || {};
-  const globalTotalAtual = Number(tGlobAtt.GLOBAL_TOTAL_ATUAL || 0);
+  console.log("Total Atual Seleção:", totalAtualSel);
+  console.log("Total Anterior Seleção:", totalAnteriorSel);
 
   let rows = (bySecao.features || [])
     .map(f => {
@@ -363,10 +340,10 @@ async function load(){
       return {
         secao: sec,
 
-        /* % Vendas agora SEMPRE sobre o TOTAL GLOBAL */
-        perc: globalTotalAtual === 0 ? 0 : (atual / globalTotalAtual) * 100,
+        /* CORREÇÃO: % Vendas sobre o TOTAL DA SELEÇÃO */
+        perc: totalAtualSel === 0 ? 0 : (atual / totalAtualSel) * 100,
 
-        /* Prog % NÃO ALTERAR */
+        /* Prog % */
         prog: (anterior && anterior !== 0) ? ((atual / anterior) - 1) * 100 : null
       };
     })
@@ -381,7 +358,7 @@ async function load(){
     return b.prog - a.prog;
   });
 
-  renderTable(rows, totalAtualSel, totalAnteriorSel, globalTotalAtual);
+  renderTable(rows, totalAtualSel, totalAnteriorSel);
   showLoader(false);
 }
 

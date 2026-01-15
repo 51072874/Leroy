@@ -12,6 +12,7 @@
   --barHover:#3F6673;
   --axis:#e5e7eb;
 }
+
 html,body{
   margin:0;
   height:100%;
@@ -27,12 +28,14 @@ html,body{
   display:flex;
   flex-direction:column;
 }
+
 .title{
   text-align:center;
   font-weight:600;
   font-size:14px;
   margin:0 0 10px 0;
 }
+
 #content{
   position:relative;
   flex:1;
@@ -66,6 +69,7 @@ html,body{
   display:flex;
   gap:8px;
 }
+
 .yAxis{
   width:46px;
   display:flex;
@@ -79,10 +83,12 @@ html,body{
   color:var(--muted);
   transform:translateY(50%);
 }
+
 .plot{
   flex:1;
   position:relative;
 }
+
 .bars{
   position:absolute;
   inset:0;
@@ -91,6 +97,7 @@ html,body{
   gap:clamp(10px,2vw,16px);
   padding:10px 14px 14px 14px;
 }
+
 .barCol{
   flex:1;
   display:flex;
@@ -98,14 +105,17 @@ html,body{
   align-items:center;
   gap:6px;
 }
+
 .barValue{
   font-size:11px;
 }
+
 .bar{
   width:min(54px,100%);
   background:var(--bar);
   border-radius:10px 10px 6px 6px;
 }
+
 .barLabel{
   font-size:11px;
   color:var(--muted);
@@ -136,12 +146,29 @@ html,body{
 const LAYER_PDM =
  "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/3";
 
-const PDM_FIELDS = {
-  isocrona: "isocrona",
-  vendas: "vendas_brutas"
-};
+const qs = new URLSearchParams(window.location.search);
 
 /* ================= UTIL ================= */
+
+function parseList(param){
+  if(!qs.has(param)) return [];
+  return qs.get(param).split(",").map(v=>v.trim()).filter(Boolean);
+}
+
+function escapeSql(s){
+  return String(s).replace(/'/g,"''");
+}
+
+function buildWherePdm(){
+  const parts=["1=1"];
+  const lojas=parseList("loja");
+  if(lojas.length){
+    parts.push(
+      "loja IN (" + lojas.map(l=>`'${escapeSql(l)}'`).join(",") + ")"
+    );
+  }
+  return parts.join(" AND ");
+}
 
 function esriQuery(url, params){
   const u=new URL(url+"/query");
@@ -197,13 +224,15 @@ function renderBars(rows){
 async function load(){
   document.getElementById("loader").style.display="flex";
 
-  /* 1️⃣ TOTAL REAL DA LOJA (SEM GROUP BY) */
+  const whereBase = buildWherePdm() + " AND vendas_brutas IS NOT NULL";
+
+  /* TOTAL REAL DA LOJA (COM FILTRO) */
   const totalQ = await esriQuery(LAYER_PDM,{
     f:"json",
-    where:"vendas_brutas IS NOT NULL",
-    outStatistics:JSON.stringify([{
+    where: whereBase,
+    outStatistics: JSON.stringify([{
       statisticType:"sum",
-      onStatisticField:PDM_FIELDS.vendas,
+      onStatisticField:"vendas_brutas",
       outStatisticFieldName:"TOTAL"
     }]),
     returnGeometry:false
@@ -212,29 +241,26 @@ async function load(){
   const totalLoja =
     totalQ.features?.[0]?.attributes?.TOTAL || 0;
 
-  /* 2️⃣ VENDAS POR ISÓCRONA */
+  /* VENDAS POR ISÓCRONA */
   const pdm = await esriQuery(LAYER_PDM,{
     f:"json",
-    where:"vendas_brutas IS NOT NULL",
-    groupByFieldsForStatistics:PDM_FIELDS.isocrona,
-    outStatistics:JSON.stringify([{
+    where: whereBase,
+    groupByFieldsForStatistics:"isocrona",
+    outStatistics: JSON.stringify([{
       statisticType:"sum",
-      onStatisticField:PDM_FIELDS.vendas,
+      onStatisticField:"vendas_brutas",
       outStatisticFieldName:"V"
     }]),
-    outFields:PDM_FIELDS.isocrona,
+    outFields:"isocrona",
     returnGeometry:false
   });
 
   const rows = (pdm.features||[])
     .map(f=>{
-      const iso=f.attributes[PDM_FIELDS.isocrona];
+      const iso=f.attributes.isocrona;
       const v=Number(f.attributes.V||0);
       if(!iso||!v||!totalLoja) return null;
-      return {
-        label:iso,
-        value:(v/totalLoja)*100
-      };
+      return { label: iso, value: (v/totalLoja)*100 };
     })
     .filter(Boolean);
 

@@ -335,10 +335,12 @@ async function load(){
   const totalAtualSel = Number(tSelAtt.TOTAL_ATUAL || 0);
   const totalAnteriorSel = Number(tSelAtt.TOTAL_ANT || 0);
 
+  parseList("loja").length ? console.log(whereSel) : console.log(whereGlobal);
+
   /* TOTAL GLOBAL (para base do % Vendas) - somente filtros fixos */
   const totalsGlobalQ = await esriQuery({
     f: "json",
-    where: whereSel,
+    where: parseList("loja").length ? whereSel : whereGlobal,
     outStatistics: JSON.stringify([
       { statisticType: "sum", onStatisticField: FIELDS.valorAtual, outStatisticFieldName: "GLOBAL_TOTAL_ATUAL" }
     ]),

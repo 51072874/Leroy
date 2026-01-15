@@ -12,7 +12,6 @@
   --barHover:#3F6673;
   --axis:#e5e7eb;
 }
-
 html,body{
   margin:0;
   height:100%;
@@ -28,19 +27,15 @@ html,body{
   display:flex;
   flex-direction:column;
 }
-
 .title{
-  flex:0 0 auto;
   text-align:center;
   font-weight:600;
   font-size:14px;
   margin:0 0 10px 0;
 }
-
 #content{
   position:relative;
-  flex:1 1 auto;
-  min-height:0;
+  flex:1;
   display:flex;
   flex-direction:column;
   gap:4px;
@@ -71,7 +66,6 @@ html,body{
   display:flex;
   gap:8px;
 }
-
 .yAxis{
   width:46px;
   display:flex;
@@ -85,21 +79,18 @@ html,body{
   color:var(--muted);
   transform:translateY(50%);
 }
-
 .plot{
   flex:1;
   position:relative;
 }
-
 .bars{
   position:absolute;
   inset:0;
   display:flex;
   align-items:flex-end;
-  gap:clamp(10px, 2vw, 16px);
+  gap:clamp(10px,2vw,16px);
   padding:10px 14px 14px 14px;
 }
-
 .barCol{
   flex:1;
   display:flex;
@@ -107,11 +98,9 @@ html,body{
   align-items:center;
   gap:6px;
 }
-
 .barValue{
   font-size:11px;
 }
-
 .bar{
   width:min(54px,100%);
   background:var(--bar);
@@ -121,24 +110,6 @@ html,body{
   font-size:11px;
   color:var(--muted);
   text-align:center;
-}
-
-/* PROG */
-.prog{
-  display:grid;
-  gap:6px;
-  font-size:12px;
-}
-.prog div{
-  text-align:center;
-  padding:4px 0;
-  border-top:1px solid var(--axis);
-}
-.prog-title{
-  text-align:left;
-  padding-left:6px;
-  font-weight:600;
-  color:var(--muted);
 }
 </style>
 </head>
@@ -156,8 +127,6 @@ html,body{
         <div class="bars" id="bars"></div>
       </div>
     </div>
-
-    <div class="prog" id="prog"></div>
   </div>
 </div>
 
@@ -165,66 +134,55 @@ html,body{
 /* ================= CONFIG ================= */
 
 const LAYER_PDM =
-  "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/3";
+ "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/3";
 
 const PDM_FIELDS = {
-  loja: "loja",
   isocrona: "isocrona",
   vendas: "vendas_brutas"
 };
 
 /* ================= UTIL ================= */
 
-function isBlank(v){
-  return v === null || v === undefined || String(v).trim() === "";
-}
-
-function esriQuery(layerUrl, params){
-  const u = new URL(layerUrl + "/query");
-  Object.entries(params).forEach(([k,v]) => u.searchParams.set(k,v));
+function esriQuery(url, params){
+  const u=new URL(url+"/query");
+  Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v));
   return fetch(u).then(r=>r.json());
 }
 
-function fmt1(n){
-  return n.toFixed(1).replace(".",",");
-}
-
-function fmt0(n){
-  return Math.round(n);
-}
+function fmt1(n){return n.toFixed(1).replace(".",",");}
+function fmt0(n){return Math.round(n);}
 
 function niceStep(target){
-  const pow = Math.pow(10, Math.floor(Math.log10(target)));
-  const n = target / pow;
-  if (n <= 1) return 1 * pow;
-  if (n <= 2) return 2 * pow;
-  if (n <= 5) return 5 * pow;
-  return 10 * pow;
+  const pow=Math.pow(10,Math.floor(Math.log10(target)));
+  const n=target/pow;
+  if(n<=1)return 1*pow;
+  if(n<=2)return 2*pow;
+  if(n<=5)return 5*pow;
+  return 10*pow;
 }
 
 function buildYAxis(max){
-  const step = niceStep(max/5);
-  const y = document.getElementById("yAxis");
+  const step=niceStep(max/5);
+  const y=document.getElementById("yAxis");
   y.innerHTML="";
   for(let i=5;i>=0;i--){
-    y.innerHTML += `<div class="yTick">${fmt0(step*i)}%</div>`;
+    y.innerHTML+=`<div class="yTick">${fmt0(step*i)}%</div>`;
   }
 }
 
 /* ================= RENDER ================= */
 
 function renderBars(rows){
-  const bars = document.getElementById("bars");
+  const bars=document.getElementById("bars");
   bars.innerHTML="";
   document.getElementById("chart").style.display="flex";
 
-  const max = Math.max(...rows.map(r=>r.value));
+  const max=Math.max(...rows.map(r=>r.value));
   buildYAxis(max);
 
   rows.forEach(r=>{
     const col=document.createElement("div");
     col.className="barCol";
-
     col.innerHTML=`
       <div class="barValue">${fmt1(r.value)}%</div>
       <div class="bar" style="height:${12+(r.value/max)*220}px"></div>
@@ -239,6 +197,22 @@ function renderBars(rows){
 async function load(){
   document.getElementById("loader").style.display="flex";
 
+  /* 1️⃣ TOTAL REAL DA LOJA (SEM GROUP BY) */
+  const totalQ = await esriQuery(LAYER_PDM,{
+    f:"json",
+    where:"vendas_brutas IS NOT NULL",
+    outStatistics:JSON.stringify([{
+      statisticType:"sum",
+      onStatisticField:PDM_FIELDS.vendas,
+      outStatisticFieldName:"TOTAL"
+    }]),
+    returnGeometry:false
+  });
+
+  const totalLoja =
+    totalQ.features?.[0]?.attributes?.TOTAL || 0;
+
+  /* 2️⃣ VENDAS POR ISÓCRONA */
   const pdm = await esriQuery(LAYER_PDM,{
     f:"json",
     where:"vendas_brutas IS NOT NULL",
@@ -252,21 +226,19 @@ async function load(){
     returnGeometry:false
   });
 
-  const total = pdm.features.reduce(
-    (s,f)=>s+Number(f.attributes.V||0),0
-  );
-
-  const rows = pdm.features
+  const rows = (pdm.features||[])
     .map(f=>{
       const iso=f.attributes[PDM_FIELDS.isocrona];
-      const v=f.attributes.V;
-      if(isBlank(iso)||!v||!total) return null;
-      return {label:iso,value:(v/total)*100};
+      const v=Number(f.attributes.V||0);
+      if(!iso||!v||!totalLoja) return null;
+      return {
+        label:iso,
+        value:(v/totalLoja)*100
+      };
     })
     .filter(Boolean);
 
   renderBars(rows);
-
   document.getElementById("loader").style.display="none";
 }
 

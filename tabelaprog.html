@@ -323,9 +323,6 @@ async function load(){
   const whereSel = buildWhere();
   const whereBase = buildWhereForBase();
 
-  console.log("WHERE para linhas (com seção):", whereSel);
-  console.log("WHERE para base % (sem seção):", whereBase);
-
   /* Linhas por seção (COM filtro de seção se houver) */
   const bySecao = await esriQuery({
     f: "json",
@@ -366,8 +363,6 @@ async function load(){
   const tBaseAtt = totalsBaseQ.features?.[0]?.attributes || {};
   const baseTotal = Number(tBaseAtt.BASE_TOTAL || 0);
 
-  console.log("Total para Prog % (com seção):", totalAtualSel);
-  console.log("Total BASE para % Vendas (sem seção):", baseTotal);
 
   let rows = (bySecao.features || [])
     .map(f => {
@@ -381,8 +376,6 @@ async function load(){
 
       /* % Vendas: sempre sobre o TOTAL DA LOJA (sem filtro de seção) */
       const perc = baseTotal === 0 ? 0 : (atual / baseTotal) * 100;
-
-      console.log(`${sec}: ${atual.toFixed(2)} / ${baseTotal.toFixed(2)} = ${perc.toFixed(2)}%`);
 
       return {
         secao: sec,

@@ -5,247 +5,81 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 
 <style>
-:root{
-  --bar:#4F7987;
-  --muted:#6b7280;
-  --axis:#e5e7eb;
-}
-html,body{
-  margin:0;
-  height:100%;
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-}
-#container{
-  height:100%;
-  padding:10px;
-  display:flex;
-  flex-direction:column;
-}
-.title{
-  text-align:center;
-  font-weight:600;
-  font-size:14px;
-  margin-bottom:8px;
-}
-.chart{
-  flex:1;
-  display:flex;
-}
-.yAxis{
-  width:48px;
-  display:flex;
-  flex-direction:column;
-  justify-content:space-between;
-  padding:20px 0 40px 0;
-}
-.yTick{
-  font-size:10px;
-  color:var(--muted);
-}
-.plot{ flex:1; position:relative; }
-.bars{
-  position:absolute;
-  inset:0;
-  display:flex;
-  align-items:flex-end;
-  gap:14px;
-  padding:10px 14px 14px;
-}
-.barCol{
-  flex:1;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-}
-.barValue{ font-size:11px; margin-bottom:4px; }
-.bar{
-  width:100%;
-  max-width:54px;
-  background:var(--bar);
-  border-radius:8px;
-}
-.barLabel{
-  font-size:11px;
-  color:var(--muted);
-  margin-top:6px;
-  text-align:center;
-}
-.prog{
-  display:grid;
-  margin-top:6px;
-  font-size:12px;
-}
-.prog div{
-  text-align:center;
-  padding:4px 0;
-  border-top:1px solid var(--axis);
-}
-.prog-title{
-  text-align:left;
-  padding-left:6px;
-  font-weight:600;
-  color:var(--muted);
-}
+body{margin:0;font-family:Arial}
+#container{padding:10px}
+.title{text-align:center;font-weight:600;margin-bottom:10px}
+.bar{background:#4F7987;height:20px;margin:6px 0;color:#fff;padding-left:6px}
 </style>
 </head>
 
 <body>
 <div id="container">
   <div class="title">PDM / PROG</div>
-
-  <div class="chart">
-    <div class="yAxis" id="yAxis"></div>
-    <div class="plot">
-      <div class="bars" id="bars"></div>
-    </div>
-  </div>
-
-  <div class="prog" id="prog"></div>
+  <div id="out"></div>
 </div>
 
 <script>
-/* ================= CONFIG ================= */
+/* ================= JSONP UTIL ================= */
 
-const LAYER_PDM =
-  "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/3";
+function esriJSONP(url, params){
+  return new Promise((resolve, reject)=>{
+    const cb = "cb_" + Math.random().toString(36).slice(2);
+    params.f = "json";
+    params.callback = cb;
 
-const LAYER_PROG =
-  "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/8";
+    const qs = Object.entries(params)
+      .map(([k,v])=>k+"="+encodeURIComponent(v))
+      .join("&");
 
-const PDM_FIELDS = {
-  isocrona:"isocrona",
-  vendasAtual:"valor_vendas_atual"
-};
+    const s = document.createElement("script");
+    s.src = url + "/query?" + qs;
 
-const PROG_FIELDS = {
-  isocrona:"descricao_regiao_isocrona",
-  vendasAtual:"valor_vendas_atual",
-  vendasAnterior:"valor_vendas_anterior",
-  zinflu:"cod_loja_zinflu2"
-};
+    window[cb] = (data)=>{
+      delete window[cb];
+      s.remove();
+      resolve(data);
+    };
 
-/* ================= UTIL ================= */
+    s.onerror = ()=>{
+      delete window[cb];
+      s.remove();
+      reject("JSONP error");
+    };
 
-function fmt(n){ return n.toFixed(1).replace(".",","); }
-
-function isBlank(v){ return v==null || String(v).trim()===""; }
-
-function isocronaKey(l){
-  const s=l.toLowerCase();
-  if(s.includes("fora")) return 9999;
-  const m=s.match(/\d+/);
-  return m?Number(m[0]):9999;
-}
-
-async function esriQuery(url, params){
-  const u=new URL(url+"/query");
-  Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v));
-  const r=await fetch(u);
-  return r.json();
-}
-
-/* ================= Y AXIS ================= */
-
-function buildYAxis(max){
-  const y=document.getElementById("yAxis");
-  y.innerHTML="";
-  for(let i=5;i>=0;i--){
-    y.innerHTML+=`<div class="yTick">${Math.round((max/5)*i)}%</div>`;
-  }
+    document.body.appendChild(s);
+  });
 }
 
 /* ================= LOAD ================= */
 
 async function load(){
 
-  /* ---------- PDM ---------- */
-  const pdm = await esriQuery(LAYER_PDM,{
-    f:"json",
-    where:`${PDM_FIELDS.vendasAtual} IS NOT NULL AND ${PDM_FIELDS.vendasAtual} > 0`,
-    groupByFieldsForStatistics:PDM_FIELDS.isocrona,
-    outStatistics:JSON.stringify([{
-      statisticType:"sum",
-      onStatisticField:PDM_FIELDS.vendasAtual,
-      outStatisticFieldName:"VA"
-    }]),
-    outFields:"*",              // 🔥 OBRIGATÓRIO NO ARCGIS
-    returnGeometry:false
-  });
+  const res = await esriJSONP(
+    "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/One_Page_SpotX/FeatureServer/3",
+    {
+      where:"valor_vendas_atual IS NOT NULL",
+      groupByFieldsForStatistics:"isocrona",
+      outStatistics: JSON.stringify([{
+        statisticType:"sum",
+        onStatisticField:"valor_vendas_atual",
+        outStatisticFieldName:"VA"
+      }]),
+      outFields:"*",
+      returnGeometry:false
+    }
+  );
 
-  const raw=(pdm.features||[])
-    .map(f=>{
-      const iso=f.attributes?.[PDM_FIELDS.isocrona];
-      const va=Number(f.attributes?.VA);
-      if(isBlank(iso)||!isFinite(va)) return null;
-      return {label:iso.trim(),va};
-    })
-    .filter(Boolean)
-    .sort((a,b)=>isocronaKey(a.label)-isocronaKey(b.label));
-
-  if(!raw.length){
-    console.error("PDM vazio",pdm);
+  if(!res.features || !res.features.length){
+    document.getElementById("out").innerHTML = "Sem dados";
     return;
   }
 
-  const totalLoja=raw.reduce((s,r)=>s+r.va,0);
-  if(totalLoja<=0) return;
+  const total = res.features.reduce((s,f)=>s+Number(f.attributes.VA),0);
 
-  const rows=raw.map(r=>({
-    label:r.label,
-    value:(r.va/totalLoja)*100
-  }));
-
-  const max=Math.max(...rows.map(r=>r.value))*1.05;
-  buildYAxis(max);
-
-  const bars=document.getElementById("bars");
-  bars.innerHTML="";
-  rows.forEach(r=>{
-    bars.innerHTML+=`
-      <div class="barCol">
-        <div class="barValue">${fmt(r.value)}%</div>
-        <div class="bar" style="height:${(r.value/max)*220}px"></div>
-        <div class="barLabel">${r.label}</div>
-      </div>`;
-  });
-
-  /* ---------- PROG ---------- */
-  const prog = await esriQuery(LAYER_PROG,{
-    f:"json",
-    where:`
-      ${PROG_FIELDS.zinflu} IS NOT NULL
-      AND ${PROG_FIELDS.vendasAtual} IS NOT NULL
-      AND ${PROG_FIELDS.vendasAnterior} IS NOT NULL
-    `,
-    groupByFieldsForStatistics:PROG_FIELDS.isocrona,
-    outStatistics:JSON.stringify([
-      {statisticType:"sum",onStatisticField:PROG_FIELDS.vendasAtual,outStatisticFieldName:"VA"},
-      {statisticType:"sum",onStatisticField:PROG_FIELDS.vendasAnterior,outStatisticFieldName:"VB"}
-    ]),
-    outFields:"*",              // 🔥 OBRIGATÓRIO NO ARCGIS
-    returnGeometry:false
-  });
-
-  const progMap=new Map(
-    (prog.features||[])
-      .map(f=>{
-        const a=f.attributes;
-        const iso=a?.[PROG_FIELDS.isocrona];
-        const VA=Number(a?.VA);
-        const VB=Number(a?.VB);
-        if(isBlank(iso)||!isFinite(VA)||!isFinite(VB)||VB===0) return null;
-        return [iso.trim(),((VA/VB)-1)*100];
-      })
-      .filter(Boolean)
-  );
-
-  const progEl=document.getElementById("prog");
-  progEl.style.gridTemplateColumns=`48px repeat(${rows.length},1fr)`;
-  progEl.innerHTML=
-    `<div class="prog-title">PROG</div>`+
-    rows.map(r=>{
-      const v=progMap.get(r.label);
-      return `<div>${v!=null?fmt(v)+"%":""}</div>`;
+  document.getElementById("out").innerHTML =
+    res.features.map(f=>{
+      const p = (f.attributes.VA / total * 100).toFixed(1);
+      return `<div class="bar">${f.attributes.isocrona} – ${p}%</div>`;
     }).join("");
 }
 

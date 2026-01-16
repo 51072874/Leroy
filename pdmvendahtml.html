@@ -186,7 +186,10 @@ const LAYER_URL = "https://igeo.leroymerlin.com.br/server/rest/services/Hosted/O
 const FIELDS = {
   isocrona: "descricao_regiao_isocrona",
   vendasAtual: "valor_vendas_atual",
-  vendasAnterior: "valor_vendas_anterior"
+  vendasAnterior: "valor_vendas_anterior",
+  loja: "id_loja_venda",
+  mes: "mes",
+  ano: "ano"
 };
 
 const qs = new URLSearchParams(window.location.search);
@@ -270,13 +273,13 @@ function buildWhere(){
   const parts = ["1=1"];
   
   const lojas = parseList("loja");
-  if (lojas.length) parts.push(buildInClause("loja", lojas));
+  if (lojas.length) parts.push(`${FIELDS.loja} IN (${lojas.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
   
   const anos = parseList("ano");
-  if (anos.length) parts.push(buildInClause("ano", anos));
+  if (anos.length) parts.push(`${FIELDS.ano} IN (${anos.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
   
   const meses = parseList("mes");
-  if (meses.length) parts.push(buildInClause("mes", meses));
+  if (meses.length) parts.push(`${FIELDS.mes} IN (${meses.map(v => `'${escapeSqlString(v)}'`).join(",")})`);
   
   return parts.join(" AND ");
 }
@@ -348,7 +351,7 @@ async function load(){
 
   try{
     const where = buildWhere();
-    console.log("Filtro WHERE:", where);
+    //console.log("Filtro WHERE:", where);
     
     // BUSCAR PDM (vendas por isócrona)
     const pdmByIso = await esriQuery(LAYER_URL,{

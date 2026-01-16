@@ -351,7 +351,7 @@ async function load(){
 
   try{
     const where = buildWhere();
-    //console.log("Filtro WHERE:", where);
+    ////console.log("Filtro WHERE:", where);
     
     // BUSCAR PDM (vendas por isócrona)
     const pdmByIso = await esriQuery(LAYER_URL,{
@@ -376,7 +376,7 @@ async function load(){
     });
     
     const totalLoja = pdmTotal.features?.[0]?.attributes?.TOTAL || 0;
-    console.log("Total da loja:", totalLoja);
+    //console.log("Total da loja:", totalLoja);
     
     // Mapear vendas por isócrona
     const isoVendas = new Map();
@@ -391,7 +391,7 @@ async function load(){
           const label = String(iso).trim();
           isoVendas.set(label, valor);
           somaIsocronas += valor;
-          console.log(`${label}: R$ ${valor.toFixed(2)}`);
+          //console.log(`${label}: R$ ${valor.toFixed(2)}`);
         }
       }
     });
@@ -403,7 +403,7 @@ async function load(){
       if (totalLoja > 0) {
         const perc = (venda / totalLoja) * 100;
         isoPercentuais.set(label, perc);
-        console.log(`${label}: ${perc.toFixed(2)}%`);
+        //console.log(`${label}: ${perc.toFixed(2)}%`);
       }
     });
     
@@ -412,7 +412,7 @@ async function load(){
     if (foraDeZonaVenda > 0 && isFinite(foraDeZonaVenda) && totalLoja > 0) {
       const foraDeZonaPerc = (foraDeZonaVenda / totalLoja) * 100;
       isoPercentuais.set("Fora de Zona", foraDeZonaPerc);
-      console.log(`Fora de Zona: ${foraDeZonaPerc.toFixed(2)}%`);
+      //console.log(`Fora de Zona: ${foraDeZonaPerc.toFixed(2)}%`);
     }
     
     // Criar array de rows para o gráfico

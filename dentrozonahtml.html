@@ -181,9 +181,13 @@ function buildWhereDentroZona(){
   return p.join(" AND ");
 }
 
-/* ===== WHERE TOTAL FILTRADO (SEM FILTRO DE ZONA, MANTÉM OUTROS FILTROS) ===== */
+/* ===== WHERE TOTAL FILTRADO (DENTRO + FORA, SEM FILTRO DE ZONA ESPECÍFICO) ===== */
 function buildWhereTotalFiltrado(){
   const p=["1=1"];
+  
+  // IMPORTANTE: Incluir apenas registros válidos (dentro OU fora)
+  // Isso exclui registros com cod_loja_zinflu2 NULL ou -1
+  p.push(`(${FIELDS.codZ} IS NOT NULL AND ${FIELDS.codZ} <> '-1')`);
   
   const lojas=list("loja"),
         meses=list("mes"),

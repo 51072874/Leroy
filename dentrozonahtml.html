@@ -114,8 +114,8 @@ function list(n){
   return qs.get(n).split(",").map(v=>v.trim()).filter(Boolean);
 }
 
-/* ===== WHERE BASE (SEM ZONA) ===== */
-function buildWhereBase(removeMes=false){
+/* ===== WHERE BASE (COM TODOS OS FILTROS) ===== */
+function buildWhereBase(){
   const p=["1=1"];
 
   const lojas=list("loja"),
@@ -129,7 +129,7 @@ function buildWhereBase(removeMes=false){
   if(lojas.length&&!hasZero(lojas))
     p.push(`${FIELDS.loja} IN (${lojas.map(v=>`'${esc(v)}'`).join(",")})`);
 
-  if(!removeMes&&meses.length&&!hasZero(meses))
+  if(meses.length&&!hasZero(meses))
     p.push(`${FIELDS.mes} IN (${meses.map(v=>`'${esc(v)}'`).join(",")})`);
 
   if(anos.length&&!hasZero(anos))
@@ -144,15 +144,15 @@ function buildWhereBase(removeMes=false){
   return p.join(" AND ");
 }
 
-/* ===== WHERES ===== */
-function whereSelecionado(){
-  return `${buildWhereBase(false)} AND ${FIELDS.codZ} <> '0'`;
+/* ===== WHERES ESPECÍFICOS ===== */
+function whereDentroZona(){
+  // Dentro da zona COM todos os filtros (incluindo mês)
+  return `${buildWhereBase()} AND ${FIELDS.codZ} IS NOT NULL AND ${FIELDS.codZ} <> '0' AND ${FIELDS.codZ} <> '-1'`;
 }
-function whereTotalDentro(){
-  return `${buildWhereBase(true)} AND ${FIELDS.codZ} <> '0'`;
-}
-function whereTotalFora(){
-  return `${buildWhereBase(true)} AND ${FIELDS.codZ} = '0'`;
+
+function whereTotalFiltrado(){
+  // Total COM todos os filtros (incluindo mês), SEM filtro de zona
+  return buildWhereBase();
 }
 
 async function esriQuery(p){
@@ -170,9 +170,10 @@ function fmtPct(n){ return Number(n||0).toFixed(2).replace(".",","); }
 async function load(){
   showLoader(true);
 
-  const sel = await esriQuery({
+  // Consulta DENTRO DA ZONA (valor atual e anterior)
+  const dentroZona = await esriQuery({
     f:"json",
-    where:whereSelecionado(),
+    where:whereDentroZona(),
     outStatistics:JSON.stringify([
       {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"A"},
       {statisticType:"sum",onStatisticField:FIELDS.valorAnterior,outStatisticFieldName:"B"}
@@ -180,30 +181,19 @@ async function load(){
     returnGeometry:false
   });
 
-  const dentro = await esriQuery({
+  // Consulta TOTAL FILTRADO (Dentro + Fora com todos os filtros)
+  const totalFiltrado = await esriQuery({
     f:"json",
-    where:whereTotalDentro(),
+    where:whereTotalFiltrado(),
     outStatistics:JSON.stringify([
-      {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"TD"}
+      {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"T"}
     ]),
     returnGeometry:false
   });
 
-  const fora = await esriQuery({
-    f:"json",
-    where:whereTotalFora(),
-    outStatistics:JSON.stringify([
-      {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"TF"}
-    ]),
-    returnGeometry:false
-  });
-
-  const A  = +sel.features?.[0]?.attributes?.A  || 0;
-  const B  = +sel.features?.[0]?.attributes?.B  || 0;
-  const TD = +dentro.features?.[0]?.attributes?.TD || 0;
-  const TF = +fora.features?.[0]?.attributes?.TF || 0;
-
-  const T = TD + TF;
+  const A = +dentroZona.features?.[0]?.attributes?.A || 0;  // Valor atual DENTRO
+  const B = +dentroZona.features?.[0]?.attributes?.B || 0;  // Valor anterior DENTRO
+  const T = +totalFiltrado.features?.[0]?.attributes?.T || 0; // Total (Dentro + Fora)
 
   vAtual.textContent = fmtBR(A);
   vPct.textContent   = fmtPct(T ? (A/T)*100 : 0);

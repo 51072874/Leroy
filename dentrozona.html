@@ -146,7 +146,7 @@ function list(n){
   return qs.get(n).split(",").map(v=>v.trim()).filter(Boolean);
 }
 
-/* ===== WHERE ATUAL / ANTERIOR (SEUS FILTROS ORIGINAIS) ===== */
+/* ===== WHERE DENTRO DA ZONA (COM FILTROS) ===== */
 function buildWhere(removeMes=false){
   const p=["1=1"];
   p.push(`${FIELDS.codZ} IS NOT NULL`);
@@ -179,14 +179,34 @@ function buildWhere(removeMes=false){
   return p.join(" AND ");
 }
 
-/* ===== WHERE TOTAL (APENAS BASE GLOBAL) ===== */
-function buildWhereTotal(){
-  return [
-    "1=1",
-    `${FIELDS.codZ} IS NOT NULL`,
-    `${FIELDS.codZ} <> '0'`,
-    `${FIELDS.codZ} <> '-1'`
-  ].join(" AND ");
+/* ===== WHERE TOTAL FILTRADO (TODOS OS REGISTROS COM OS MESMOS FILTROS, INCLUINDO DENTRO E FORA) ===== */
+function buildWhereTotalFiltrado(){
+  const p=["1=1"];
+  
+  const lojas=list("loja"),
+        meses=list("mes"),
+        anos=list("ano"),
+        canais=list("id_canal_venda"),
+        secoes=list("secao");
+
+  const hasZero=a=>a.includes("0");
+
+  if(lojas.length&&!hasZero(lojas))
+    p.push(`${FIELDS.loja} IN (${lojas.map(v=>`'${esc(v)}'`).join(",")})`);
+
+  if(meses.length&&!hasZero(meses))
+    p.push(`${FIELDS.mes} IN (${meses.map(v=>`'${esc(v)}'`).join(",")})`);
+
+  if(anos.length&&!hasZero(anos))
+    p.push(`${FIELDS.ano} IN (${anos.map(v=>`'${esc(v)}'`).join(",")})`);
+
+  if(canais.length&&!hasZero(canais))
+    p.push(`${FIELDS.canal} IN (${canais.map(v=>`'${esc(v)}'`).join(",")})`);
+
+  if(secoes.length&&!hasZero(secoes))
+    p.push(`${FIELDS.secao} IN (${secoes.map(v=>`'${esc(v)}'`).join(",")})`);
+
+  return p.join(" AND ");
 }
 
 async function esriQuery(params){
@@ -212,12 +232,13 @@ function fmtPct(n){
 async function load(){
   showLoader(true);
 
-  const wSel   = buildWhere(false);   // atual / anterior
-  const wTotal = buildWhereTotal();   // TOTAL REAL
+  const wDentro = buildWhere(false);              // Dentro da zona (com filtro de cod_loja_zinflu)
+  const wTotalFiltrado = buildWhereTotalFiltrado(); // Total com os mesmos filtros (sem filtro de cod_loja_zinflu)
 
-  const sel = await esriQuery({
+  // Query para dados DENTRO DA ZONA
+  const dentroZona = await esriQuery({
     f:"json",
-    where:wSel,
+    where:wDentro,
     outStatistics:JSON.stringify([
       {statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"A"},
       {statisticType:"sum", onStatisticField:FIELDS.valorAnterior, outStatisticFieldName:"B"}
@@ -225,18 +246,19 @@ async function load(){
     returnGeometry:"false"
   });
 
-  const all = await esriQuery({
+  // Query para TOTAL FILTRADO (Dentro + Fora da Zona)
+  const totalFiltrado = await esriQuery({
     f:"json",
-    where:wTotal,
+    where:wTotalFiltrado,
     outStatistics:JSON.stringify([
       {statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"T"}
     ]),
     returnGeometry:"false"
   });
 
-  const A = +sel.features?.[0]?.attributes?.A || 0;
-  const B = +sel.features?.[0]?.attributes?.B || 0;
-  const T = +all.features?.[0]?.attributes?.T || 0;
+  const A = +dentroZona.features?.[0]?.attributes?.A || 0;  // Valor atual DENTRO da zona
+  const B = +dentroZona.features?.[0]?.attributes?.B || 0;  // Valor anterior DENTRO da zona
+  const T = +totalFiltrado.features?.[0]?.attributes?.T || 0; // Total filtrado (Dentro + Fora)
 
   document.getElementById("vAtual").textContent = fmtBR(A);
   document.getElementById("vPct").textContent   = fmtPct(T ? (A / T) * 100 : 0);

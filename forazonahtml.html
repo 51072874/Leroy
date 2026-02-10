@@ -152,22 +152,15 @@ function buildWhereBase(){
 }
 
 /* ============ WHERES ESPECÍFICOS ============ */
-function whereSelecionado(){
+function whereForaZona(){
   const p = buildWhereBase();
   p.push(`${FIELDS.codZ} = '0'`);
   return p.join(" AND ");
 }
 
-function whereTotalFora(){
-  const p = buildWhereBase();
-  p.push(`${FIELDS.codZ} = '0'`);
-  return p.join(" AND ");
-}
-
-function whereTotalDentro(){
-  const p = buildWhereBase();
-  p.push(`${FIELDS.codZ} <> '0'`);
-  return p.join(" AND ");
+function whereTotalFiltrado(){
+  // Total com os mesmos filtros (Dentro + Fora)
+  return buildWhereBase().join(" AND ");
 }
 
 /* ============ QUERY ============ */
@@ -184,9 +177,10 @@ async function esriQuery(params){
 async function load(){
   showLoader(true);
 
-  const sel = await esriQuery({
+  // Consulta FORA DA ZONA (valor atual e anterior)
+  const foraZona = await esriQuery({
     f:"json",
-    where:whereSelecionado(),
+    where:whereForaZona(),
     outStatistics:JSON.stringify([
       {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"A"},
       {statisticType:"sum",onStatisticField:FIELDS.valorAnterior,outStatisticFieldName:"B"}
@@ -194,30 +188,19 @@ async function load(){
     returnGeometry:false
   });
 
-  const fora = await esriQuery({
+  // Consulta TOTAL FILTRADO (Dentro + Fora)
+  const totalFiltrado = await esriQuery({
     f:"json",
-    where:whereTotalFora(),
+    where:whereTotalFiltrado(),
     outStatistics:JSON.stringify([
-      {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"TF"}
+      {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"T"}
     ]),
     returnGeometry:false
   });
 
-  const dentro = await esriQuery({
-    f:"json",
-    where:whereTotalDentro(),
-    outStatistics:JSON.stringify([
-      {statisticType:"sum",onStatisticField:FIELDS.valorAtual,outStatisticFieldName:"TD"}
-    ]),
-    returnGeometry:false
-  });
-
-  const A  = +sel.features?.[0]?.attributes?.A  || 0;
-  const B  = +sel.features?.[0]?.attributes?.B  || 0;
-  const TF = +fora.features?.[0]?.attributes?.TF || 0;
-  const TD = +dentro.features?.[0]?.attributes?.TD || 0;
-
-  const T = TF + TD;
+  const A = +foraZona.features?.[0]?.attributes?.A || 0;  // Valor atual FORA
+  const B = +foraZona.features?.[0]?.attributes?.B || 0;  // Valor anterior FORA
+  const T = +totalFiltrado.features?.[0]?.attributes?.T || 0; // Total (Dentro + Fora)
 
   document.getElementById("vAtual").textContent = fmtBR(A);
   document.getElementById("vPct").textContent   = fmtPct(T ? (A/T)*100 : 0);

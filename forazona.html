@@ -166,11 +166,11 @@ function list(n){
   return qs.get(n).split(",").map(v=>v.trim()).filter(Boolean);
 }
 
-/* ===== BUILD WHERE (0 = IGNORAR PARA TODOS) ===== */
+/* ===== WHERE FORA DA ZONA (COM FILTROS) ===== */
 function buildWhere(removeMes=false){
   const p = ["1=1"];
 
-  /* filtro fixo */
+  /* filtro fixo - FORA DA ZONA */
   p.push(`${FIELDS.codZ} = '0'`);
 
   const lojas  = list("loja");
@@ -186,6 +186,41 @@ function buildWhere(removeMes=false){
   }
 
   if (!removeMes && meses.length && !hasZero(meses)){
+    p.push(`${FIELDS.mes} IN (${meses.map(v=>`'${esc(v)}'`).join(",")})`);
+  }
+
+  if (anos.length && !hasZero(anos)){
+    p.push(`${FIELDS.ano} IN (${anos.map(v=>`'${esc(v)}'`).join(",")})`);
+  }
+
+  if (canais.length && !hasZero(canais)){
+    p.push(`${FIELDS.canal} IN (${canais.map(v=>`'${esc(v)}'`).join(",")})`);
+  }
+
+  if (secoes.length && !hasZero(secoes)){
+    p.push(`${FIELDS.secao} IN (${secoes.map(v=>`'${esc(v)}'`).join(",")})`);
+  }
+
+  return p.join(" AND ");
+}
+
+/* ===== WHERE TOTAL FILTRADO (TODOS OS REGISTROS COM OS MESMOS FILTROS, INCLUINDO DENTRO E FORA) ===== */
+function buildWhereTotalFiltrado(){
+  const p = ["1=1"];
+  
+  const lojas  = list("loja");
+  const meses  = list("mes");
+  const anos   = list("ano");
+  const canais = list("id_canal_venda");
+  const secoes = list("secao");
+
+  const hasZero = arr => arr.includes("0");
+
+  if (lojas.length && !hasZero(lojas)){
+    p.push(`${FIELDS.loja} IN (${lojas.map(v=>`'${esc(v)}'`).join(",")})`);
+  }
+
+  if (meses.length && !hasZero(meses)){
     p.push(`${FIELDS.mes} IN (${meses.map(v=>`'${esc(v)}'`).join(",")})`);
   }
 
@@ -225,12 +260,13 @@ function fmtPct(n){ return Number(n||0).toFixed(2).replace(".",","); }
 async function load(){
   showLoader(true);
 
-  const wSel = buildWhere(false);
-  const wAll = buildWhere(true);
+  const wForaZona = buildWhere(false);              // Fora da zona (com filtro cod_loja_zinflu = '0')
+  const wTotalFiltrado = buildWhereTotalFiltrado(); // Total com os mesmos filtros (sem filtro de cod_loja_zinflu)
 
-  const sel = await esriQuery({
+  // Query para dados FORA DA ZONA
+  const foraZona = await esriQuery({
     f:"json",
-    where:wSel,
+    where:wForaZona,
     outStatistics:JSON.stringify([
       {statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"A"},
       {statisticType:"sum", onStatisticField:FIELDS.valorAnterior, outStatisticFieldName:"B"}
@@ -238,21 +274,19 @@ async function load(){
     returnGeometry:"false"
   });
 
-  const all = await esriQuery({
+  // Query para TOTAL FILTRADO (Dentro + Fora da Zona)
+  const totalFiltrado = await esriQuery({
     f:"json",
-    where:wAll,
+    where:wTotalFiltrado,
     outStatistics:JSON.stringify([
       {statisticType:"sum", onStatisticField:FIELDS.valorAtual, outStatisticFieldName:"T"}
     ]),
     returnGeometry:"false"
   });
 
-  const a = sel.features?.[0]?.attributes || {};
-  const b = all.features?.[0]?.attributes || {};
-
-  const atual = +a.A || 0;
-  const ant   = +a.B || 0;
-  const total = +b.T || 0;
+  const atual = +foraZona.features?.[0]?.attributes?.A || 0;  // Valor atual FORA da zona
+  const ant   = +foraZona.features?.[0]?.attributes?.B || 0;  // Valor anterior FORA da zona
+  const total = +totalFiltrado.features?.[0]?.attributes?.T || 0; // Total filtrado (Dentro + Fora)
 
   document.getElementById("vAtual").textContent = fmtBR(atual);
   document.getElementById("vPct").textContent   = fmtPct(total ? (atual / total) * 100 : 0);
